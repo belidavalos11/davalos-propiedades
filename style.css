@@ -402,6 +402,13 @@ h3,
     font-weight: 600;
 }
 
+.success-text {
+    color: #27ae60;
+    font-size: 0.85rem;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
 .modal-info {
     color: var(--text-light);
     font-size: 0.9rem;

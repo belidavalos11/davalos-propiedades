@@ -27,6 +27,7 @@
                 <a href="#inicio" class="nav-link active">Inicio</a>
                 <a href="#propiedades" class="nav-link">Propiedades</a>
                 <button id="btn-login" class="btn btn-outline">Iniciar Sesión</button>
+                <button id="btn-settings" class="btn btn-outline" style="display: none;">Configuración</button>
                 <button id="btn-logout" class="btn btn-outline" style="display: none;">Cerrar Sesión</button>
                 <button id="btn-add-property" class="btn btn-primary" style="display: none;">Cargar Propiedad</button>
             </nav>
@@ -90,6 +91,30 @@
                 </div>
                 <div id="login-error" class="error-text" style="display: none;">Usuario o contraseña incorrectos.</div>
                 <button type="submit" class="btn btn-full">Ingresar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Settings (Change Password) -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configuración de Usuario</h3>
+                <span id="close-settings-modal" class="close">&times;</span>
+            </div>
+            <form id="settings-form" class="property-form">
+                <div class="form-group">
+                    <label for="new-password">Nueva Contraseña</label>
+                    <input type="password" id="new-password" required placeholder="••••••••">
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Confirmar Contraseña</label>
+                    <input type="password" id="confirm-password" required placeholder="••••••••">
+                </div>
+                <div id="settings-error" class="error-text" style="display: none;">Las contraseñas no coinciden.</div>
+                <div id="settings-success" class="success-text" style="display: none;">Contraseña actualizada con éxito.
+                </div>
+                <button type="submit" class="btn btn-full">Actualizar Contraseña</button>
             </form>
         </div>
     </div>

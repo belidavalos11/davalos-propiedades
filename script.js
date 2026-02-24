@@ -42,6 +42,10 @@ const initialProperties = [
 let properties = JSON.parse(localStorage.getItem('davalos_properties')) || initialProperties;
 let isLoggedIn = JSON.parse(localStorage.getItem('davalos_auth')) || false;
 
+// Initialize default user if not exists
+const defaultUser = { username: 'admin', password: 'admin123' };
+let userData = JSON.parse(localStorage.getItem('davalos_user_data')) || defaultUser;
+
 // DOM Elements
 const grid = document.getElementById('properties-grid');
 const filterType = document.getElementById('filter-type');
@@ -53,20 +57,30 @@ const closeModal = document.getElementById('close-modal');
 // Auth Elements
 const btnLogin = document.getElementById('btn-login');
 const btnLogout = document.getElementById('btn-logout');
+const btnSettings = document.getElementById('btn-settings');
 const loginModal = document.getElementById('login-modal');
 const closeLoginModal = document.getElementById('close-login-modal');
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
+
+// Settings Elements
+const settingsModal = document.getElementById('settings-modal');
+const closeSettingsModal = document.getElementById('close-settings-modal');
+const settingsForm = document.getElementById('settings-form');
+const settingsError = document.getElementById('settings-error');
+const settingsSuccess = document.getElementById('settings-success');
 
 // Functions
 function updateAuthUI() {
     if (isLoggedIn) {
         btnLogin.style.display = 'none';
         btnLogout.style.display = 'block';
+        btnSettings.style.display = 'block';
         btnAddProperty.style.display = 'block';
     } else {
         btnLogin.style.display = 'block';
         btnLogout.style.display = 'none';
+        btnSettings.style.display = 'none';
         btnAddProperty.style.display = 'none';
     }
 }
@@ -78,6 +92,10 @@ function renderProperties(filter = 'todos') {
 
 function saveToLocalStorage() {
     localStorage.setItem('davalos_properties', JSON.stringify(properties));
+}
+
+function saveUserData() {
+    localStorage.setItem('davalos_user_data', JSON.stringify(userData));
 }
 
 // Events
@@ -109,9 +127,22 @@ closeLoginModal.addEventListener('click', () => {
     loginModal.style.display = 'none';
 });
 
+// Settings Events
+btnSettings.addEventListener('click', () => {
+    settingsModal.style.display = 'block';
+});
+
+closeSettingsModal.addEventListener('click', () => {
+    settingsModal.style.display = 'none';
+    settingsError.style.display = 'none';
+    settingsSuccess.style.display = 'none';
+    settingsForm.reset();
+});
+
 window.addEventListener('click', (e) => {
     if (e.target === modal) modal.style.display = 'none';
     if (e.target === loginModal) loginModal.style.display = 'none';
+    if (e.target === settingsModal) settingsModal.style.display = 'none';
 });
 
 loginForm.addEventListener('submit', (e) => {
@@ -119,8 +150,7 @@ loginForm.addEventListener('submit', (e) => {
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
 
-    // Simulated credentials
-    if (user === 'admin' && pass === 'admin123') {
+    if (user === userData.username && pass === userData.password) {
         isLoggedIn = true;
         localStorage.setItem('davalos_auth', JSON.stringify(true));
         updateAuthUI();
@@ -132,6 +162,27 @@ loginForm.addEventListener('submit', (e) => {
     }
 });
 
+settingsForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const newPass = document.getElementById('new-password').value;
+    const confirmPass = document.getElementById('confirm-password').value;
+
+    if (newPass === confirmPass) {
+        userData.password = newPass;
+        saveUserData();
+        settingsError.style.display = 'none';
+        settingsSuccess.style.display = 'block';
+        setTimeout(() => {
+            settingsModal.style.display = 'none';
+            settingsSuccess.style.display = 'none';
+            settingsForm.reset();
+        }, 1500);
+    } else {
+        settingsError.style.display = 'block';
+        settingsSuccess.style.display = 'none';
+    }
+});
+
 propertyForm.addEventListener('submit', (e) => {
     // ... (rest of property form submit remains the same)
 });
@@ -139,4 +190,3 @@ propertyForm.addEventListener('submit', (e) => {
 // Initial Render
 updateAuthUI();
 renderProperties();
-
