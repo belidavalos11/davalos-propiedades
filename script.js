@@ -40,11 +40,6 @@ const initialProperties = [
 
 // State Management
 let properties = JSON.parse(localStorage.getItem('davalos_properties')) || initialProperties;
-let isLoggedIn = JSON.parse(localStorage.getItem('davalos_auth')) || false;
-
-// Initialize default user if not exists
-const defaultUser = { username: 'admin', password: 'admin123' };
-let userData = JSON.parse(localStorage.getItem('davalos_user_data')) || defaultUser;
 
 // DOM Elements
 const grid = document.getElementById('properties-grid');
@@ -72,7 +67,8 @@ const settingsSuccess = document.getElementById('settings-success');
 
 // Functions
 function updateAuthUI() {
-    if (isLoggedIn) {
+    const logged = AuthManager.isLoggedIn();
+    if (logged) {
         btnLogin.style.display = 'none';
         btnLogout.style.display = 'block';
         btnSettings.style.display = 'block';
@@ -87,15 +83,43 @@ function updateAuthUI() {
 
 function renderProperties(filter = 'todos') {
     grid.innerHTML = '';
-    // ... (rest of the render function remains the same)
+
+    const filtered = filter === 'todos'
+        ? properties
+        : properties.filter(p => p.category === filter);
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div class="no-results">No se encontraron propiedades.</div>';
+        return;
+    }
+
+    filtered.forEach(prop => {
+        const card = document.createElement('div');
+        card.className = 'property-card';
+        card.innerHTML = `
+            <div class="property-image">
+                <img src="${prop.image || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80'}" alt="${prop.title}">
+                <span class="badge badge-${prop.category}">${prop.category}</span>
+            </div>
+            <div class="property-info">
+                <div class="property-price">USD ${prop.price.toLocaleString()}</div>
+                <h3 class="property-title">${prop.title}</h3>
+                <div class="property-features">
+                    <div class="feature">
+                        <span>🛏️</span> ${prop.rooms} Amb.
+                    </div>
+                    <div class="feature">
+                        <span>📐</span> ${prop.area} m²
+                    </div>
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
 }
 
 function saveToLocalStorage() {
     localStorage.setItem('davalos_properties', JSON.stringify(properties));
-}
-
-function saveUserData() {
-    localStorage.setItem('davalos_user_data', JSON.stringify(userData));
 }
 
 // Events
@@ -118,8 +142,7 @@ btnLogin.addEventListener('click', () => {
 });
 
 btnLogout.addEventListener('click', () => {
-    isLoggedIn = false;
-    localStorage.removeItem('davalos_auth');
+    AuthManager.logout();
     updateAuthUI();
 });
 
@@ -150,9 +173,7 @@ loginForm.addEventListener('submit', (e) => {
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
 
-    if (user === userData.username && pass === userData.password) {
-        isLoggedIn = true;
-        localStorage.setItem('davalos_auth', JSON.stringify(true));
+    if (AuthManager.login(user, pass)) {
         updateAuthUI();
         loginForm.reset();
         loginModal.style.display = 'none';
@@ -168,15 +189,15 @@ settingsForm.addEventListener('submit', (e) => {
     const confirmPass = document.getElementById('confirm-password').value;
 
     if (newPass === confirmPass) {
-        userData.password = newPass;
-        saveUserData();
-        settingsError.style.display = 'none';
-        settingsSuccess.style.display = 'block';
-        setTimeout(() => {
-            settingsModal.style.display = 'none';
-            settingsSuccess.style.display = 'none';
-            settingsForm.reset();
-        }, 1500);
+        if (AuthManager.changePassword(newPass)) {
+            settingsError.style.display = 'none';
+            settingsSuccess.style.display = 'block';
+            setTimeout(() => {
+                settingsModal.style.display = 'none';
+                settingsSuccess.style.display = 'none';
+                settingsForm.reset();
+            }, 1500);
+        }
     } else {
         settingsError.style.display = 'block';
         settingsSuccess.style.display = 'none';
@@ -184,7 +205,24 @@ settingsForm.addEventListener('submit', (e) => {
 });
 
 propertyForm.addEventListener('submit', (e) => {
-    // ... (rest of property form submit remains the same)
+    e.preventDefault();
+
+    const newProp = {
+        id: Date.now(),
+        title: document.getElementById('title').value,
+        price: parseFloat(document.getElementById('price').value),
+        category: document.getElementById('category').value,
+        rooms: parseInt(document.getElementById('rooms').value),
+        area: parseInt(document.getElementById('area').value),
+        image: document.getElementById('image').value
+    };
+
+    properties.unshift(newProp);
+    saveToLocalStorage();
+    renderProperties(filterType.value);
+
+    propertyForm.reset();
+    modal.style.display = 'none';
 });
 
 // Initial Render
