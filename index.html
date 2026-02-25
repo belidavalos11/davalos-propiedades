@@ -154,10 +154,19 @@
                         <input type="number" id="area" required placeholder="45">
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="owner">Propietario</label>
+                        <input type="text" id="owner" required placeholder="Nombre del dueño">
+                    </div>
+                    <div class="form-group">
+                        <label for="agent">Empleado Encargado</label>
+                        <input type="text" id="agent" required placeholder="Nombre del agente">
+                    </div>
+                </div>
                 <div class="form-group">
-                    <label for="image">URL de la imagen</label>
-                    <input type="url" id="image"
-                        placeholder="https://images.unsplash.com/photo-1568605114967-8130f3a36994">
+                    <label for="image">Imágenes (URLs separadas por comas)</label>
+                    <textarea id="image" required placeholder="https://url1.com, https://url2.com" rows="2"></textarea>
                 </div>
                 <button type="submit" class="btn btn-full">Guardar Propiedad</button>
             </form>

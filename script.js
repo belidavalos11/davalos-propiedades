@@ -7,7 +7,9 @@ const initialProperties = [
         category: "venta",
         rooms: 5,
         area: 320,
-        image: "https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=800&q=80"
+        images: ["https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=800&q=80"],
+        owner: "Juan Pérez",
+        agent: "Admin"
     },
     {
         id: 2,
@@ -16,7 +18,9 @@ const initialProperties = [
         category: "alquiler",
         rooms: 3,
         area: 110,
-        image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80"
+        images: ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80"],
+        owner: "María García",
+        agent: "Admin"
     },
     {
         id: 3,
@@ -25,7 +29,9 @@ const initialProperties = [
         category: "venta",
         rooms: 4,
         area: 180,
-        image: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80"
+        images: ["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80"],
+        owner: "Roberto Sánchez",
+        agent: "Belid"
     },
     {
         id: 4,
@@ -34,12 +40,23 @@ const initialProperties = [
         category: "alquiler",
         rooms: 1,
         area: 55,
-        image: "https://images.unsplash.com/photo-1505691938895-1758d7eaa511?auto=format&fit=crop&w=800&q=80"
+        images: ["https://images.unsplash.com/photo-1505691938895-1758d7eaa511?auto=format&fit=crop&w=800&q=80"],
+        owner: "Carlos López",
+        agent: "Belid"
     }
 ];
 
 // State Management
 let properties = JSON.parse(localStorage.getItem('davalos_properties')) || initialProperties;
+
+// Support for old data (migration)
+properties = properties.map(p => {
+    if (p.image && !p.images) {
+        p.images = [p.image];
+        delete p.image;
+    }
+    return p;
+});
 
 // DOM Elements
 const grid = document.getElementById('properties-grid');
@@ -94,12 +111,17 @@ function renderProperties(filter = 'todos') {
     }
 
     filtered.forEach(prop => {
+        const coverImage = (prop.images && prop.images.length > 0)
+            ? prop.images[0]
+            : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80';
+
         const card = document.createElement('div');
         card.className = 'property-card';
         card.innerHTML = `
             <div class="property-image">
-                <img src="${prop.image || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80'}" alt="${prop.title}">
+                <img src="${coverImage}" alt="${prop.title}">
                 <span class="badge badge-${prop.category}">${prop.category}</span>
+                ${prop.images && prop.images.length > 1 ? `<span class="gallery-badge">📸 ${prop.images.length} Fotos</span>` : ''}
             </div>
             <div class="property-info">
                 <div class="property-price">USD ${prop.price.toLocaleString()}</div>
@@ -111,6 +133,9 @@ function renderProperties(filter = 'todos') {
                     <div class="feature">
                         <span>📐</span> ${prop.area} m²
                     </div>
+                </div>
+                <div class="property-agent">
+                    <span>👤 Encargado:</span> ${prop.agent || 'Sin asignar'}
                 </div>
             </div>
         `;
@@ -207,6 +232,11 @@ settingsForm.addEventListener('submit', (e) => {
 propertyForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
+    const imageUrls = document.getElementById('image').value
+        .split(',')
+        .map(url => url.trim())
+        .filter(url => url !== '');
+
     const newProp = {
         id: Date.now(),
         title: document.getElementById('title').value,
@@ -214,7 +244,9 @@ propertyForm.addEventListener('submit', (e) => {
         category: document.getElementById('category').value,
         rooms: parseInt(document.getElementById('rooms').value),
         area: parseInt(document.getElementById('area').value),
-        image: document.getElementById('image').value
+        images: imageUrls,
+        owner: document.getElementById('owner').value,
+        agent: document.getElementById('agent').value
     };
 
     properties.unshift(newProp);
