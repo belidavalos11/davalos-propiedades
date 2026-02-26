@@ -65,6 +65,8 @@ const propertyForm = document.getElementById('property-form');
 const btnAddProperty = document.getElementById('btn-add-property');
 const modal = document.getElementById('property-modal');
 const closeModal = document.getElementById('close-modal');
+const customFeaturesContainer = document.getElementById('custom-features-container');
+const btnAddFeature = document.getElementById('btn-add-feature');
 
 // Auth Elements
 const btnLogin = document.getElementById('btn-login');
@@ -117,6 +119,8 @@ function renderProperties(filter = 'todos') {
 
         const card = document.createElement('div');
         card.className = 'property-card';
+        card.style.cursor = 'pointer';
+        card.onclick = () => window.location.href = `details.html?id=${prop.id}`;
         card.innerHTML = `
             <div class="property-image">
                 <img src="${coverImage}" alt="${prop.title}">
@@ -229,6 +233,22 @@ settingsForm.addEventListener('submit', (e) => {
     }
 });
 
+// Custom Features Logic
+btnAddFeature.addEventListener('click', () => {
+    const group = document.createElement('div');
+    group.className = 'feature-input-group';
+    group.innerHTML = `
+        <input type="text" placeholder="Ej: Piscina, Quincho..." class="custom-feature-input">
+        <button type="button" class="btn-remove-feature">&times;</button>
+    `;
+
+    group.querySelector('.btn-remove-feature').addEventListener('click', () => {
+        group.remove();
+    });
+
+    customFeaturesContainer.appendChild(group);
+});
+
 propertyForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
@@ -236,6 +256,10 @@ propertyForm.addEventListener('submit', (e) => {
         .split(',')
         .map(url => url.trim())
         .filter(url => url !== '');
+
+    const customFeatures = Array.from(document.querySelectorAll('.custom-feature-input'))
+        .map(input => input.value.trim())
+        .filter(val => val !== '');
 
     const newProp = {
         id: Date.now(),
@@ -246,7 +270,8 @@ propertyForm.addEventListener('submit', (e) => {
         area: parseInt(document.getElementById('area').value),
         images: imageUrls,
         owner: document.getElementById('owner').value,
-        agent: document.getElementById('agent').value
+        agent: document.getElementById('agent').value,
+        customFeatures: customFeatures
     };
 
     properties.unshift(newProp);
@@ -254,6 +279,7 @@ propertyForm.addEventListener('submit', (e) => {
     renderProperties(filterType.value);
 
     propertyForm.reset();
+    customFeaturesContainer.innerHTML = '';
     modal.style.display = 'none';
 });
 

@@ -200,6 +200,11 @@ h3,
     color: var(--white);
 }
 
+.btn-small {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+}
+
 .btn-full {
     width: 100%;
     margin-top: 10px;
@@ -261,6 +266,26 @@ h3,
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 30px;
+}
+
+.feature-input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.feature-input-group input {
+    flex: 1;
+}
+
+.btn-remove-feature {
+    background: #ff4757;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 0 12px;
+    cursor: pointer;
+    font-weight: bold;
 }
 
 /* Property Card */
