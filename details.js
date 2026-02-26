@@ -72,18 +72,18 @@ function renderDetails(prop) {
                     </div>
                 </div>
 
-                <div class="agent-box">
-                    <div class="agent-info">
-                        <strong>👤 Encargado:</strong>
-                        <span>${prop.agent || 'Admin'}</span>
-                    </div>
-                    ${AuthManager.isLoggedIn() ? `
+                ${AuthManager.isLoggedIn() ? `
+                    <div class="agent-box">
+                        <div class="agent-info">
+                            <strong>👤 Encargado:</strong>
+                            <span>${prop.agent || 'Admin'}</span>
+                        </div>
                         <div class="owner-info">
                             <strong>🏠 Propietario:</strong>
                             <span>${prop.owner || 'N/A'}</span>
                         </div>
-                    ` : ''}
-                </div>
+                    </div>
+                ` : ''}
 
                 ${prop.customFeatures && prop.customFeatures.length > 0 ? `
                     <div class="custom-features-list">

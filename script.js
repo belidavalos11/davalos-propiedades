@@ -103,6 +103,7 @@ function updateAuthUI() {
         btnSettings.style.display = 'none';
         btnAddProperty.style.display = 'none';
     }
+    renderProperties(filterType.value);
 }
 
 function renderProperties(filter = 'todos') {
@@ -143,9 +144,11 @@ function renderProperties(filter = 'todos') {
                         <span>📐</span> ${prop.area} m²
                     </div>
                 </div>
-                <div class="property-agent">
-                    <span>👤 Encargado:</span> ${prop.agent || 'Sin asignar'}
-                </div>
+                ${AuthManager.isLoggedIn() ? `
+                    <div class="property-agent">
+                        <span>👤 Encargado:</span> ${prop.agent || 'Sin asignar'}
+                    </div>
+                ` : ''}
             </div>
         `;
         grid.appendChild(card);
