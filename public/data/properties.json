@@ -1,0 +1,63 @@
+﻿{
+  "properties": [
+    {
+      "id": 1,
+      "title": "Residencia Colonial en Zona Norte",
+      "description": "Casa amplia con jardin, pileta y espacios luminosos.",
+      "price": 450000,
+      "category": "venta",
+      "rooms": 5,
+      "area": 320,
+      "owner": "Juan Perez",
+      "agent": "Belid",
+      "createdAt": "2026-01-10T10:00:00.000Z",
+      "images": [
+        "https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"
+      ],
+      "customFeatures": [
+        "Piscina",
+        "Quincho",
+        "Cochera doble"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Penthouse de Lujo con Vista al Rio",
+      "description": "Departamento premium con balcon terraza y amenities.",
+      "price": 1200,
+      "category": "alquiler",
+      "rooms": 3,
+      "area": 110,
+      "owner": "Maria Garcia",
+      "agent": "Admin",
+      "createdAt": "2026-01-15T10:00:00.000Z",
+      "images": [
+        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80"
+      ],
+      "customFeatures": [
+        "Terraza privada",
+        "Seguridad 24hs"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Casa Moderna con Piscina",
+      "description": "Diseno contemporaneo con excelente distribucion y parque.",
+      "price": 280000,
+      "category": "venta",
+      "rooms": 4,
+      "area": 180,
+      "owner": "Roberto Sanchez",
+      "agent": "Belid",
+      "createdAt": "2026-01-20T10:00:00.000Z",
+      "images": [
+        "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80"
+      ],
+      "customFeatures": [
+        "Pileta",
+        "Parrilla"
+      ]
+    }
+  ]
+}

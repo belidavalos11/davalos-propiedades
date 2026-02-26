@@ -1,57 +1,8 @@
-﻿const LS_KEY = "davalos_properties";
+﻿const DATA_URL = "data/properties.json";
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
-const WHATSAPP_NUMBER = "5491123456789";
+const WHATSAPP_NUMBER = "5493875053884";
 const PHONE_NUMBER = "+5491123456789";
 
-const DEFAULT_PROPERTIES = [
-    {
-        id: 1,
-        title: "Residencia Colonial en Zona Norte",
-        price: 450000,
-        category: "venta",
-        rooms: 5,
-        area: 320,
-        images: ["https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=800&q=80"],
-        owner: "Juan Perez",
-        agent: "Admin"
-    },
-    {
-        id: 2,
-        title: "Penthouse de Lujo con Vista al Rio",
-        price: 1200,
-        category: "alquiler",
-        rooms: 3,
-        area: 110,
-        images: ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80"],
-        owner: "Maria Garcia",
-        agent: "Admin"
-    },
-    {
-        id: 3,
-        title: "Casa Moderna con Piscina",
-        price: 280000,
-        category: "venta",
-        rooms: 4,
-        area: 180,
-        images: ["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80"],
-        owner: "Roberto Sanchez",
-        agent: "Belid"
-    },
-    {
-        id: 4,
-        title: "Loft Industrial Soho",
-        price: 850,
-        category: "alquiler",
-        rooms: 1,
-        area: 55,
-        images: ["https://images.unsplash.com/photo-1505691938895-1758d7eaa511?auto=format&fit=crop&w=800&q=80"],
-        owner: "Carlos Lopez",
-        agent: "Belid"
-    }
-];
-
-const rawProperties = JSON.parse(localStorage.getItem(LS_KEY));
-const properties = sanitizeProperties(Array.isArray(rawProperties) && rawProperties.length ? rawProperties : DEFAULT_PROPERTIES);
 const container = document.getElementById("details-container");
 const floatingContact = document.getElementById("floating-contact");
 const floatingWhatsapp = document.getElementById("floating-whatsapp");
@@ -75,52 +26,48 @@ function safeImageUrl(value) {
     if (typeof value !== "string") return null;
     const trimmed = value.trim();
     if (!trimmed) return null;
-    if (trimmed.startsWith("data:image/")) return trimmed;
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (trimmed.startsWith("/")) return trimmed;
     return null;
 }
 
-function sanitizeProperties(list) {
-    if (!Array.isArray(list)) return [];
+function normalizeProperty(prop) {
+    if (!prop || typeof prop !== "object") return null;
 
-    return list
-        .map((prop) => {
-            const id = Number(prop.id);
-            const title = String(prop.title || "").trim();
-            const price = Number(prop.price);
-            const rooms = Number(prop.rooms);
-            const area = Number(prop.area);
-            const category = prop.category === "alquiler" ? "alquiler" : "venta";
-            const owner = String(prop.owner || "").trim();
-            const agent = String(prop.agent || "").trim();
-            const customFeatures = Array.isArray(prop.customFeatures)
-                ? prop.customFeatures.map((f) => String(f).trim()).filter(Boolean)
-                : [];
+    const id = Number(prop.id);
+    const title = String(prop.title || "").trim();
+    const description = String(prop.description || "").trim();
+    const price = Number(prop.price);
+    const rooms = Number(prop.rooms);
+    const area = Number(prop.area);
+    const category = prop.category === "alquiler" ? "alquiler" : "venta";
+    const owner = String(prop.owner || "").trim();
+    const agent = String(prop.agent || "").trim();
+    const customFeatures = Array.isArray(prop.customFeatures)
+        ? prop.customFeatures.map((f) => String(f).trim()).filter(Boolean)
+        : [];
 
-            const rawImages = Array.isArray(prop.images)
-                ? prop.images
-                : (prop.image ? [prop.image] : []);
-
-            const images = rawImages.map((img) => safeImageUrl(img)).filter(Boolean);
-
-            if (!Number.isFinite(id) || !title || !Number.isFinite(price) || !Number.isFinite(rooms) || !Number.isFinite(area)) {
-                return null;
-            }
-
-            return {
-                id,
-                title,
-                price,
-                rooms,
-                area,
-                category,
-                owner,
-                agent,
-                customFeatures,
-                images: images.length ? images : [PLACEHOLDER_IMAGE]
-            };
-        })
+    const images = (Array.isArray(prop.images) ? prop.images : [])
+        .map((img) => safeImageUrl(img))
         .filter(Boolean);
+
+    if (!Number.isFinite(id) || !title || !Number.isFinite(price) || !Number.isFinite(rooms) || !Number.isFinite(area)) {
+        return null;
+    }
+
+    return {
+        id,
+        title,
+        description,
+        price,
+        rooms,
+        area,
+        category,
+        owner,
+        agent,
+        customFeatures,
+        images: images.length ? images : [PLACEHOLDER_IMAGE]
+    };
 }
 
 function getSafePropertyId() {
@@ -135,7 +82,8 @@ function formatCurrency(value) {
 }
 
 function buildWhatsappUrl(prop) {
-    const text = encodeURIComponent(`Hola, quiero consultar por \"${prop.title}\" (ID ${prop.id}).`);
+    const propertyUrl = new URL(`details.html?id=${encodeURIComponent(prop.id)}`, window.location.origin).toString();
+    const text = encodeURIComponent(`Hola, quiero consultar por \"${prop.title}\" (ID ${prop.id}). Link: ${propertyUrl}`);
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
 }
 
@@ -153,6 +101,7 @@ function showNotFound() {
 function renderDetails(prop) {
     const safeTitle = escapeHtml(prop.title);
     const safeCategory = escapeHtml(prop.category);
+    const safeDescription = escapeHtml(prop.description || "");
 
     container.innerHTML = `
         <div class="details-grid">
@@ -178,6 +127,7 @@ function renderDetails(prop) {
             <div class="details-right">
                 <span class="badge badge-${safeCategory}">${safeCategory.toUpperCase()}</span>
                 <h1 class="details-title">${safeTitle}</h1>
+                <p class="section-subtitle">${safeDescription}</p>
                 <div class="details-price">${formatCurrency(prop.price)}</div>
 
                 <div class="details-features">
@@ -197,18 +147,16 @@ function renderDetails(prop) {
                     </div>
                 </div>
 
-                ${AuthManager.isLoggedIn() ? `
-                    <div class="agent-box">
-                        <div class="agent-info">
-                            <strong>Encargado:</strong>
-                            <span>${escapeHtml(prop.agent || "Admin")}</span>
-                        </div>
-                        <div class="owner-info">
-                            <strong>Propietario:</strong>
-                            <span>${escapeHtml(prop.owner || "N/D")}</span>
-                        </div>
+                <div class="agent-box">
+                    <div class="agent-info">
+                        <strong>Encargado:</strong>
+                        <span>${escapeHtml(prop.agent || "N/D")}</span>
                     </div>
-                ` : ""}
+                    <div class="owner-info">
+                        <strong>Propietario:</strong>
+                        <span>${escapeHtml(prop.owner || "N/D")}</span>
+                    </div>
+                </div>
 
                 ${prop.customFeatures.length ? `
                     <div class="custom-features-list">
@@ -295,18 +243,30 @@ window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeLightbox();
 });
 
-(function init() {
+(async function init() {
     const propId = getSafePropertyId();
     if (!propId) {
         showNotFound();
         return;
     }
 
-    const property = properties.find((p) => p.id === propId);
-    if (!property) {
-        showNotFound();
-        return;
-    }
+    try {
+        const response = await fetch(DATA_URL, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
 
-    renderDetails(property);
+        const list = Array.isArray(payload?.properties) ? payload.properties : [];
+        const properties = list.map((item) => normalizeProperty(item)).filter(Boolean);
+        const property = properties.find((p) => p.id === propId);
+
+        if (!property) {
+            showNotFound();
+            return;
+        }
+
+        renderDetails(property);
+    } catch (error) {
+        console.error("Error loading detail:", error);
+        showNotFound();
+    }
 })();

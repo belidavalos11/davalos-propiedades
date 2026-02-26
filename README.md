@@ -1,26 +1,60 @@
-﻿# DAVALOS Propiedades (estatico)
+﻿# DAVALOS Propiedades
+
+Sitio estatico con catalogo publico y panel admin visual.
 
 ## Estructura
-- `public/index.html`: listado principal
-- `public/details.html`: detalle
-- `public/assets/css/`: estilos
-- `public/assets/js/`: logica cliente
-- `public/assets/images/`: marca/imagenes locales
-- `public/_headers`: cabeceras de seguridad para hosts estaticos compatibles
+- `public/index.html`: home publica
+- `public/details.html`: detalle de propiedad
+- `public/data/properties.json`: fuente de datos del catalogo
+- `public/admin/index.html`: panel admin (Decap CMS)
+- `public/admin/config.yml`: configuracion del panel
+- `vercel.json`: rewrites para rutas limpias en Vercel
 
 ## Correr local
 ```powershell
 python -m http.server 5500
 ```
-Abrir `http://localhost:5500/public/index.html`.
+- Publico: `http://localhost:5500/public/index.html`
+- Admin: `http://localhost:5500/public/admin/`
 
-## Login / Logout
-- Login desde el boton `Iniciar sesion`
-- Logout desde el boton `Cerrar sesion`
-- Forzar logout manual (consola del navegador):
-```js
-AuthManager.logout()
+## Deploy en Vercel
+Con `vercel.json`, rutas esperadas en produccion:
+- `/` -> home
+- `/details.html?id=...` -> detalle
+- `/admin` -> panel admin
+
+## Configurar acceso admin (GitHub OAuth)
+Para que solo una persona cargue propiedades sin tocar codigo:
+1. Crear app OAuth en GitHub.
+2. Configurar callback URL segun proveedor OAuth que uses.
+3. Completar `public/admin/config.yml`:
+   - `repo`
+   - `base_url`
+   - `site_url`
+   - `auth_endpoint`
+4. Dar acceso al repo solo al usuario admin.
+
+Nota: Decap CMS con backend `github` requiere endpoint OAuth. Puede resolverse en el mismo proyecto con funciones serverless en Vercel o con un proveedor OAuth compatible.
+
+## Datos de propiedades
+El archivo `public/data/properties.json` usa este formato:
+```json
+{
+  "properties": [
+    {
+      "id": 1,
+      "title": "...",
+      "description": "...",
+      "price": 1000,
+      "category": "venta",
+      "rooms": 3,
+      "area": 100,
+      "owner": "...",
+      "agent": "...",
+      "createdAt": "2026-01-01T10:00:00.000Z",
+      "images": ["https://..."],
+      "customFeatures": ["..."]
+    }
+  ]
+}
 ```
-
-## Datos
-Las propiedades se guardan en `localStorage` bajo la clave `davalos_properties`.

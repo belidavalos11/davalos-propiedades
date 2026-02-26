@@ -25,10 +25,7 @@
             <nav class="nav">
                 <a href="#inicio" class="nav-link active">Inicio</a>
                 <a href="#propiedades" class="nav-link">Propiedades</a>
-                <button id="btn-login" class="btn btn-outline">Iniciar sesion</button>
-                <button id="btn-settings" class="btn btn-outline" style="display: none;">Configuracion</button>
-                <button id="btn-logout" class="btn btn-outline" style="display: none;">Cerrar sesion</button>
-                <button id="btn-add-property" class="btn btn-primary" style="display: none;">Cargar propiedad</button>
+                <a href="admin/" class="btn btn-outline">Panel admin</a>
             </nav>
         </div>
     </header>
@@ -41,7 +38,7 @@
                 <div class="filter-bar">
                     <div class="filter-group filter-group-wide">
                         <label for="search-input">Buscar</label>
-                        <input id="search-input" type="text" placeholder="Titulo, agente o propietario">
+                        <input id="search-input" type="text" placeholder="Titulo o descripcion">
                     </div>
                     <div class="filter-group">
                         <label for="filter-type">Operacion</label>
@@ -104,117 +101,6 @@
         </div>
     </footer>
 
-    <div id="login-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Iniciar sesion</h3>
-                <span id="close-login-modal" class="close">&times;</span>
-            </div>
-            <p class="modal-info">Acceso exclusivo para administradores.</p>
-            <form id="login-form" class="property-form">
-                <div class="form-group">
-                    <label for="username">Usuario</label>
-                    <input type="text" id="username" required placeholder="admin">
-                </div>
-                <div class="form-group">
-                    <label for="password">Contrasena</label>
-                    <input type="password" id="password" required placeholder="********">
-                </div>
-                <div id="login-error" class="error-text" style="display: none;">Usuario o contrasena incorrectos.</div>
-                <button type="submit" class="btn btn-full">Ingresar</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="settings-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Configuracion de usuario</h3>
-                <span id="close-settings-modal" class="close">&times;</span>
-            </div>
-            <form id="settings-form" class="property-form">
-                <div class="form-group">
-                    <label for="new-password">Nueva contrasena</label>
-                    <input type="password" id="new-password" required placeholder="********">
-                </div>
-                <div class="form-group">
-                    <label for="confirm-password">Confirmar contrasena</label>
-                    <input type="password" id="confirm-password" required placeholder="********">
-                </div>
-                <div id="settings-error" class="error-text" style="display: none;">Las contrasenas no coinciden.</div>
-                <div id="settings-success" class="success-text" style="display: none;">Contrasena actualizada con exito.</div>
-                <button type="submit" class="btn btn-full">Actualizar contrasena</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="property-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Cargar nueva propiedad</h3>
-                <span id="close-modal" class="close">&times;</span>
-            </div>
-            <form id="property-form" class="property-form">
-                <div class="form-group">
-                    <label for="title">Titulo de la propiedad</label>
-                    <input type="text" id="title" required placeholder="Ej: Departamento en pozo">
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="price">Precio (USD)</label>
-                        <input type="number" id="price" required placeholder="150000">
-                    </div>
-                    <div class="form-group">
-                        <label for="category">Categoria</label>
-                        <select id="category" required>
-                            <option value="venta">Venta</option>
-                            <option value="alquiler">Alquiler</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="rooms">Ambientes</label>
-                        <input type="number" id="rooms" required placeholder="2">
-                    </div>
-                    <div class="form-group">
-                        <label for="area">Superficie (m2)</label>
-                        <input type="number" id="area" required placeholder="45">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="owner">Propietario</label>
-                        <input type="text" id="owner" required placeholder="Nombre del dueno">
-                    </div>
-                    <div class="form-group">
-                        <label for="agent">Empleado encargado</label>
-                        <input type="text" id="agent" required placeholder="Nombre del agente">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="image">Imagenes (URLs separadas por comas)</label>
-                    <textarea id="image" placeholder="https://url1.com, https://url2.com" rows="2"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>O cargar desde tu PC (se comprimiran automaticamente)</label>
-                    <div class="file-upload-wrapper">
-                        <input type="file" id="local-images" multiple accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-outline btn-full" onclick="document.getElementById('local-images').click()">Seleccionar fotos locales</button>
-                    </div>
-                    <div id="image-previews" class="preview-container"></div>
-                </div>
-                <div class="form-group">
-                    <label>Caracteristicas adicionales</label>
-                    <div id="custom-features-container"></div>
-                    <button type="button" id="btn-add-feature" class="btn btn-outline btn-small" style="margin-top: 10px;">+ Anadir caracteristica</button>
-                </div>
-                <button type="submit" class="btn btn-full">Guardar propiedad</button>
-            </form>
-        </div>
-    </div>
-
-    <script src="assets/js/auth.js"></script>
     <script src="assets/js/script.js"></script>
 </body>
 </html>

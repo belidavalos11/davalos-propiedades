@@ -1,0 +1,52 @@
+﻿backend:
+  name: github
+  repo: YOUR_GITHUB_USER/YOUR_REPO
+  branch: main
+  base_url: https://YOUR-VERCEL-DOMAIN.vercel.app
+  auth_endpoint: api/auth
+
+media_folder: public/assets/uploads
+public_folder: /assets/uploads
+
+locale: es
+site_url: https://YOUR-VERCEL-DOMAIN.vercel.app
+logo_url: /assets/images/logo-simple.png
+
+collections:
+  - name: "catalogo"
+    label: "Catalogo"
+    files:
+      - label: "Propiedades"
+        name: "properties_file"
+        file: "public/data/properties.json"
+        format: "json"
+        fields:
+          - label: "Propiedades"
+            name: "properties"
+            widget: "list"
+            summary: "{{fields.title}} - {{fields.category}}"
+            fields:
+              - { label: "ID", name: "id", widget: "number", value_type: "int" }
+              - { label: "Titulo", name: "title", widget: "string" }
+              - { label: "Descripcion", name: "description", widget: "text", required: false }
+              - { label: "Precio", name: "price", widget: "number", value_type: "int" }
+              - label: "Categoria"
+                name: "category"
+                widget: "select"
+                options:
+                  - { label: "Venta", value: "venta" }
+                  - { label: "Alquiler", value: "alquiler" }
+              - { label: "Ambientes", name: "rooms", widget: "number", value_type: "int" }
+              - { label: "Superficie (m2)", name: "area", widget: "number", value_type: "int" }
+              - { label: "Propietario", name: "owner", widget: "string", required: false }
+              - { label: "Agente", name: "agent", widget: "string", required: false }
+              - { label: "Fecha de alta", name: "createdAt", widget: "datetime", format: "YYYY-MM-DDTHH:mm:ss.SSSZ", date_format: "YYYY-MM-DD", time_format: "HH:mm" }
+              - label: "Imagenes"
+                name: "images"
+                widget: "list"
+                field: { label: "Imagen", name: "image", widget: "image" }
+              - label: "Caracteristicas"
+                name: "customFeatures"
+                widget: "list"
+                required: false
+                field: { label: "Caracteristica", name: "feature", widget: "string" }
