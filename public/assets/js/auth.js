@@ -1,77 +1,95 @@
-// Multi-User Auth Management System for DÁVALOS PROPIEDADES
-
-const AuthManager = {
-    // STATIC DATABASE (Managed from this file)
-    // Add or modify users here. 
+﻿const AuthManager = {
     _users: [
-        { username: 'admin', password: 'admin1234' },
-        { username: 'belid', password: 'davalos2026' }
+        { username: "admin", password: "admin1234" },
+        { username: "belid", password: "davalos2026" }
     ],
 
-    // Private initialization and sync
-    _init: function () {
-        // Load stored overrides (passwords changed via UI)
-        this._overrides = JSON.parse(localStorage.getItem('davalos_user_overrides')) || {};
+    _sessionHours: 12,
 
-        // Sync check: If the code-defined password for a user has changed, 
-        // we might want to clear the local override.
-        // For simplicity in this "frontend-only" setup, the code-defined list
-        // is the primary source of truth for ALLOWED users.
+    _init() {
+        this._overrides = JSON.parse(localStorage.getItem("davalos_user_overrides")) || {};
+        this._ensureSessionValidity();
     },
 
-    // Public API
-    isLoggedIn: function () {
-        return JSON.parse(localStorage.getItem('davalos_auth')) || false;
+    _normalizeUsername(value) {
+        return String(value || "").trim().toLowerCase();
     },
 
-    getCurrentUser: function () {
-        return localStorage.getItem('davalos_current_user');
+    _sessionKey() {
+        return "davalos_auth";
     },
 
-    login: function (username, password) {
-        // Find user in our static list
-        const user = this._users.find(u => u.username === username);
+    _ensureSessionValidity() {
+        const auth = JSON.parse(localStorage.getItem(this._sessionKey()) || "null");
+        if (!auth || auth.logged !== true) {
+            localStorage.removeItem(this._sessionKey());
+            return;
+        }
 
+        const maxAge = this._sessionHours * 60 * 60 * 1000;
+        if (!auth.timestamp || (Date.now() - auth.timestamp) > maxAge) {
+            this.logout();
+        }
+    },
+
+    isLoggedIn() {
+        this._ensureSessionValidity();
+        const auth = JSON.parse(localStorage.getItem(this._sessionKey()) || "null");
+        return Boolean(auth && auth.logged === true);
+    },
+
+    getCurrentUser() {
+        return localStorage.getItem("davalos_current_user");
+    },
+
+    login(username, password) {
+        const normalized = this._normalizeUsername(username);
+        const user = this._users.find((u) => u.username === normalized);
         if (!user) return false;
 
-        // Check if there is an override for this user
-        const storedPassword = this._overrides[username] || user.password;
+        const storedPassword = this._overrides[normalized] || user.password;
+        if (password !== storedPassword) return false;
 
-        if (password === storedPassword) {
-            localStorage.setItem('davalos_auth', JSON.stringify(true));
-            localStorage.setItem('davalos_current_user', username);
-            return true;
-        }
-        return false;
+        const authData = {
+            logged: true,
+            timestamp: Date.now()
+        };
+
+        localStorage.setItem(this._sessionKey(), JSON.stringify(authData));
+        localStorage.setItem("davalos_current_user", normalized);
+        return true;
     },
 
-    logout: function () {
-        localStorage.removeItem('davalos_auth');
-        localStorage.removeItem('davalos_current_user');
+    logout() {
+        localStorage.removeItem(this._sessionKey());
+        localStorage.removeItem("davalos_current_user");
     },
 
-    changePassword: function (newPassword) {
+    logoutAndClearSessionData() {
+        this.logout();
+        localStorage.removeItem("davalos_properties");
+    },
+
+    changePassword(newPassword) {
         if (!this.isLoggedIn()) return false;
+        if (typeof newPassword !== "string" || newPassword.trim().length < 6) return false;
 
         const username = this.getCurrentUser();
         if (!username) return false;
 
-        // Save override locally
-        this._overrides[username] = newPassword;
-        localStorage.setItem('davalos_user_overrides', JSON.stringify(this._overrides));
+        this._overrides[username] = newPassword.trim();
+        localStorage.setItem("davalos_user_overrides", JSON.stringify(this._overrides));
         return true;
     },
 
-    // Helper for debugging: reset everything to code defaults
-    resetToDefaults: function () {
-        localStorage.removeItem('davalos_user_overrides');
+    resetToDefaults() {
+        localStorage.removeItem("davalos_user_overrides");
+        localStorage.removeItem("davalos_properties");
         this._overrides = {};
-        console.log("Sistema reseteado a los valores del archivo auth.js");
+        this.logout();
+        console.log("Sistema reseteado a los valores por defecto.");
     }
 };
 
-// Initialize the manager
 AuthManager._init();
-
-// Expose AuthManager globally
 window.AuthManager = AuthManager;

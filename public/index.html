@@ -1,53 +1,84 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DÁVALOS PROPIEDADES | Inmobiliaria Premium</title>
-    <meta name="description"
-        content="Encuentra tu próximo hogar con DÁVALOS PROPIEDADES. Venta y alquiler de propiedades exclusivas.">
-    <!-- Google Fonts: Inter & Outfit -->
+    <title>DAVALOS PROPIEDADES | Inmobiliaria Premium</title>
+    <meta name="description" content="Encuentra tu proximo hogar con DAVALOS PROPIEDADES. Venta y alquiler de propiedades exclusivas.">
+    <meta property="og:title" content="DAVALOS PROPIEDADES | Inmobiliaria Premium">
+    <meta property="og:description" content="Propiedades seleccionadas para venta y alquiler con atencion personalizada.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="assets/images/logo-completo.png">
+    <meta name="theme-color" content="#001556">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
-
 <body>
     <header class="header">
         <div class="container container-header">
             <a href="index.html" class="logo">
                 <img src="assets/images/logo-simple.png" alt="Logo" class="logo-img-sm">
-                <img src="assets/images/logo-texto.png" alt="DÁVALOS PROPIEDADES" class="logo-img-txt">
+                <img src="assets/images/logo-texto.png" alt="DAVALOS PROPIEDADES" class="logo-img-txt">
             </a>
             <nav class="nav">
                 <a href="#inicio" class="nav-link active">Inicio</a>
                 <a href="#propiedades" class="nav-link">Propiedades</a>
-                <button id="btn-login" class="btn btn-outline">Iniciar Sesión</button>
-                <button id="btn-settings" class="btn btn-outline" style="display: none;">Configuración</button>
-                <button id="btn-logout" class="btn btn-outline" style="display: none;">Cerrar Sesión</button>
-                <button id="btn-add-property" class="btn btn-primary" style="display: none;">Cargar Propiedad</button>
+                <button id="btn-login" class="btn btn-outline">Iniciar sesion</button>
+                <button id="btn-settings" class="btn btn-outline" style="display: none;">Configuracion</button>
+                <button id="btn-logout" class="btn btn-outline" style="display: none;">Cerrar sesion</button>
+                <button id="btn-add-property" class="btn btn-primary" style="display: none;">Cargar propiedad</button>
             </nav>
         </div>
     </header>
 
     <main>
-        <section id="hero" class="hero">
+        <section id="inicio" class="hero">
             <div class="container hero-content">
                 <h1 class="hero-title">Encuentra el lugar <br><span class="highlight">donde quieres vivir</span></h1>
                 <p class="hero-subtitle">Propiedades exclusivas seleccionadas para tu confort y estilo de vida.</p>
                 <div class="filter-bar">
+                    <div class="filter-group filter-group-wide">
+                        <label for="search-input">Buscar</label>
+                        <input id="search-input" type="text" placeholder="Titulo, agente o propietario">
+                    </div>
                     <div class="filter-group">
-                        <label for="filter-type">Tipo</label>
+                        <label for="filter-type">Operacion</label>
                         <select id="filter-type">
                             <option value="todos">Todos</option>
                             <option value="venta">Venta</option>
                             <option value="alquiler">Alquiler</option>
                         </select>
                     </div>
+                    <div class="filter-group">
+                        <label for="filter-rooms">Ambientes</label>
+                        <select id="filter-rooms">
+                            <option value="0">Todos</option>
+                            <option value="1">1+</option>
+                            <option value="2">2+</option>
+                            <option value="3">3+</option>
+                            <option value="4">4+</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-price-min">Precio min</label>
+                        <input id="filter-price-min" type="number" min="0" step="100" placeholder="0">
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-price-max">Precio max</label>
+                        <input id="filter-price-max" type="number" min="0" step="100" placeholder="Sin tope">
+                    </div>
+                    <div class="filter-group">
+                        <label for="sort-by">Orden</label>
+                        <select id="sort-by">
+                            <option value="recent">Mas recientes</option>
+                            <option value="price-asc">Precio menor</option>
+                            <option value="price-desc">Precio mayor</option>
+                            <option value="area-desc">Mayor superficie</option>
+                        </select>
+                    </div>
+                    <button id="clear-filters" class="btn btn-outline btn-small" type="button">Limpiar</button>
                 </div>
             </div>
         </section>
@@ -55,11 +86,11 @@
         <section id="propiedades" class="properties">
             <div class="container">
                 <div class="section-header">
-                    <h2 class="section-title">Propiedades Destacadas</h2>
-                    <p class="section-subtitle">Explora nuestras últimas captaciones</p>
+                    <h2 class="section-title">Propiedades destacadas</h2>
+                    <p class="section-subtitle">Explora nuestras ultimas captaciones</p>
+                    <p id="results-count" class="results-count"></p>
                 </div>
                 <div id="properties-grid" class="properties-grid">
-                    <!-- Properties will be injected here via JS -->
                     <div class="loader">Cargando propiedades...</div>
                 </div>
             </div>
@@ -68,68 +99,64 @@
 
     <footer class="footer">
         <div class="container">
-            <img src="assets/images/logo-completo.png" alt="DÁVALOS PROPIEDADES" class="logo-img logo-footer">
-            <p>&copy; 2024 DÁVALOS PROPIEDADES. Todos los derechos reservados.</p>
+            <img src="assets/images/logo-completo.png" alt="DAVALOS PROPIEDADES" class="logo-img logo-footer">
+            <p>&copy; 2026 DAVALOS PROPIEDADES. Todos los derechos reservados.</p>
         </div>
     </footer>
 
-    <!-- Modal for login -->
     <div id="login-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Iniciar Sesión</h3>
+                <h3>Iniciar sesion</h3>
                 <span id="close-login-modal" class="close">&times;</span>
             </div>
-            <p class="modal-info">Acceso exclusivo para administradores de Dávalos Propiedades.</p>
+            <p class="modal-info">Acceso exclusivo para administradores.</p>
             <form id="login-form" class="property-form">
                 <div class="form-group">
                     <label for="username">Usuario</label>
                     <input type="text" id="username" required placeholder="admin">
                 </div>
                 <div class="form-group">
-                    <label for="password">Contraseña</label>
-                    <input type="password" id="password" required placeholder="••••••••">
+                    <label for="password">Contrasena</label>
+                    <input type="password" id="password" required placeholder="********">
                 </div>
-                <div id="login-error" class="error-text" style="display: none;">Usuario o contraseña incorrectos.</div>
+                <div id="login-error" class="error-text" style="display: none;">Usuario o contrasena incorrectos.</div>
                 <button type="submit" class="btn btn-full">Ingresar</button>
             </form>
         </div>
     </div>
 
-    <!-- Modal for Settings (Change Password) -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Configuración de Usuario</h3>
+                <h3>Configuracion de usuario</h3>
                 <span id="close-settings-modal" class="close">&times;</span>
             </div>
             <form id="settings-form" class="property-form">
                 <div class="form-group">
-                    <label for="new-password">Nueva Contraseña</label>
-                    <input type="password" id="new-password" required placeholder="••••••••">
+                    <label for="new-password">Nueva contrasena</label>
+                    <input type="password" id="new-password" required placeholder="********">
                 </div>
                 <div class="form-group">
-                    <label for="confirm-password">Confirmar Contraseña</label>
-                    <input type="password" id="confirm-password" required placeholder="••••••••">
+                    <label for="confirm-password">Confirmar contrasena</label>
+                    <input type="password" id="confirm-password" required placeholder="********">
                 </div>
-                <div id="settings-error" class="error-text" style="display: none;">Las contraseñas no coinciden.</div>
-                <div id="settings-success" class="success-text" style="display: none;">Contraseña actualizada con éxito.
-                </div>
-                <button type="submit" class="btn btn-full">Actualizar Contraseña</button>
+                <div id="settings-error" class="error-text" style="display: none;">Las contrasenas no coinciden.</div>
+                <div id="settings-success" class="success-text" style="display: none;">Contrasena actualizada con exito.</div>
+                <button type="submit" class="btn btn-full">Actualizar contrasena</button>
             </form>
         </div>
     </div>
 
-    <!-- Modal for adding properties -->
     <div id="property-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Cargar Nueva Propiedad</h3>
+                <h3>Cargar nueva propiedad</h3>
                 <span id="close-modal" class="close">&times;</span>
             </div>
             <form id="property-form" class="property-form">
                 <div class="form-group">
-                    <label for="title">Título de la propiedad</label>
+                    <label for="title">Titulo de la propiedad</label>
                     <input type="text" id="title" required placeholder="Ej: Departamento en pozo">
                 </div>
                 <div class="form-row">
@@ -138,7 +165,7 @@
                         <input type="number" id="price" required placeholder="150000">
                     </div>
                     <div class="form-group">
-                        <label for="category">Categoría</label>
+                        <label for="category">Categoria</label>
                         <select id="category" required>
                             <option value="venta">Venta</option>
                             <option value="alquiler">Alquiler</option>
@@ -151,48 +178,38 @@
                         <input type="number" id="rooms" required placeholder="2">
                     </div>
                     <div class="form-group">
-                        <label for="area">Superficie (m²)</label>
+                        <label for="area">Superficie (m2)</label>
                         <input type="number" id="area" required placeholder="45">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="owner">Propietario</label>
-                        <input type="text" id="owner" required placeholder="Nombre del dueño">
+                        <input type="text" id="owner" required placeholder="Nombre del dueno">
                     </div>
                     <div class="form-group">
-                        <label for="agent">Empleado Encargado</label>
+                        <label for="agent">Empleado encargado</label>
                         <input type="text" id="agent" required placeholder="Nombre del agente">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="image">Imágenes (URLs separadas por comas)</label>
+                    <label for="image">Imagenes (URLs separadas por comas)</label>
                     <textarea id="image" placeholder="https://url1.com, https://url2.com" rows="2"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>O cargar desde tu PC (se comprimirán automáticamente)</label>
+                    <label>O cargar desde tu PC (se comprimiran automaticamente)</label>
                     <div class="file-upload-wrapper">
                         <input type="file" id="local-images" multiple accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-outline btn-full"
-                            onclick="document.getElementById('local-images').click()">
-                            📁 Seleccionar Fotos Locales
-                        </button>
+                        <button type="button" class="btn btn-outline btn-full" onclick="document.getElementById('local-images').click()">Seleccionar fotos locales</button>
                     </div>
-                    <div id="image-previews" class="preview-container">
-                        <!-- Thumbnails will appear here -->
-                    </div>
+                    <div id="image-previews" class="preview-container"></div>
                 </div>
                 <div class="form-group">
-                    <label>Características Adicionales</label>
-                    <div id="custom-features-container">
-                        <!-- Custom feature inputs will be added here -->
-                    </div>
-                    <button type="button" id="btn-add-feature" class="btn btn-outline btn-small"
-                        style="margin-top: 10px;">
-                        + Añadir Característica
-                    </button>
+                    <label>Caracteristicas adicionales</label>
+                    <div id="custom-features-container"></div>
+                    <button type="button" id="btn-add-feature" class="btn btn-outline btn-small" style="margin-top: 10px;">+ Anadir caracteristica</button>
                 </div>
-                <button type="submit" class="btn btn-full">Guardar Propiedad</button>
+                <button type="submit" class="btn btn-full">Guardar propiedad</button>
             </form>
         </div>
     </div>
@@ -200,5 +217,4 @@
     <script src="assets/js/auth.js"></script>
     <script src="assets/js/script.js"></script>
 </body>
-
 </html>

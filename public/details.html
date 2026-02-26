@@ -1,29 +1,28 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalles de la Propiedad | DÁVALOS PROPIEDADES</title>
-    <!-- Google Fonts: Inter & Outfit -->
+    <title>Detalles de la propiedad | DAVALOS PROPIEDADES</title>
+    <meta name="description" content="Detalles, galeria y contacto directo de la propiedad seleccionada.">
+    <meta property="og:title" content="Detalles de la propiedad | DAVALOS PROPIEDADES">
+    <meta property="og:type" content="article">
+    <meta name="theme-color" content="#001556">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/details.css">
 </head>
-
 <body>
     <header class="header">
         <div class="container container-header">
             <div class="logo" onclick="window.location.href='index.html'" style="cursor: pointer;">
                 <img src="assets/images/logo-simple.png" alt="Logo" class="logo-img-sm">
-                <img src="assets/images/logo-texto.png" alt="DÁVALOS PROPIEDADES" class="logo-img-txt">
+                <img src="assets/images/logo-texto.png" alt="DAVALOS PROPIEDADES" class="logo-img-txt">
             </div>
             <nav class="nav">
-                <a href="index.html" class="nav-link">Volver al Inicio</a>
+                <a href="index.html" class="nav-link">Volver al inicio</a>
             </nav>
         </div>
     </header>
@@ -34,15 +33,24 @@
         </div>
     </main>
 
+    <div id="floating-contact" class="floating-contact" style="display:none;">
+        <a id="floating-whatsapp" class="btn btn-whatsapp" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        <a id="floating-call" class="btn btn-outline" href="tel:+5491111111111">Llamar</a>
+    </div>
+
+    <div id="lightbox" class="lightbox" style="display:none;">
+        <button id="lightbox-close" class="lightbox-close" type="button">&times;</button>
+        <img id="lightbox-image" alt="Imagen ampliada">
+    </div>
+
     <footer class="footer">
         <div class="container">
-            <img src="assets/images/logo-completo.png" alt="DÁVALOS PROPIEDADES" class="logo-img logo-footer">
-            <p>&copy; 2024 DÁVALOS PROPIEDADES. Todos los derechos reservados.</p>
+            <img src="assets/images/logo-completo.png" alt="DAVALOS PROPIEDADES" class="logo-img logo-footer">
+            <p>&copy; 2026 DAVALOS PROPIEDADES. Todos los derechos reservados.</p>
         </div>
     </footer>
 
     <script src="assets/js/auth.js"></script>
     <script src="assets/js/details.js"></script>
 </body>
-
 </html>
