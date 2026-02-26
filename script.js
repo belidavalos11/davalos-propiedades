@@ -67,6 +67,11 @@ const modal = document.getElementById('property-modal');
 const closeModal = document.getElementById('close-modal');
 const customFeaturesContainer = document.getElementById('custom-features-container');
 const btnAddFeature = document.getElementById('btn-add-feature');
+const localImagesInput = document.getElementById('local-images');
+const imagePreviews = document.getElementById('image-previews');
+
+// State for local files (base64)
+let currentLocalImages = [];
 
 // Auth Elements
 const btnLogin = document.getElementById('btn-login');
@@ -233,6 +238,73 @@ settingsForm.addEventListener('submit', (e) => {
     }
 });
 
+// Helper functions for Images
+async function compressImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 600;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                // Compress quality to 0.7 to save space
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            };
+        };
+    });
+}
+
+function updatePreviews() {
+    imagePreviews.innerHTML = '';
+    currentLocalImages.forEach((base64, index) => {
+        const thumb = document.createElement('div');
+        thumb.className = 'preview-thumbnail';
+        thumb.innerHTML = `
+            <img src="${base64}">
+            <button type="button" class="btn-remove-preview" onclick="removeLocalImage(${index})">&times;</button>
+        `;
+        imagePreviews.appendChild(thumb);
+    });
+}
+
+window.removeLocalImage = (index) => {
+    currentLocalImages.splice(index, 1);
+    updatePreviews();
+};
+
+localImagesInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    for (const file of files) {
+        if (file.type.startsWith('image/')) {
+            const compressed = await compressImage(file);
+            currentLocalImages.push(compressed);
+        }
+    }
+    updatePreviews();
+    localImagesInput.value = ''; // Reset for next selection
+});
+
 // Custom Features Logic
 btnAddFeature.addEventListener('click', () => {
     const group = document.createElement('div');
@@ -252,10 +324,18 @@ btnAddFeature.addEventListener('click', () => {
 propertyForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
-    const imageUrls = document.getElementById('image').value
-        .split(',')
-        .map(url => url.trim())
-        .filter(url => url !== '');
+    const urlInput = document.getElementById('image').value;
+    const imageUrls = urlInput
+        ? urlInput.split(',').map(url => url.trim()).filter(url => url !== '')
+        : [];
+
+    // Combine URLs and Local Images
+    const finalImages = [...imageUrls, ...currentLocalImages];
+
+    if (finalImages.length === 0) {
+        alert('Por favor, agrega al menos una imagen (URL o archivo local).');
+        return;
+    }
 
     const customFeatures = Array.from(document.querySelectorAll('.custom-feature-input'))
         .map(input => input.value.trim())
@@ -268,7 +348,7 @@ propertyForm.addEventListener('submit', (e) => {
         category: document.getElementById('category').value,
         rooms: parseInt(document.getElementById('rooms').value),
         area: parseInt(document.getElementById('area').value),
-        images: imageUrls,
+        images: finalImages,
         owner: document.getElementById('owner').value,
         agent: document.getElementById('agent').value,
         customFeatures: customFeatures
@@ -279,6 +359,8 @@ propertyForm.addEventListener('submit', (e) => {
     renderProperties(filterType.value);
 
     propertyForm.reset();
+    currentLocalImages = [];
+    updatePreviews();
     customFeaturesContainer.innerHTML = '';
     modal.style.display = 'none';
 });

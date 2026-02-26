@@ -166,7 +166,20 @@
                 </div>
                 <div class="form-group">
                     <label for="image">Imágenes (URLs separadas por comas)</label>
-                    <textarea id="image" required placeholder="https://url1.com, https://url2.com" rows="2"></textarea>
+                    <textarea id="image" placeholder="https://url1.com, https://url2.com" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>O cargar desde tu PC (se comprimirán automáticamente)</label>
+                    <div class="file-upload-wrapper">
+                        <input type="file" id="local-images" multiple accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-outline btn-full"
+                            onclick="document.getElementById('local-images').click()">
+                            📁 Seleccionar Fotos Locales
+                        </button>
+                    </div>
+                    <div id="image-previews" class="preview-container">
+                        <!-- Thumbnails will appear here -->
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Características Adicionales</label>
