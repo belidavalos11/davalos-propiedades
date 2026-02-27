@@ -630,6 +630,10 @@ h3,
 }
 
 @media (max-width: 768px) {
+    .container-header {
+        justify-content: center;
+    }
+
     .hero {
         min-height: auto;
         padding-top: 120px;
