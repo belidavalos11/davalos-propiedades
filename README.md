@@ -58,3 +58,17 @@ El archivo `public/data/properties.json` usa este formato:
   ]
 }
 ```
+## Actualizar la Web
+
+Gracias a la integración con Vercel, cada vez que subes cambios a GitHub, la página se actualiza sola en unos segundos.
+
+### Pasos para subir cambios:
+1. Realiza los cambios en el código.
+2. Abre la terminal en la carpeta del proyecto.
+3. Ejecuta estos comandos:
+   ```powershell
+   git add .
+   git commit -m "Descripción de lo que cambiaste"
+   git push origin main
+   ```
+4. ¡Listo! Vercel detectará el "Push" y pondrá los cambios en vivo automáticamente.
