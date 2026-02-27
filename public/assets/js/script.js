@@ -1,6 +1,7 @@
 ﻿const DATA_URL = "data/properties.json";
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
 
+// DOM Elements - Selection
 const grid = document.getElementById("properties-grid");
 const resultsCount = document.getElementById("results-count");
 const filterType = document.getElementById("filter-type");
@@ -11,8 +12,23 @@ const searchInput = document.getElementById("search-input");
 const sortBy = document.getElementById("sort-by");
 const clearFiltersBtn = document.getElementById("clear-filters");
 
-let properties = [];
+// Modal Elements
+const loginModal = document.getElementById("login-modal");
+const settingsModal = document.getElementById("settings-modal");
+const propertyModal = document.getElementById("property-modal");
+const btnLogin = document.getElementById("btn-login");
+const btnSettings = document.getElementById("btn-settings");
+const btnLogout = document.getElementById("btn-logout");
+const btnAddProperty = document.getElementById("btn-add-property");
+const loginForm = document.getElementById("login-form");
+const propertyForm = document.getElementById("property-form");
+const closeBtns = document.querySelectorAll(".close-modal");
 
+// State
+let properties = [];
+let localProperties = [];
+
+// Utility
 function escapeHtml(value) {
     return String(value)
         .replace(/&/g, "&amp;")
@@ -26,126 +42,103 @@ function safeImageUrl(value) {
     if (typeof value !== "string") return null;
     const trimmed = value.trim();
     if (!trimmed) return null;
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    if (trimmed.startsWith("/")) return trimmed;
+    if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("/") || trimmed.startsWith("data:image")) return trimmed;
     return null;
 }
 
-function normalizeProperty(prop) {
-    if (!prop || typeof prop !== "object") return null;
-
-    const id = Number(prop.id);
-    const title = String(prop.title || "").trim();
-    const description = String(prop.description || "").trim();
-    const category = prop.category === "alquiler" ? "alquiler" : "venta";
-    const price = Number(prop.price);
-    const rooms = Number(prop.rooms);
-    const area = Number(prop.area);
-    const owner = String(prop.owner || "").trim();
-    const agent = String(prop.agent || "").trim();
-    const createdAt = String(prop.createdAt || "").trim();
-
-    const customFeatures = Array.isArray(prop.customFeatures)
-        ? prop.customFeatures.map((item) => String(item).trim()).filter(Boolean)
-        : [];
-
-    const images = (Array.isArray(prop.images) ? prop.images : [])
-        .map((img) => safeImageUrl(img))
-        .filter(Boolean);
-
-    if (!Number.isFinite(id) || !title || !Number.isFinite(price) || !Number.isFinite(rooms) || !Number.isFinite(area)) {
-        return null;
-    }
-
-    return {
-        id,
-        title,
-        description,
-        category,
-        price,
-        rooms,
-        area,
-        owner,
-        agent,
-        createdAt,
-        createdAtTs: Date.parse(createdAt) || id,
-        customFeatures,
-        images: images.length ? images : [PLACEHOLDER_IMAGE]
-    };
+// Logic - Auth UI
+function updateAuthUI() {
+    const logged = window.AuthManager && window.AuthManager.isLoggedIn();
+    if (btnLogin) btnLogin.style.display = logged ? "none" : "block";
+    if (btnSettings) btnSettings.style.display = logged ? "block" : "none";
+    if (btnLogout) btnLogout.style.display = logged ? "block" : "none";
+    if (btnAddProperty) btnAddProperty.style.display = logged ? "block" : "none";
 }
 
+function openModal(modal) {
+    if (modal) modal.style.display = "block";
+    document.body.style.overflow = "hidden";
+}
+
+function closeModal() {
+    [loginModal, settingsModal, propertyModal].forEach(m => {
+        if (m) m.style.display = "none";
+    });
+    document.body.style.overflow = "auto";
+}
+
+// Logic - Data Loading
 async function loadProperties() {
     try {
+        // 1. Fetch from JSON (Base Catalog)
         const response = await fetch(DATA_URL, { cache: "no-store" });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        let jsonList = [];
+        if (response.ok) {
+            const payload = await response.json();
+            jsonList = Array.isArray(payload?.properties) ? payload.properties : [];
+        }
 
-        const payload = await response.json();
-        const list = Array.isArray(payload?.properties) ? payload.properties : [];
+        // 2. Load from LocalStorage (User's additions)
+        localProperties = JSON.parse(localStorage.getItem("davalos_properties") || "[]");
 
-        properties = list
-            .map((item) => normalizeProperty(item))
+        // 3. Merge and Normalize
+        const allRaw = [...localProperties, ...jsonList];
+        properties = allRaw
+            .map(p => normalizeProperty(p))
             .filter(Boolean)
             .sort((a, b) => b.createdAtTs - a.createdAtTs);
 
         applyFilters();
     } catch (error) {
-        grid.innerHTML = `
-            <div class="no-results">
-                <h3>Error de carga</h3>
-                <p>No se pudieron cargar las propiedades.</p>
-            </div>
-        `;
-        if (resultsCount) resultsCount.textContent = "0 resultados";
         console.error("Error loading properties:", error);
+        grid.innerHTML = `<div class="no-results"><h3>Error de carga</h3><p>No se pudieron sincronizar las propiedades.</p></div>`;
     }
 }
 
-function getFilters() {
-    const min = Number(filterPriceMin.value);
-    const max = Number(filterPriceMax.value);
+function normalizeProperty(prop) {
+    if (!prop || typeof prop !== "object") return null;
+    const id = Number(prop.id) || Date.now();
+    const title = String(prop.title || "").trim();
+    const price = Number(prop.price) || 0;
+    const createdAt = prop.createdAt || new Error().stack; // fallback to unique
+    const images = (Array.isArray(prop.images) ? prop.images : [])
+        .map(img => safeImageUrl(img))
+        .filter(Boolean);
 
     return {
-        type: filterType.value,
-        rooms: Number(filterRooms.value || 0),
-        minPrice: Number.isFinite(min) ? min : 0,
-        maxPrice: Number.isFinite(max) && max > 0 ? max : Infinity,
-        text: (searchInput.value || "").trim().toLowerCase(),
-        sort: sortBy.value
+        ...prop,
+        id,
+        title,
+        price,
+        createdAtTs: Date.parse(prop.createdAt) || id,
+        images: images.length ? images : [PLACEHOLDER_IMAGE]
     };
 }
 
-function formatCurrency(value) {
-    return `USD ${value.toLocaleString("es-AR")}`;
-}
-
+// Filtering Logic
 function applyFilters() {
-    const filters = getFilters();
+    const type = filterType.value;
+    const rooms = Number(filterRooms.value || 0);
+    const min = Number(filterPriceMin.value) || 0;
+    const max = Number(filterPriceMax.value) || Infinity;
+    const text = (searchInput.value || "").trim().toLowerCase();
+    const sort = sortBy.value;
 
-    let filtered = properties.filter((prop) => {
-        const matchesType = filters.type === "todos" || prop.category === filters.type;
-        const matchesRooms = prop.rooms >= filters.rooms;
-        const matchesMin = prop.price >= filters.minPrice;
-        const matchesMax = prop.price <= filters.maxPrice;
-
+    let filtered = properties.filter(prop => {
+        const matchesType = type === "todos" || prop.category === type;
+        const matchesRooms = Number(prop.rooms) >= rooms;
+        const matchesPrice = prop.price >= min && (max === Infinity || prop.price <= max);
         const haystack = `${prop.title} ${prop.description} ${prop.agent} ${prop.owner}`.toLowerCase();
-        const matchesText = !filters.text || haystack.includes(filters.text);
-
-        return matchesType && matchesRooms && matchesMin && matchesMax && matchesText;
+        const matchesText = !text || haystack.includes(text);
+        return matchesType && matchesRooms && matchesPrice && matchesText;
     });
 
-    switch (filters.sort) {
-        case "price-asc":
-            filtered.sort((a, b) => a.price - b.price);
-            break;
-        case "price-desc":
-            filtered.sort((a, b) => b.price - a.price);
-            break;
-        case "area-desc":
-            filtered.sort((a, b) => b.area - a.area);
-            break;
-        default:
-            filtered.sort((a, b) => b.createdAtTs - a.createdAtTs);
-            break;
+    // Sorting
+    switch (sort) {
+        case "price-asc": filtered.sort((a, b) => a.price - b.price); break;
+        case "price-desc": filtered.sort((a, b) => b.price - a.price); break;
+        case "area-desc": filtered.sort((a, b) => b.area - a.area); break;
+        default: filtered.sort((a, b) => b.createdAtTs - a.createdAtTs); break;
     }
 
     renderProperties(filtered);
@@ -153,116 +146,141 @@ function applyFilters() {
 
 function renderProperties(filtered) {
     grid.innerHTML = "";
-
-    if (resultsCount) {
-        resultsCount.textContent = `${filtered.length} resultado${filtered.length === 1 ? "" : "s"}`;
-    }
+    if (resultsCount) resultsCount.textContent = `${filtered.length} resultado${filtered.length === 1 ? "" : "s"}`;
 
     if (!filtered.length) {
-        grid.innerHTML = `
-            <div class="no-results">
-                <h3>Sin resultados</h3>
-                <p>No encontramos propiedades con esos filtros.</p>
-                <button id="retry-filters" class="btn btn-outline" type="button">Limpiar filtros</button>
-            </div>
-        `;
-        const retryBtn = document.getElementById("retry-filters");
-        if (retryBtn) retryBtn.addEventListener("click", resetFilters);
+        grid.innerHTML = `<div class="no-results"><h3>Sin resultados</h3><p>Intenta con otros filtros.</p></div>`;
         return;
     }
 
-    filtered.forEach((prop) => {
+    filtered.forEach(prop => {
         const card = document.createElement("article");
         card.className = "property-card";
-        card.tabIndex = 0;
-        card.setAttribute("role", "button");
-        card.setAttribute("aria-label", `Ver detalles de ${prop.title}`);
-
-        const coverImage = prop.images[0] || PLACEHOLDER_IMAGE;
-        const title = escapeHtml(prop.title);
-        const description = escapeHtml(prop.description || "");
-        const badge = escapeHtml(prop.category);
-
         card.innerHTML = `
             <div class="property-image">
-                <img loading="lazy" src="${coverImage}" alt="${title}">
-                <span class="badge badge-${badge}">${badge}</span>
-                ${prop.images.length > 1 ? `<span class="gallery-badge">${prop.images.length} fotos</span>` : ""}
+                <img loading="lazy" src="${prop.images[0]}" alt="${escapeHtml(prop.title)}">
+                <span class="badge badge-${prop.category}">${prop.category}</span>
             </div>
             <div class="property-info">
-                <div class="property-price">${formatCurrency(prop.price)}</div>
-                <h3 class="property-title">${title}</h3>
-                <p class="property-description">${description}</p>
+                <div class="property-price">USD ${prop.price.toLocaleString("es-AR")}</div>
+                <h3 class="property-title">${escapeHtml(prop.title)}</h3>
+                <p class="property-description">${escapeHtml(prop.description || "").substring(0, 80)}...</p>
                 <div class="property-features">
                     <div class="feature"><span>Amb.</span> ${prop.rooms}</div>
                     <div class="feature"><span>m2</span> ${prop.area}</div>
                 </div>
             </div>
         `;
-
-        const openDetails = () => {
-            window.location.href = `details.html?id=${encodeURIComponent(prop.id)}`;
-        };
-
-        card.addEventListener("click", openDetails);
-        card.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openDetails();
-            }
-        });
-
+        card.onclick = () => window.location.href = `details.html?id=${prop.id}`;
         grid.appendChild(card);
     });
 }
 
-function resetFilters() {
-    filterType.value = "todos";
-    filterRooms.value = "0";
-    filterPriceMin.value = "";
-    filterPriceMax.value = "";
-    searchInput.value = "";
-    sortBy.value = "recent";
-    applyFilters();
-}
-
-function debounce(fn, wait = 250) {
-    let timer = null;
-    return (...args) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn(...args), wait);
-    };
-}
-
+// Event Bindings
 function bindEvents() {
-    filterType.addEventListener("change", applyFilters);
-    filterRooms.addEventListener("change", applyFilters);
-    filterPriceMin.addEventListener("input", debounce(applyFilters));
-    filterPriceMax.addEventListener("input", debounce(applyFilters));
-    sortBy.addEventListener("change", applyFilters);
-    searchInput.addEventListener("input", debounce(applyFilters, 180));
-    clearFiltersBtn.addEventListener("click", resetFilters);
-}
+    [filterType, filterRooms, sortBy].forEach(el => el.addEventListener("change", applyFilters));
+    [filterPriceMin, filterPriceMax, searchInput].forEach(el => el.addEventListener("input", applyFilters));
+    if (clearFiltersBtn) clearFiltersBtn.onclick = () => {
+        filterType.value = "todos"; filterRooms.value = "0";
+        filterPriceMin.value = ""; filterPriceMax.value = "";
+        searchInput.value = ""; applyFilters();
+    };
 
-function renderSkeletons() {
-    grid.innerHTML = "";
-    for (let i = 0; i < 6; i += 1) {
-        const card = document.createElement("article");
-        card.className = "property-card skeleton-card";
-        card.innerHTML = `
-            <div class="skeleton skeleton-image"></div>
-            <div class="property-info">
-                <div class="skeleton skeleton-line"></div>
-                <div class="skeleton skeleton-line short"></div>
-                <div class="skeleton skeleton-line"></div>
-            </div>
-        `;
-        grid.appendChild(card);
+    // Auth events
+    if (btnLogin) btnLogin.onclick = () => openModal(loginModal);
+    if (btnSettings) btnSettings.onclick = () => openModal(settingsModal);
+    if (btnAddProperty) btnAddProperty.onclick = () => openModal(propertyModal);
+    if (btnLogout) btnLogout.onclick = () => { window.AuthManager.logout(); updateAuthUI(); };
+    closeBtns.forEach(btn => btn.onclick = closeModal);
+
+    if (loginForm) {
+        loginForm.onsubmit = (e) => {
+            e.preventDefault();
+            const success = window.AuthManager.login(document.getElementById("username").value, document.getElementById("password").value);
+            if (success) { closeModal(); updateAuthUI(); }
+            else { alert("Credenciales incorrectas"); }
+        };
+    }
+
+    // Property Upload Logic
+    const btnAddFeature = document.getElementById("btn-add-feature");
+    const featuresContainer = document.getElementById("custom-features-container");
+
+    if (btnAddFeature) {
+        btnAddFeature.onclick = () => {
+            const div = document.createElement("div");
+            div.className = "feature-input-group";
+            div.innerHTML = `<input type="text" placeholder="Ej: Piscina climatizada"><button type="button" class="btn-remove-feature">&times;</button>`;
+            featuresContainer.appendChild(div);
+            div.querySelector(".btn-remove-feature").onclick = () => div.remove();
+        };
+    }
+
+    // Local Image Support
+    const fileInput = document.getElementById("prop-images-file");
+    const previews = document.getElementById("image-previews");
+    let uploadedImages = [];
+
+    if (fileInput) {
+        fileInput.onchange = async (e) => {
+            const files = Array.from(e.target.files);
+            for (const file of files) {
+                const base64 = await toBase64(file);
+                uploadedImages.push(base64);
+                const thumb = document.createElement("div");
+                thumb.className = "preview-thumbnail";
+                thumb.innerHTML = `<img src="${base64}"><button type="button" class="btn-remove-preview">&times;</button>`;
+                previews.appendChild(thumb);
+                thumb.querySelector(".btn-remove-preview").onclick = () => {
+                    uploadedImages = uploadedImages.filter(img => img !== base64);
+                    thumb.remove();
+                };
+            }
+        };
+    }
+
+    if (propertyForm) {
+        propertyForm.onsubmit = (e) => {
+            e.preventDefault();
+            const customFeatures = Array.from(featuresContainer.querySelectorAll("input")).map(i => i.value).filter(Boolean);
+            const urlImages = document.getElementById("prop-images").value.split(",").map(i => i.trim()).filter(Boolean);
+
+            const newProp = {
+                id: Date.now(),
+                title: document.getElementById("prop-title").value,
+                description: document.getElementById("prop-desc").value,
+                price: Number(document.getElementById("prop-price").value),
+                category: document.getElementById("prop-category").value,
+                rooms: document.getElementById("prop-rooms").value,
+                area: document.getElementById("prop-area").value,
+                owner: document.getElementById("prop-owner").value,
+                agent: document.getElementById("prop-agent").value,
+                createdAt: new Date().toISOString(),
+                images: [...uploadedImages, ...urlImages],
+                customFeatures
+            };
+
+            localProperties.unshift(newProp);
+            localStorage.setItem("davalos_properties", JSON.stringify(localProperties));
+            closeModal();
+            loadProperties();
+            propertyForm.reset();
+            previews.innerHTML = "";
+            uploadedImages = [];
+        };
     }
 }
 
+function toBase64(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+    });
+}
+
 function init() {
-    renderSkeletons();
+    updateAuthUI();
     bindEvents();
     loadProperties();
 }
