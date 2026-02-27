@@ -351,6 +351,12 @@ h3,
     color: var(--text);
 }
 
+.property-description {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-bottom: 12px;
+}
+
 .property-features {
     display: flex;
     gap: 20px;

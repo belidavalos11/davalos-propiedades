@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "version": 2,
   "cleanUrls": true,
@@ -12,3 +13,16 @@
     }
   ]
 }
+=======
+﻿{
+  "rewrites": [
+    { "source": "/", "destination": "/public/index.html" },
+    { "source": "/details.html", "destination": "/public/details.html" },
+    { "source": "/admin", "destination": "/public/admin/index.html" },
+    { "source": "/admin/:path*", "destination": "/public/admin/:path*" },
+    { "source": "/assets/:path*", "destination": "/public/assets/:path*" },
+    { "source": "/data/:path*", "destination": "/public/data/:path*" },
+    { "source": "/:path*", "destination": "/:path*" }
+  ]
+}
+>>>>>>> 1c0d8777951d3ac431a068f16366971239819da5
