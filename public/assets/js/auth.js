@@ -1,7 +1,8 @@
 ﻿const AuthManager = {
     _users: [
         { username: "admin", password: "admin1234" },
-        { username: "belid", password: "davalos2026" }
+        { username: "belid", password: "davalos2026" },
+        { username: "irenegarcia", password: "ire2026" }
     ],
 
     _sessionHours: 12,
