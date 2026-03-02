@@ -245,17 +245,23 @@ function bindEvents() {
         fileInput.onchange = async (e) => {
             const files = Array.from(e.target.files);
             for (const file of files) {
-                const base64 = await toBase64(file);
-                uploadedImages.push(base64);
-                const thumb = document.createElement("div");
-                thumb.className = "preview-thumbnail";
-                thumb.innerHTML = `<img src="${base64}"><button type="button" class="btn-remove-preview">&times;</button>`;
-                previews.appendChild(thumb);
-                thumb.querySelector(".btn-remove-preview").onclick = () => {
-                    uploadedImages = uploadedImages.filter(img => img !== base64);
-                    thumb.remove();
-                };
+                try {
+                    const base64 = await toBase64(file);
+                    uploadedImages.push(base64);
+                    const thumb = document.createElement("div");
+                    thumb.className = "preview-thumbnail";
+                    thumb.innerHTML = `<img src="${base64}"><button type="button" class="btn-remove-preview">&times;</button>`;
+                    previews.appendChild(thumb);
+                    thumb.querySelector(".btn-remove-preview").onclick = () => {
+                        const index = uploadedImages.indexOf(base64);
+                        if (index > -1) uploadedImages.splice(index, 1);
+                        thumb.remove();
+                    };
+                } catch (err) {
+                    console.error("Error processing file:", err);
+                }
             }
+            fileInput.value = ""; // Clear so same file can be selected again if removed
         };
     }
 
