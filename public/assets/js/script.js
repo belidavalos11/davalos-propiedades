@@ -12,6 +12,11 @@ const searchInput = document.getElementById("search-input");
 const sortBy = document.getElementById("sort-by");
 const clearFiltersBtn = document.getElementById("clear-filters");
 
+// Pill Search Elements
+const searchPill = document.getElementById("search-pill");
+const advancedFilters = document.getElementById("advanced-filters");
+const btnToggleFilters = document.getElementById("btn-toggle-filters");
+
 // Modal Elements
 const loginModal = document.getElementById("login-modal");
 const settingsModal = document.getElementById("settings-modal");
@@ -192,6 +197,21 @@ function bindEvents() {
     if (btnAddProperty) btnAddProperty.onclick = () => openModal(propertyModal);
     if (btnLogout) btnLogout.onclick = () => { window.AuthManager.logout(); updateAuthUI(); };
     closeBtns.forEach(btn => btn.onclick = closeModal);
+
+    // Pill Search Interactivity
+    if (searchPill) {
+        searchPill.onclick = (e) => {
+            if (e.target.closest("#btn-toggle-filters")) return;
+            advancedFilters.classList.toggle("show");
+        };
+    }
+
+    if (btnToggleFilters) {
+        btnToggleFilters.onclick = (e) => {
+            e.stopPropagation();
+            advancedFilters.classList.toggle("show");
+        };
+    }
 
     if (loginForm) {
         loginForm.onsubmit = (e) => {

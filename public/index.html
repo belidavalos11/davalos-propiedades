@@ -44,49 +44,59 @@
             <div class="container hero-content">
                 <h1 class="hero-title">Encuentra el lugar <br><span class="highlight">donde quieres vivir</span></h1>
                 <p class="hero-subtitle">Propiedades exclusivas seleccionadas para tu confort y estilo de vida.</p>
-                <div class="filter-bar">
-                    <div class="filter-group filter-group-wide">
-                        <label for="search-input">Buscar</label>
-                        <input id="search-input" type="text" placeholder="Titulo o descripcion">
+
+                <div class="search-container">
+                    <div class="search-pill" id="search-pill">
+                        <span class="search-icon">🔍</span>
+                        <input id="search-input" type="text" placeholder="¿Qué estás buscando?">
+                        <button id="btn-toggle-filters" class="btn-filters" title="Filtros avanzados">
+                            <span class="icon">⚙️</span>
+                        </button>
                     </div>
-                    <div class="filter-group">
-                        <label for="filter-type">Operacion</label>
-                        <select id="filter-type">
-                            <option value="todos">Todos</option>
-                            <option value="venta">Venta</option>
-                            <option value="alquiler">Alquiler</option>
-                        </select>
+
+                    <div class="advanced-filters" id="advanced-filters">
+                        <div class="filter-bar">
+                            <div class="filter-group">
+                                <label for="filter-type">Operación</label>
+                                <select id="filter-type">
+                                    <option value="todos">Todos</option>
+                                    <option value="venta">Venta</option>
+                                    <option value="alquiler">Alquiler</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-rooms">Ambientes</label>
+                                <select id="filter-rooms">
+                                    <option value="0">Todos</option>
+                                    <option value="1">1+</option>
+                                    <option value="2">2+</option>
+                                    <option value="3">3+</option>
+                                    <option value="4">4+</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-price-min">Precio min</label>
+                                <input id="filter-price-min" type="number" min="0" step="100" placeholder="0">
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-price-max">Precio max</label>
+                                <input id="filter-price-max" type="number" min="0" step="100" placeholder="Sin tope">
+                            </div>
+                            <div class="filter-group">
+                                <label for="sort-by">Orden</label>
+                                <select id="sort-by">
+                                    <option value="recent">Más recientes</option>
+                                    <option value="price-asc">Precio menor</option>
+                                    <option value="price-desc">Precio mayor</option>
+                                    <option value="area-desc">Mayor superficie</option>
+                                </select>
+                            </div>
+                            <button id="clear-filters" class="btn btn-outline btn-small" type="button">Limpiar</button>
+                        </div>
                     </div>
-                    <div class="filter-group">
-                        <label for="filter-rooms">Ambientes</label>
-                        <select id="filter-rooms">
-                            <option value="0">Todos</option>
-                            <option value="1">1+</option>
-                            <option value="2">2+</option>
-                            <option value="3">3+</option>
-                            <option value="4">4+</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="filter-price-min">Precio min</label>
-                        <input id="filter-price-min" type="number" min="0" step="100" placeholder="0">
-                    </div>
-                    <div class="filter-group">
-                        <label for="filter-price-max">Precio max</label>
-                        <input id="filter-price-max" type="number" min="0" step="100" placeholder="Sin tope">
-                    </div>
-                    <div class="filter-group">
-                        <label for="sort-by">Orden</label>
-                        <select id="sort-by">
-                            <option value="recent">Mas recientes</option>
-                            <option value="price-asc">Precio menor</option>
-                            <option value="price-desc">Precio mayor</option>
-                            <option value="area-desc">Mayor superficie</option>
-                        </select>
-                    </div>
-                    <button id="clear-filters" class="btn btn-outline btn-small" type="button">Limpiar</button>
                 </div>
             </div>
+        </section>
         </section>
 
         <section id="propiedades" class="properties">
