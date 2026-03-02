@@ -98,6 +98,13 @@ h3,
     justify-content: flex-end;
 }
 
+.user-greeting {
+    font-weight: 600;
+    color: var(--primary);
+    margin-right: 15px;
+    font-size: 0.9rem;
+}
+
 .nav-link {
     text-decoration: none;
     color: var(--text);

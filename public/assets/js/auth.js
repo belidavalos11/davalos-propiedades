@@ -1,8 +1,8 @@
 ﻿const AuthManager = {
     _users: [
-        { username: "admin", password: "admin1234" },
-        { username: "belid", password: "davalos2026" },
-        { username: "irenegarcia", password: "ire2026" }
+        { username: "admin", password: "admin1234", displayName: "Admin" },
+        { username: "belid", password: "davalos2026", displayName: "Belid" },
+        { username: "irenegarcia", password: "ire2026", displayName: "Irene" }
     ],
 
     _sessionHours: 12,
@@ -41,6 +41,13 @@
 
     getCurrentUser() {
         return localStorage.getItem("davalos_current_user");
+    },
+
+    getDisplayName() {
+        const username = this.getCurrentUser();
+        if (!username) return null;
+        const user = this._users.find(u => u.username === username);
+        return user ? user.displayName : username;
     },
 
     login(username, password) {

@@ -58,6 +58,17 @@ function updateAuthUI() {
     if (btnSettings) btnSettings.style.display = logged ? "block" : "none";
     if (btnLogout) btnLogout.style.display = logged ? "block" : "none";
     if (btnAddProperty) btnAddProperty.style.display = logged ? "block" : "none";
+
+    const greeting = document.getElementById("user-greeting");
+    if (greeting) {
+        if (logged) {
+            const name = window.AuthManager.getDisplayName();
+            greeting.textContent = `¡Hola ${name}!`;
+            greeting.style.display = "block";
+        } else {
+            greeting.style.display = "none";
+        }
+    }
 }
 
 function openModal(modal) {

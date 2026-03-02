@@ -230,6 +230,15 @@ if (lightboxClose) lightboxClose.onclick = () => {
 
         if (!property) return showNotFound();
         renderDetails(property);
+
+        // Show greeting if logged in
+        const logged = window.AuthManager && window.AuthManager.isLoggedIn();
+        const greeting = document.getElementById("user-greeting");
+        if (greeting && logged) {
+            const name = window.AuthManager.getDisplayName();
+            greeting.textContent = `¡Hola ${name}!`;
+            greeting.style.display = "block";
+        }
     } catch (e) {
         console.error(e);
         showNotFound();
