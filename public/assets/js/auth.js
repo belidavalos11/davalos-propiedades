@@ -1,9 +1,29 @@
 ﻿const AuthManager = {
+    Roles: {
+        ADMIN: "ADMIN",
+        EDITOR: "EDITOR",
+        AGENT: "AGENT"
+    },
+
+    Permissions: {
+        UPLOAD_PROPERTY: "UPLOAD_PROPERTY",
+        EDIT_PROPERTY: "EDIT_PROPERTY",
+        DELETE_PROPERTY: "DELETE_PROPERTY",
+        ACCESS_SETTINGS: "ACCESS_SETTINGS",
+        VIEW_PRIVATE_DATA: "VIEW_PRIVATE_DATA"
+    },
+
+    _rolePermissions: {
+        ADMIN: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "ACCESS_SETTINGS", "VIEW_PRIVATE_DATA"],
+        EDITOR: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "VIEW_PRIVATE_DATA"],
+        AGENT: ["UPLOAD_PROPERTY", "VIEW_PRIVATE_DATA"]
+    },
+
     _users: [
-        { username: "admin", password: "admin1234", displayName: "Admin" },
-        { username: "belidavalos", password: "beli2026", displayName: "Beli" },
-        { username: "irenegarcia", password: "ire2026", displayName: "Ire" },
-        { username: "flopypfister", password: "flopy2026", displayName: "Flopy" },
+        { username: "admin", password: "admin1234", displayName: "Admin", role: "ADMIN" },
+        { username: "belidavalos", password: "beli2026", displayName: "Beli", role: "ADMIN" },
+        { username: "irenegarcia", password: "ire2026", displayName: "Ire", role: "EDITOR" },
+        { username: "flopypfister", password: "flopy2026", displayName: "Flopy", role: "EDITOR" },
     ],
 
     _sessionHours: 12,
@@ -45,10 +65,27 @@
     },
 
     getDisplayName() {
+        const user = this.getUserData();
+        return user ? user.displayName : this.getCurrentUser();
+    },
+
+    getUserData() {
         const username = this.getCurrentUser();
         if (!username) return null;
-        const user = this._users.find(u => u.username === username);
-        return user ? user.displayName : username;
+        return this._users.find(u => u.username === username);
+    },
+
+    getUserRole() {
+        const user = this.getUserData();
+        return user ? user.role : null;
+    },
+
+    hasPermission(permission) {
+        if (!this.isLoggedIn()) return false;
+        const role = this.getUserRole();
+        if (!role) return false;
+        const perms = this._rolePermissions[role] || [];
+        return perms.includes(permission);
     },
 
     login(username, password) {

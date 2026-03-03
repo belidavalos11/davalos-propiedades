@@ -130,7 +130,7 @@ function renderDetails(prop) {
                     </div>
                 </div>
 
-                ${logged ? `
+                ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
                 <div class="agent-box admin-only">
                     <div class="agent-info">
                         <strong>Encargado:</strong>

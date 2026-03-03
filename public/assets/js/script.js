@@ -53,11 +53,19 @@ function safeImageUrl(value) {
 
 // Logic - Auth UI
 function updateAuthUI() {
-    const logged = window.AuthManager && window.AuthManager.isLoggedIn();
+    const manager = window.AuthManager;
+    const logged = manager && manager.isLoggedIn();
+
     if (btnLogin) btnLogin.style.display = logged ? "none" : "block";
-    if (btnSettings) btnSettings.style.display = logged ? "block" : "none";
     if (btnLogout) btnLogout.style.display = logged ? "block" : "none";
-    if (btnAddProperty) btnAddProperty.style.display = logged ? "block" : "none";
+
+    if (btnSettings) {
+        btnSettings.style.display = (logged && manager.hasPermission(manager.Permissions.ACCESS_SETTINGS)) ? "block" : "none";
+    }
+
+    if (btnAddProperty) {
+        btnAddProperty.style.display = (logged && manager.hasPermission(manager.Permissions.UPLOAD_PROPERTY)) ? "block" : "none";
+    }
 
     const greeting = document.getElementById("user-greeting");
     if (greeting) {
