@@ -76,7 +76,8 @@
     getUserData() {
         const username = this.getCurrentUser();
         if (!username) return null;
-        return this._users.find(u => u.username === username);
+        const users = this.getAllUsers();
+        return users.find(u => u.username === username);
     },
 
     getUserRole() {
@@ -94,7 +95,8 @@
 
     login(username, password) {
         const normalized = this._normalizeUsername(username);
-        const user = this._users.find((u) => u.username === normalized);
+        const users = this.getAllUsers();
+        const user = users.find((u) => u.username === normalized);
         if (!user) return false;
 
         const storedPassword = this._overrides[normalized] || user.password;
@@ -135,9 +137,44 @@
     resetToDefaults() {
         localStorage.removeItem("davalos_user_overrides");
         localStorage.removeItem("davalos_properties");
+        localStorage.removeItem("davalos_extra_users");
         this._overrides = {};
         this.logout();
         console.log("Sistema reseteado a los valores por defecto.");
+    },
+
+    getAllUsers() {
+        const extras = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
+        return [...this._users, ...extras];
+    },
+
+    addUser(userData) {
+        if (!this.hasPermission(this.Permissions.MANAGE_USERS)) return false;
+        const extras = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
+
+        // Prevent duplicates
+        const all = this.getAllUsers();
+        if (all.some(u => u.username === this._normalizeUsername(userData.username))) return false;
+
+        extras.push({
+            ...userData,
+            username: this._normalizeUsername(userData.username)
+        });
+        localStorage.setItem("davalos_extra_users", JSON.stringify(extras));
+        return true;
+    },
+
+    removeUser(username) {
+        if (!this.hasPermission(this.Permissions.MANAGE_USERS)) return false;
+        const normalized = this._normalizeUsername(username);
+
+        // Cannot remove core users for safety (simulated)
+        if (this._users.some(u => u.username === normalized)) return false;
+
+        let extras = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
+        extras = extras.filter(u => u.username !== normalized);
+        localStorage.setItem("davalos_extra_users", JSON.stringify(extras));
+        return true;
     }
 };
 

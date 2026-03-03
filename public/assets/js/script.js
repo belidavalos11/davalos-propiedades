@@ -350,15 +350,29 @@ function bindEvents() {
 function toBase64(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-    });
-}
+
+        if (manager.addUser(userData)) {
+            e.target.reset();
+            renderUserList();
+            alert("Usuario creado con éxito.");
+        } else {
+            alert("Error: El usuario ya existe o no tienes permisos.");
+        }
+    }
+
+function handleRemoveUser(username) {
+            if (!confirm(`¿Estás seguro de que deseas eliminar al usuario ${username}?`)) return;
+            if (window.AuthManager.removeUser(username)) {
+                renderUserList();
+            } else {
+                alert("No se pudo eliminar al usuario.");
+            }
+        }
 
 function init() {
-    updateAuthUI();
-    bindEvents();
-    loadProperties();
-}
+            updateAuthUI();
+            bindEvents();
+            loadProperties();
+        }
 
 init();
