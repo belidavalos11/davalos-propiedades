@@ -855,6 +855,12 @@ h3,
     margin-top: 80px;
 }
 
+.preview-thumbnail.dragging {
+    opacity: 0.5;
+    border: 2px dashed var(--primary);
+    transform: scale(0.95);
+}
+
 .loader {
     grid-column: 1 / -1;
     text-align: center;

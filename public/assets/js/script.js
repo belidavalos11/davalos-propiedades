@@ -246,11 +246,39 @@ function renderThumbnails() {
     uploadedImages.forEach((img, index) => {
         const thumb = document.createElement("div");
         thumb.className = "preview-thumbnail";
+        thumb.draggable = true;
+        thumb.dataset.index = index;
+
         thumb.innerHTML = `
             <img src="${img}">
             <button type="button" class="btn-set-cover" onclick="setAsCover(${index})" title="Poner como portada">✨</button>
             <button type="button" class="btn-remove-preview" onclick="removeThumbnail(${index})">&times;</button>
         `;
+
+        // Drag Events
+        thumb.ondragstart = (e) => {
+            e.dataTransfer.setData("text/plain", index);
+            thumb.classList.add("dragging");
+        };
+
+        thumb.ondragend = () => {
+            thumb.classList.remove("dragging");
+        };
+
+        thumb.ondragover = (e) => e.preventDefault();
+
+        thumb.ondrop = (e) => {
+            e.preventDefault();
+            const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
+            const toIndex = index;
+
+            if (fromIndex !== toIndex) {
+                const movedItem = uploadedImages.splice(fromIndex, 1)[0];
+                uploadedImages.splice(toIndex, 0, movedItem);
+                renderThumbnails();
+            }
+        };
+
         previews.appendChild(thumb);
     });
 }
