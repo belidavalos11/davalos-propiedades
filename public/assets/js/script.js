@@ -178,12 +178,25 @@ function renderProperties(filtered) {
     }
 
     filtered.forEach(prop => {
+        const manager = window.AuthManager;
+        const canManage = manager && manager.hasPermission(manager.Permissions.DELETE_PUBLICATION);
+
         const card = document.createElement("article");
         card.className = "property-card";
         card.innerHTML = `
             <div class="property-image">
                 <img loading="lazy" src="${prop.images[0]}" alt="${escapeHtml(prop.title)}">
                 <span class="badge badge-${prop.category}">${prop.category}</span>
+                ${canManage ? `
+                <button class="property-settings-btn" title="Opciones" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">
+                    ⚙️
+                </button>
+                <div class="property-settings-menu" onclick="event.stopPropagation()">
+                    <button class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
+                        Eliminar publicación
+                    </button>
+                </div>
+                ` : ""}
             </div>
             <div class="property-info">
                 <div class="property-price">USD ${prop.price.toLocaleString("es-AR")}</div>
@@ -198,6 +211,24 @@ function renderProperties(filtered) {
         card.onclick = () => window.location.href = `details.html?id=${prop.id}`;
         grid.appendChild(card);
     });
+}
+
+function deleteProperty(id) {
+    if (!confirm("¿Estás seguro de que deseas eliminar esta publicación permanentemente?")) return;
+
+    // Check if it's a local property
+    localProperties = JSON.parse(localStorage.getItem("davalos_properties") || "[]");
+    const initialCount = localProperties.length;
+    localProperties = localProperties.filter(p => p.id !== id);
+
+    if (localProperties.length < initialCount) {
+        localStorage.setItem("davalos_properties", JSON.stringify(localProperties));
+        alert("Publicación descargada localmente eliminada con éxito.");
+    } else {
+        alert("Nota: Las publicaciones del catálogo base no se pueden borrar físicamente desde el navegador, pero se simulará su remoción en esta sesión.");
+    }
+
+    loadProperties();
 }
 
 // Event Bindings

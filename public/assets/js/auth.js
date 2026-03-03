@@ -1,5 +1,6 @@
 ﻿const AuthManager = {
     Roles: {
+        SUPER_ADMIN: "SUPER_ADMIN",
         ADMIN: "ADMIN",
         EDITOR: "EDITOR",
         AGENT: "AGENT"
@@ -9,21 +10,24 @@
         UPLOAD_PROPERTY: "UPLOAD_PROPERTY",
         EDIT_PROPERTY: "EDIT_PROPERTY",
         DELETE_PROPERTY: "DELETE_PROPERTY",
+        DELETE_PUBLICATION: "DELETE_PUBLICATION",
         ACCESS_SETTINGS: "ACCESS_SETTINGS",
-        VIEW_PRIVATE_DATA: "VIEW_PRIVATE_DATA"
+        VIEW_PRIVATE_DATA: "VIEW_PRIVATE_DATA",
+        MANAGE_USERS: "MANAGE_USERS"
     },
 
     _rolePermissions: {
+        SUPER_ADMIN: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "DELETE_PUBLICATION", "ACCESS_SETTINGS", "VIEW_PRIVATE_DATA", "MANAGE_USERS"],
         ADMIN: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "ACCESS_SETTINGS", "VIEW_PRIVATE_DATA"],
         EDITOR: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "VIEW_PRIVATE_DATA"],
         AGENT: ["UPLOAD_PROPERTY", "VIEW_PRIVATE_DATA"]
     },
 
     _users: [
-        { username: "admin", password: "admin1234", displayName: "Admin", role: "ADMIN" },
-        { username: "belidavalos", password: "beli2026", displayName: "Beli", role: "ADMIN" },
-        { username: "irenegarcia", password: "ire2026", displayName: "Ire", role: "EDITOR" },
-        { username: "flopypfister", password: "flopy2026", displayName: "Flopy", role: "EDITOR" },
+        { username: "admin", password: "admin1234", displayName: "Admin", role: "SUPER_ADMIN" },
+        { username: "belidavalos", password: "beli2026", displayName: "Beli", role: "SUPER_ADMIN" },
+        { username: "irenegarcia", password: "ire2026", displayName: "Ire", role: "SUPER_ADMIN" },
+        { username: "flopypfister", password: "flopy2026", displayName: "Flopy", role: "SUPER_ADMIN" },
     ],
 
     _sessionHours: 12,
