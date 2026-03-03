@@ -350,29 +350,66 @@ function bindEvents() {
 function toBase64(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+    });
+}
 
-        if (manager.addUser(userData)) {
-            e.target.reset();
-            renderUserList();
-            alert("Usuario creado con éxito.");
-        } else {
-            alert("Error: El usuario ya existe o no tienes permisos.");
-        }
+// User Management Helpers
+function renderUserList() {
+    const container = document.getElementById("user-list");
+    if (!container) return;
+
+    const manager = window.AuthManager;
+    const users = manager.getAllUsers();
+
+    container.innerHTML = users.map(u => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
+            <div>
+                <strong>${escapeHtml(u.displayName)}</strong> (${u.username})<br>
+                <small style="color: #666;">${u.role}</small>
+            </div>
+            ${!manager._users.some(core => core.username === u.username) ? `
+                <button class="btn btn-outline btn-small" style="color: #e74c3c; border-color: #e74c3c;" onclick="handleRemoveUser('${u.username}')">Eliminar</button>
+            ` : ""}
+        </div>
+    `).join("");
+}
+
+function handleAddUser(e) {
+    e.preventDefault();
+    const manager = window.AuthManager;
+    const userData = {
+        username: document.getElementById("new-username").value,
+        displayName: document.getElementById("new-displayname").value,
+        password: document.getElementById("new-password").value,
+        role: document.getElementById("new-role").value
+    };
+
+    if (manager.addUser(userData)) {
+        e.target.reset();
+        renderUserList();
+        alert("Usuario creado con éxito.");
+    } else {
+        alert("Error: El usuario ya existe o no tienes permisos.");
     }
+}
 
 function handleRemoveUser(username) {
-            if (!confirm(`¿Estás seguro de que deseas eliminar al usuario ${username}?`)) return;
-            if (window.AuthManager.removeUser(username)) {
-                renderUserList();
-            } else {
-                alert("No se pudo eliminar al usuario.");
-            }
-        }
+    if (!confirm(`¿Estás seguro de que deseas eliminar al usuario ${username}?`)) return;
+    if (window.AuthManager.removeUser(username)) {
+        renderUserList();
+    } else {
+        alert("No se pudo eliminar al usuario.");
+    }
+}
 
 function init() {
-            updateAuthUI();
-            bindEvents();
-            loadProperties();
-        }
+    loadProperties();
+    updateAuthUI();
+    bindEvents();
+
+    document.getElementById("add-user-form")?.addEventListener("submit", handleAddUser);
+}
 
 init();
