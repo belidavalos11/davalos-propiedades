@@ -781,6 +781,7 @@ h3,
     border-radius: 8px;
     overflow: hidden;
     border: 2px solid #eee;
+    transition: var(--transition);
 }
 
 .preview-thumbnail img {
@@ -789,21 +790,61 @@ h3,
     object-fit: cover;
 }
 
-.btn-remove-preview {
+.preview-thumbnail:hover {
+    border-color: var(--primary);
+}
+
+.preview-thumbnail:first-child {
+    border-color: var(--secondary);
+    border-width: 3px;
+}
+
+.preview-thumbnail:first-child::after {
+    content: "Portada";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--secondary);
+    color: white;
+    font-size: 0.65rem;
+    text-align: center;
+    padding: 2px 0;
+    font-weight: 700;
+}
+
+.btn-remove-preview,
+.btn-set-cover {
     position: absolute;
     top: 2px;
-    right: 2px;
-    background: rgba(255, 71, 87, 0.9);
-    color: white;
+    cursor: pointer;
     border: none;
     border-radius: 50%;
     width: 18px;
     height: 18px;
-    font-size: 12px;
-    cursor: pointer;
+    font-size: 11px;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: var(--transition);
+    z-index: 5;
+}
+
+.btn-remove-preview {
+    right: 2px;
+    background: rgba(255, 71, 87, 0.9);
+    color: white;
+}
+
+.btn-set-cover {
+    left: 2px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text);
+}
+
+.btn-set-cover:hover {
+    background: var(--white);
+    transform: scale(1.1);
 }
 
 .footer {

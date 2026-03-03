@@ -32,6 +32,7 @@ const closeBtns = document.querySelectorAll(".close-modal");
 // State
 let properties = [];
 let localProperties = [];
+let currentEditingId = null;
 
 // Utility
 function escapeHtml(value) {
@@ -192,6 +193,9 @@ function renderProperties(filtered) {
                     ⚙️
                 </button>
                 <div class="property-settings-menu" onclick="event.stopPropagation()">
+                    <button class="property-settings-item" onclick="openEditModal(${prop.id})">
+                        Editar publicación
+                    </button>
                     <button class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
                         Eliminar publicación
                     </button>
@@ -216,39 +220,121 @@ function renderProperties(filtered) {
 function deleteProperty(id) {
     if (!confirm("¿Estás seguro de que deseas eliminar esta publicación permanentemente?")) return;
 
-    // Check if it's a local property
     localProperties = JSON.parse(localStorage.getItem("davalos_properties") || "[]");
     const initialCount = localProperties.length;
     localProperties = localProperties.filter(p => p.id !== id);
 
     if (localProperties.length < initialCount) {
         localStorage.setItem("davalos_properties", JSON.stringify(localProperties));
-        alert("Publicación descargada localmente eliminada con éxito.");
+        alert("Publicación eliminada con éxito.");
     } else {
-        alert("Nota: Las publicaciones del catálogo base no se pueden borrar físicamente desde el navegador, pero se simulará su remoción en esta sesión.");
+        alert("Nota: Las publicaciones del catálogo base no se pueden borrar físicamente, pero se simulará su remoción.");
     }
 
     loadProperties();
+}
+
+// Global Image State
+let uploadedImages = [];
+
+// Helper - Render image previews with reordering
+function renderThumbnails() {
+    const previews = document.getElementById("image-previews");
+    if (!previews) return;
+    previews.innerHTML = "";
+
+    uploadedImages.forEach((img, index) => {
+        const thumb = document.createElement("div");
+        thumb.className = "preview-thumbnail";
+        thumb.innerHTML = `
+            <img src="${img}">
+            <button type="button" class="btn-set-cover" onclick="setAsCover(${index})" title="Poner como portada">✨</button>
+            <button type="button" class="btn-remove-preview" onclick="removeThumbnail(${index})">&times;</button>
+        `;
+        previews.appendChild(thumb);
+    });
+}
+
+function removeThumbnail(index) {
+    uploadedImages.splice(index, 1);
+    renderThumbnails();
+}
+
+function setAsCover(index) {
+    if (index === 0) return;
+    const img = uploadedImages.splice(index, 1)[0];
+    uploadedImages.unshift(img);
+    renderThumbnails();
+}
+
+function openEditModal(id) {
+    const prop = properties.find(p => p.id === id);
+    if (!prop) return;
+
+    currentEditingId = id;
+
+    // Fill fields
+    document.getElementById("prop-title").value = prop.title;
+    document.getElementById("prop-desc").value = prop.description || "";
+    document.getElementById("prop-price").value = prop.price;
+    document.getElementById("prop-category").value = prop.category;
+    document.getElementById("prop-rooms").value = prop.rooms;
+    document.getElementById("prop-area").value = prop.area;
+    document.getElementById("prop-owner").value = prop.owner || "";
+    document.getElementById("prop-agent").value = prop.agent || "";
+
+    // Images
+    uploadedImages = [...prop.images];
+    renderThumbnails();
+
+    // Custom Features
+    const container = document.getElementById("custom-features-container");
+    container.innerHTML = "";
+    if (prop.customFeatures) {
+        prop.customFeatures.forEach(feat => {
+            const div = document.createElement("div");
+            div.className = "feature-input-group";
+            div.innerHTML = `<input type="text" value="${escapeHtml(feat)}"><button type="button" class="btn-remove-feature">&times;</button>`;
+            container.appendChild(div);
+            div.querySelector(".btn-remove-feature").onclick = () => div.remove();
+        });
+    }
+
+    // Change modal title
+    const modalHeader = propertyModal.querySelector(".modal-header h2");
+    if (modalHeader) modalHeader.textContent = "Editar propiedad";
+
+    openModal(propertyModal);
 }
 
 // Event Bindings
 function bindEvents() {
     [filterType, filterRooms, sortBy].forEach(el => el.addEventListener("change", applyFilters));
     [filterPriceMin, filterPriceMax, searchInput].forEach(el => el.addEventListener("input", applyFilters));
+
     if (clearFiltersBtn) clearFiltersBtn.onclick = () => {
         filterType.value = "todos"; filterRooms.value = "0";
         filterPriceMin.value = ""; filterPriceMax.value = "";
         searchInput.value = ""; applyFilters();
     };
 
-    // Auth events
     if (btnLogin) btnLogin.onclick = () => openModal(loginModal);
     if (btnSettings) btnSettings.onclick = () => openModal(settingsModal);
-    if (btnAddProperty) btnAddProperty.onclick = () => openModal(propertyModal);
+    if (btnAddProperty) {
+        btnAddProperty.onclick = () => {
+            currentEditingId = null;
+            propertyForm.reset();
+            document.getElementById("custom-features-container").innerHTML = "";
+            document.getElementById("image-previews").innerHTML = "";
+            uploadedImages = [];
+            const modalHeader = propertyModal.querySelector(".modal-header h2");
+            if (modalHeader) modalHeader.textContent = "Cargar nueva propiedad";
+            openModal(propertyModal);
+        };
+    }
     if (btnLogout) btnLogout.onclick = () => { window.AuthManager.logout(); updateAuthUI(); };
     closeBtns.forEach(btn => btn.onclick = closeModal);
 
-    // Pill Search Interactivity
     if (searchPill) {
         searchPill.onclick = (e) => {
             if (e.target.closest("#btn-toggle-filters")) return;
@@ -272,25 +358,21 @@ function bindEvents() {
         };
     }
 
-    // Property Upload Logic
+    // Dynamic Features logic
     const btnAddFeature = document.getElementById("btn-add-feature");
-    const featuresContainer = document.getElementById("custom-features-container");
-
+    const container = document.getElementById("custom-features-container");
     if (btnAddFeature) {
         btnAddFeature.onclick = () => {
             const div = document.createElement("div");
             div.className = "feature-input-group";
             div.innerHTML = `<input type="text" placeholder="Ej: Piscina climatizada"><button type="button" class="btn-remove-feature">&times;</button>`;
-            featuresContainer.appendChild(div);
+            container.appendChild(div);
             div.querySelector(".btn-remove-feature").onclick = () => div.remove();
         };
     }
 
-    // Local Image Support
+    // Image Upload Handling
     const fileInput = document.getElementById("prop-images-file");
-    const previews = document.getElementById("image-previews");
-    let uploadedImages = [];
-
     if (fileInput) {
         fileInput.onchange = async (e) => {
             const files = Array.from(e.target.files);
@@ -298,31 +380,25 @@ function bindEvents() {
                 try {
                     const base64 = await toBase64(file);
                     uploadedImages.push(base64);
-                    const thumb = document.createElement("div");
-                    thumb.className = "preview-thumbnail";
-                    thumb.innerHTML = `<img src="${base64}"><button type="button" class="btn-remove-preview">&times;</button>`;
-                    previews.appendChild(thumb);
-                    thumb.querySelector(".btn-remove-preview").onclick = () => {
-                        const index = uploadedImages.indexOf(base64);
-                        if (index > -1) uploadedImages.splice(index, 1);
-                        thumb.remove();
-                    };
+                    renderThumbnails();
                 } catch (err) {
                     console.error("Error processing file:", err);
                 }
             }
-            fileInput.value = ""; // Clear so same file can be selected again if removed
+            fileInput.value = "";
         };
     }
 
+    // Form Submission (Create or Edit)
     if (propertyForm) {
         propertyForm.onsubmit = (e) => {
             e.preventDefault();
-            const customFeatures = Array.from(featuresContainer.querySelectorAll("input")).map(i => i.value).filter(Boolean);
-            const urlImages = document.getElementById("prop-images").value.split(",").map(i => i.trim()).filter(Boolean);
+            const customFeatures = Array.from(container.querySelectorAll("input")).map(i => i.value).filter(Boolean);
+            const urlImagesInput = document.getElementById("prop-images");
+            const urlImages = urlImagesInput ? urlImagesInput.value.split(",").map(i => i.trim()).filter(Boolean) : [];
 
-            const newProp = {
-                id: Date.now(),
+            const propertyData = {
+                id: currentEditingId || Date.now(),
                 title: document.getElementById("prop-title").value,
                 description: document.getElementById("prop-desc").value,
                 price: Number(document.getElementById("prop-price").value),
@@ -331,18 +407,30 @@ function bindEvents() {
                 area: document.getElementById("prop-area").value,
                 owner: document.getElementById("prop-owner").value,
                 agent: document.getElementById("prop-agent").value,
-                createdAt: new Date().toISOString(),
+                createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
                 images: [...uploadedImages, ...urlImages],
                 customFeatures
             };
 
-            localProperties.unshift(newProp);
+            localProperties = JSON.parse(localStorage.getItem("davalos_properties") || "[]");
+
+            if (currentEditingId) {
+                const index = localProperties.findIndex(p => p.id === currentEditingId);
+                if (index > -1) {
+                    localProperties[index] = propertyData;
+                } else {
+                    // It was a base property, we "save" it locally as an override
+                    localProperties.unshift(propertyData);
+                }
+            } else {
+                localProperties.unshift(propertyData);
+            }
+
             localStorage.setItem("davalos_properties", JSON.stringify(localProperties));
             closeModal();
             loadProperties();
-            propertyForm.reset();
-            previews.innerHTML = "";
-            uploadedImages = [];
+            alert(currentEditingId ? "Propiedad actualizada con éxito" : "Propiedad publicada con éxito");
+            currentEditingId = null;
         };
     }
 }
