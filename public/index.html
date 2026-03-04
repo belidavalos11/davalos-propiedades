@@ -171,22 +171,34 @@
 
                 <h4 style="margin-bottom: 10px; font-size: 0.9rem;">Crear nuevo usuario</h4>
                 <form id="add-user-form">
-                    <div class="form-group">
-                        <input type="text" id="new-username" placeholder="Nombre de usuario (ej: jose)" required>
+                    <div class="form-row"
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="new-firstname" placeholder="Nombre (ej: Juan)" required
+                            style="padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                        <input type="text" id="new-lastname" placeholder="Apellido (ej: Pérez)" required
+                            style="padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
                     </div>
                     <div class="form-group">
-                        <input type="text" id="new-displayname" placeholder="Nombre visible (ej: José)" required>
+                        <input type="text" id="new-displayname" placeholder="Nombre visible (para la web, ej: Juan P.)"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="new-username" placeholder="Usuario para iniciar sesión (ej: juanp)"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <input type="tel" id="new-phone" placeholder="Teléfono (ej: 11 1234 5678)" required>
                     </div>
                     <div class="form-group">
                         <input type="password" id="new-password" placeholder="Contraseña inicial" required>
                     </div>
                     <div class="form-group">
-                        <label for="new-role" style="font-size: 0.8rem; margin-bottom: 5px; display: block;">Tipo de
-                            permiso</label>
+                        <label for="new-role" style="font-size: 0.8rem; margin-bottom: 5px; display: block;">Categoría
+                            de usuario</label>
                         <select id="new-role" required>
                             <option value="SUPER_ADMIN">Super Admin (Control total)</option>
-                            <option value="ADMIN">Usuario (Admin normal)</option>
-                            <option value="EDITOR">Editor (Sólo carga propiedades)</option>
+                            <option value="ADMIN">Admin (Gestión de propiedades)</option>
+                            <option value="EDITOR">User (Carga de fotos y datos)</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary btn-full">Crear Usuario</button>

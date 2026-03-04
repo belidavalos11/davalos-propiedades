@@ -528,6 +528,9 @@ function handleAddUser(e) {
     const userData = {
         username: document.getElementById("new-username").value,
         displayName: document.getElementById("new-displayname").value,
+        firstName: document.getElementById("new-firstname").value,
+        lastName: document.getElementById("new-lastname").value,
+        phone: document.getElementById("new-phone").value,
         password: document.getElementById("new-password").value,
         role: document.getElementById("new-role").value
     };
