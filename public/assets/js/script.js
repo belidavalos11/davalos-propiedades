@@ -61,7 +61,14 @@ function updateAuthUI() {
     if (btnLogout) btnLogout.style.display = logged ? "block" : "none";
 
     if (btnSettings) {
-        btnSettings.style.display = (logged && manager.hasPermission(manager.Permissions.ACCESS_SETTINGS)) ? "block" : "none";
+        const hasAccess = logged && manager.hasPermission(manager.Permissions.ACCESS_SETTINGS);
+        btnSettings.style.display = hasAccess ? "block" : "none";
+
+        // Also handle the user mgmt toggle button inside settings
+        const btnToggleUserMgmt = document.getElementById("btn-toggle-user-mgmt");
+        if (btnToggleUserMgmt) {
+            btnToggleUserMgmt.style.display = (logged && manager.hasPermission(manager.Permissions.MANAGE_USERS)) ? "block" : "none";
+        }
     }
 
     if (btnAddProperty) {
@@ -347,7 +354,30 @@ function bindEvents() {
     };
 
     if (btnLogin) btnLogin.onclick = () => openModal(loginModal);
-    if (btnSettings) btnSettings.onclick = () => openModal(settingsModal);
+    if (btnSettings) btnSettings.onclick = () => {
+        // Reset modal state
+        document.getElementById("change-password-form").style.display = "none";
+        document.getElementById("user-management-section").style.display = "none";
+        openModal(settingsModal);
+    };
+
+    const btnToggleUserMgmt = document.getElementById("btn-toggle-user-mgmt");
+    if (btnToggleUserMgmt) {
+        btnToggleUserMgmt.onclick = () => {
+            const section = document.getElementById("user-management-section");
+            const isVisible = section.style.display === "block";
+            section.style.display = isVisible ? "none" : "block";
+            if (!isVisible) renderUserList();
+        };
+    }
+
+    const btnChangePassword = document.getElementById("btn-change-password");
+    if (btnChangePassword) {
+        btnChangePassword.onclick = () => {
+            const form = document.getElementById("change-password-form");
+            form.style.display = form.style.display === "block" ? "none" : "block";
+        };
+    }
     if (btnAddProperty) {
         btnAddProperty.onclick = () => {
             currentEditingId = null;

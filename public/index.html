@@ -146,6 +146,8 @@
             </div>
             <div class="settings-actions">
                 <button id="btn-change-password" class="btn btn-outline btn-full">Cambiar contraseña</button>
+                <button id="btn-toggle-user-mgmt" class="btn btn-outline btn-full"
+                    style="display: none; margin-top: 10px;">Gestión de Usuarios</button>
             </div>
 
             <div id="change-password-form"
@@ -167,22 +169,24 @@
                     <!-- Users will be listed here -->
                 </div>
 
-                <h4 style="margin-bottom: 10px; font-size: 0.9rem;">Agregar nuevo usuario</h4>
+                <h4 style="margin-bottom: 10px; font-size: 0.9rem;">Crear nuevo usuario</h4>
                 <form id="add-user-form">
                     <div class="form-group">
-                        <input type="text" id="new-username" placeholder="Usuario" required>
+                        <input type="text" id="new-username" placeholder="Nombre de usuario (ej: jose)" required>
                     </div>
                     <div class="form-group">
-                        <input type="text" id="new-displayname" placeholder="Nombre para mostrar (ej: Beli)" required>
+                        <input type="text" id="new-displayname" placeholder="Nombre visible (ej: José)" required>
                     </div>
                     <div class="form-group">
-                        <input type="password" id="new-password" placeholder="Contraseña" required>
+                        <input type="password" id="new-password" placeholder="Contraseña inicial" required>
                     </div>
                     <div class="form-group">
+                        <label for="new-role" style="font-size: 0.8rem; margin-bottom: 5px; display: block;">Tipo de
+                            permiso</label>
                         <select id="new-role" required>
-                            <option value="SUPER_ADMIN">Super Admin</option>
-                            <option value="ADMIN">Admin</option>
-                            <option value="EDITOR">Editor</option>
+                            <option value="SUPER_ADMIN">Super Admin (Control total)</option>
+                            <option value="ADMIN">Usuario (Admin normal)</option>
+                            <option value="EDITOR">Editor (Sólo carga propiedades)</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary btn-full">Crear Usuario</button>
