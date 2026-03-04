@@ -855,6 +855,14 @@ h3,
     margin-top: 80px;
 }
 
+#user-list-details[open] .arrow {
+    transform: rotate(180deg);
+}
+
+#user-list-details summary::-webkit-details-marker {
+    display: none;
+}
+
 .preview-thumbnail.dragging {
     opacity: 0.5;
     border: 2px dashed var(--primary);

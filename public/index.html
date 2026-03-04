@@ -165,9 +165,18 @@
             <div id="user-management-section"
                 style="display: none; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
                 <h3 style="margin-bottom: 15px;">Gestión de Usuarios</h3>
-                <div id="user-list" style="margin-bottom: 20px;">
-                    <!-- Users will be listed here -->
-                </div>
+
+                <details id="user-list-details"
+                    style="margin-bottom: 20px; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+                    <summary
+                        style="padding: 12px 15px; background: #f9f9f9; cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Usuarios actuales</span>
+                        <span class="arrow" style="font-size: 0.8rem;">▼</span>
+                    </summary>
+                    <div id="user-list" style="padding: 10px;">
+                        <!-- Users will be listed here -->
+                    </div>
+                </details>
 
                 <h4 style="margin-bottom: 10px; font-size: 0.9rem;">Crear nuevo usuario</h4>
                 <form id="add-user-form">
