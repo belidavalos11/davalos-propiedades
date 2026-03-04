@@ -340,6 +340,7 @@ function openEditModal(id) {
     populateAgentDropdown();
 
     // Fill fields
+    document.getElementById("prop-title").value = prop.title || "";
     document.getElementById("prop-category").value = prop.category || "venta";
     document.getElementById("prop-type").value = prop.type || "casa";
     document.getElementById("prop-desc").value = prop.description || "";
@@ -509,7 +510,7 @@ function bindEvents() {
 
             const propertyData = {
                 id: currentEditingId || Date.now(),
-                title: `${type.charAt(0).toUpperCase() + type.slice(1)} en ${category}`, // Auto title for now
+                title: document.getElementById("prop-title").value,
                 description: document.getElementById("prop-desc").value,
                 price: price,
                 currency: currency,
