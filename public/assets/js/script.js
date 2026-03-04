@@ -210,7 +210,7 @@ function renderProperties(filtered) {
                 ` : ""}
             </div>
             <div class="property-info">
-                <div class="property-price">USD ${prop.price.toLocaleString("es-AR")}</div>
+                <div class="property-price">${(prop.currency === "ARS" ? "AR$" : "U$D")} ${prop.price.toLocaleString("es-AR")}</div>
                 <h3 class="property-title">${escapeHtml(prop.title)}</h3>
                 <p class="property-description">${escapeHtml(prop.description || "").substring(0, 80)}...</p>
                 <div class="property-features">
@@ -302,27 +302,67 @@ function setAsCover(index) {
     renderThumbnails();
 }
 
+function populateAgentDropdown() {
+    const agentSelect = document.getElementById("prop-agent");
+    if (!agentSelect) return;
+
+    // Save current selection to restore it if possible
+    const currentVal = agentSelect.value;
+
+    const users = window.AuthManager.getAllUsers() || [];
+    agentSelect.innerHTML = '<option value="">Seleccionar agente...</option>';
+
+    users.forEach(user => {
+        const opt = document.createElement("option");
+        opt.value = user.displayName || user.username;
+        opt.textContent = user.displayName || user.username;
+        agentSelect.appendChild(opt);
+    });
+
+    if (currentVal) agentSelect.value = currentVal;
+}
+
+function updateCreditVisibility() {
+    const category = document.getElementById("prop-category").value;
+    const creditWrapper = document.getElementById("credit-option-wrapper");
+    if (creditWrapper) {
+        creditWrapper.style.display = (category === "venta") ? "flex" : "none";
+    }
+}
+
 function openEditModal(id) {
     const prop = properties.find(p => p.id === id);
     if (!prop) return;
 
     currentEditingId = id;
 
+    // Repopulate agents just in case
+    populateAgentDropdown();
+
     // Fill fields
-    document.getElementById("prop-title").value = prop.title;
+    document.getElementById("prop-category").value = prop.category || "venta";
+    document.getElementById("prop-type").value = prop.type || "casa";
     document.getElementById("prop-desc").value = prop.description || "";
-    document.getElementById("prop-price").value = prop.price;
-    document.getElementById("prop-category").value = prop.category;
-    document.getElementById("prop-rooms").value = prop.rooms;
-    document.getElementById("prop-area").value = prop.area;
-    document.getElementById("prop-owner").value = prop.owner || "";
+    document.getElementById("prop-price").value = prop.price || 0;
+    document.getElementById("prop-currency").value = prop.currency || "USD";
+
+    // Owner data
+    document.getElementById("prop-owner-name").value = prop.ownerName || "";
+    document.getElementById("prop-owner-phone").value = prop.ownerPhone || "";
+    document.getElementById("prop-owner-address").value = prop.ownerAddress || "";
+
     document.getElementById("prop-agent").value = prop.agent || "";
+    document.getElementById("prop-credit").checked = !!prop.creditEligible;
+    document.getElementById("prop-map-link").value = prop.mapLink || "";
+
+    // Sync visibility
+    updateCreditVisibility();
 
     // Images
     uploadedImages = [...prop.images];
     renderThumbnails();
 
-    // Custom Features
+    // Custom Features (Details)
     const container = document.getElementById("custom-features-container");
     container.innerHTML = "";
     if (prop.customFeatures) {
@@ -382,6 +422,8 @@ function bindEvents() {
         btnAddProperty.onclick = () => {
             currentEditingId = null;
             propertyForm.reset();
+            populateAgentDropdown();
+            updateCreditVisibility();
             document.getElementById("custom-features-container").innerHTML = "";
             document.getElementById("image-previews").innerHTML = "";
             uploadedImages = [];
@@ -423,10 +465,16 @@ function bindEvents() {
         btnAddFeature.onclick = () => {
             const div = document.createElement("div");
             div.className = "feature-input-group";
-            div.innerHTML = `<input type="text" placeholder="Ej: Piscina climatizada"><button type="button" class="btn-remove-feature">&times;</button>`;
+            div.innerHTML = `<input type="text" placeholder="Ej: Piscina"><button type="button" class="btn-remove-feature">&times;</button>`;
             container.appendChild(div);
             div.querySelector(".btn-remove-feature").onclick = () => div.remove();
         };
+    }
+
+    // Category change logic for Apto Credito
+    const propCategorySelect = document.getElementById("prop-category");
+    if (propCategorySelect) {
+        propCategorySelect.onchange = updateCreditVisibility;
     }
 
     // Image Upload Handling
@@ -452,21 +500,30 @@ function bindEvents() {
         propertyForm.onsubmit = (e) => {
             e.preventDefault();
             const customFeatures = Array.from(container.querySelectorAll("input")).map(i => i.value).filter(Boolean);
-            const urlImagesInput = document.getElementById("prop-images");
-            const urlImages = urlImagesInput ? urlImagesInput.value.split(",").map(i => i.trim()).filter(Boolean) : [];
+
+            const category = document.getElementById("prop-category").value;
+            const type = document.getElementById("prop-type").value;
+            const price = Number(document.getElementById("prop-price").value);
+            const currency = document.getElementById("prop-currency").value;
+            const agent = document.getElementById("prop-agent").value;
 
             const propertyData = {
                 id: currentEditingId || Date.now(),
-                title: document.getElementById("prop-title").value,
+                title: `${type.charAt(0).toUpperCase() + type.slice(1)} en ${category}`, // Auto title for now
                 description: document.getElementById("prop-desc").value,
-                price: Number(document.getElementById("prop-price").value),
-                category: document.getElementById("prop-category").value,
-                rooms: document.getElementById("prop-rooms").value,
-                area: document.getElementById("prop-area").value,
-                owner: document.getElementById("prop-owner").value,
-                agent: document.getElementById("prop-agent").value,
+                price: price,
+                currency: currency,
+                category: category,
+                type: type,
+                ownerName: document.getElementById("prop-owner-name").value,
+                ownerPhone: document.getElementById("prop-owner-phone").value,
+                ownerAddress: document.getElementById("prop-owner-address").value,
+                agent: agent,
+                creditEligible: (category === "venta") ? document.getElementById("prop-credit").checked : false,
+                mapLink: document.getElementById("prop-map-link").value,
                 createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
-                images: [...uploadedImages, ...urlImages],
+                createdAtTs: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAtTs || Date.now()) : Date.now(),
+                images: [...uploadedImages],
                 customFeatures
             };
 

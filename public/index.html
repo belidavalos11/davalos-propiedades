@@ -223,61 +223,108 @@
                 <p>Completa los detalles de la publicación</p>
             </div>
             <form id="property-form" class="property-form">
+                <!-- 1. Category and 2. Property Type -->
                 <div class="form-row">
-                    <div class="form-group">
-                        <label for="prop-title">Título</label>
-                        <input type="text" id="prop-title" required placeholder="Ej: Departamento en pozo">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="prop-desc">Descripción</label>
-                    <textarea id="prop-desc" rows="3" required placeholder="Detalles de la propiedad..."></textarea>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="prop-price">Precio (USD)</label>
-                        <input type="number" id="prop-price" required placeholder="0">
-                    </div>
                     <div class="form-group">
                         <label for="prop-category">Categoría</label>
-                        <select id="prop-category">
+                        <select id="prop-category" required>
                             <option value="venta">Venta</option>
                             <option value="alquiler">Alquiler</option>
                         </select>
                     </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group">
-                        <label for="prop-rooms">Ambientes</label>
-                        <input type="number" id="prop-rooms" required min="1" value="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="prop-area">Superficie (m²)</label>
-                        <input type="number" id="prop-area" required placeholder="0">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="prop-owner">Propietario</label>
-                        <input type="text" id="prop-owner" placeholder="Nombre del dueño">
-                    </div>
-                    <div class="form-group">
-                        <label for="prop-agent">Agente asignado</label>
-                        <input type="text" id="prop-agent" placeholder="Nombre del agente">
+                        <label for="prop-type">Tipo de propiedad</label>
+                        <select id="prop-type" required>
+                            <option value="casa">Casa</option>
+                            <option value="departamento">Departamento</option>
+                            <option value="duplex">Dúplex</option>
+                            <option value="terreno">Terreno/Lote</option>
+                            <option value="campo">Campo/Finca</option>
+                            <option value="local">Local comercial</option>
+                            <option value="galpon">Galpón</option>
+                            <option value="oficina">Oficina</option>
+                            <option value="comercio">Fondo de comercio</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- Custom Features -->
-                <div class="form-section">
-                    <h3>Características adicionales</h3>
+                <!-- 3. Description -->
+                <div class="form-group">
+                    <label for="prop-desc">Descripción (cuadro de texto)</label>
+                    <textarea id="prop-desc" rows="4" required
+                        placeholder="Escribe aquí la descripción detallada de la propiedad..."></textarea>
+                </div>
+
+                <!-- 4. Details (Custom Features) -->
+                <div class="form-section" style="margin-top: 10px; margin-bottom: 20px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px;">Detalles
+                        (etiquetas de características)</label>
                     <div id="custom-features-container">
-                        <!-- Dynamic entries will be added here -->
+                        <!-- Dynamic entries -->
                     </div>
-                    <button type="button" id="btn-add-feature" class="btn btn-outline btn-small">+ Añadir
-                        característica</button>
+                    <button type="button" id="btn-add-feature" class="btn btn-outline btn-small"
+                        style="margin-top: 5px;">+ Agregar detalle</button>
                 </div>
 
-                <!-- Image Upload -->
+                <!-- 5. Price and Currency -->
+                <div class="form-row price-row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label for="prop-price">Precio</label>
+                        <input type="number" id="prop-price" required placeholder="Monto numérico">
+                    </div>
+                    <div class="form-group">
+                        <label for="prop-currency">Moneda</label>
+                        <select id="prop-currency">
+                            <option value="USD">U$D</option>
+                            <option value="ARS">AR$</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 6. Owner Data -->
+                <div class="form-section">
+                    <h3
+                        style="font-size: 0.95rem; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Datos del propietario</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="prop-owner-name">Nombre y Apellido</label>
+                            <input type="text" id="prop-owner-name" placeholder="Nombre completo">
+                        </div>
+                        <div class="form-group">
+                            <label for="prop-owner-phone">Teléfono</label>
+                            <input type="tel" id="prop-owner-phone" placeholder="Celular/Fijo">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="prop-owner-address">Dirección</label>
+                        <input type="text" id="prop-owner-address" placeholder="Ubicación privada del dueño">
+                    </div>
+                </div>
+
+                <!-- 7. Agent (Dynamic) -->
+                <div class="form-group">
+                    <label for="prop-agent">Agente asignado</label>
+                    <select id="prop-agent" required>
+                        <option value="">Seleccionar agente...</option>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+
+                <!-- 8. Credit Eligible (Sale only) -->
+                <div id="credit-option-wrapper" class="form-group"
+                    style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #f8faff; border-radius: 8px;">
+                    <input type="checkbox" id="prop-credit" style="width: auto;">
+                    <label for="prop-credit" style="margin-bottom: 0;">¿Es apta para crédito hipotecario?</label>
+                </div>
+
+                <!-- 9. Location (Google Maps) -->
+                <div class="form-group">
+                    <label for="prop-map-link">Ubicación (Link de Google Maps)</label>
+                    <input type="url" id="prop-map-link" placeholder="https://www.google.com/maps/...">
+                </div>
+
+                <!-- Gallery and Submit will follow in the original structure -->
                 <div class="form-section">
                     <h3>Galería de fotos</h3>
                     <div class="image-upload-area">
@@ -288,17 +335,18 @@
                         </label>
                         <input type="file" id="prop-images-file" multiple accept="image/*" style="display: none;">
                     </div>
-                    <p class="separator"><span>O</span></p>
-                    <div class="form-group">
-                        <label for="prop-images">Enlaces de imágenes (URLs separadas por comas)</label>
-                        <input type="text" id="prop-images" placeholder="https://ejemplo.com/foto1.jpg, ...">
-                    </div>
                     <div id="image-previews" class="image-previews">
                         <!-- Thumbnails will appear here -->
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-full">Publicar propiedad</button>
+                <div class="modal-footer" style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 20px;">
+                    <button type="submit" class="btn btn-primary btn-full"
+                        style="height: 50px; font-size: 1rem;">Publicar Propiedad</button>
+                </div>
+            </form>
+
+            <button type="submit" class="btn btn-primary btn-full">Publicar propiedad</button>
             </form>
         </div>
     </div>

@@ -59,8 +59,9 @@ function getSafePropertyId() {
     return raw ? Number(raw) : null;
 }
 
-function formatCurrency(value) {
-    return `USD ${value.toLocaleString("es-AR")}`;
+function formatCurrency(value, currency = "USD") {
+    const symbol = currency === "ARS" ? "AR$" : "U$D";
+    return `${symbol} ${value.toLocaleString("es-AR")}`;
 }
 
 function buildWhatsappUrl(prop) {
@@ -111,21 +112,19 @@ function renderDetails(prop) {
                 <span class="badge badge-${safeCategory}">${safeCategory.toUpperCase()}</span>
                 <h1 class="details-title">${safeTitle}</h1>
                 <p class="section-subtitle">${safeDescription}</p>
-                <div class="details-price">${formatCurrency(prop.price)}</div>
+                <div class="details-price">${formatCurrency(prop.price, prop.currency)}</div>
+
+                <div class="property-info-pills" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <span class="pill"><strong>Tipo:</strong> ${escapeHtml(prop.type || "N/D")}</span>
+                    ${prop.creditEligible ? '<span class="pill highlight-pill">✅ Apto Crédito</span>' : ""}
+                </div>
 
                 <div class="details-features">
                     <div class="detail-feature">
-                        <span class="icon">Amb.</span>
+                        <span class="icon">📍</span>
                         <div>
-                            <strong>${prop.rooms}</strong>
-                            <p>Ambientes</p>
-                        </div>
-                    </div>
-                    <div class="detail-feature">
-                        <span class="icon">m2</span>
-                        <div>
-                            <strong>${prop.area}</strong>
-                            <p>Superficie</p>
+                            <strong>Ubicación</strong>
+                            <p>${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); text-decoration: underline;">Ver en mapa</a>` : "No disponible"}</p>
                         </div>
                     </div>
                 </div>
@@ -133,15 +132,24 @@ function renderDetails(prop) {
                 ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
                 <div class="agent-box admin-only">
                     <div class="agent-info">
-                        <strong>Encargado:</strong>
+                        <strong>Agente:</strong>
                         <span>${escapeHtml(prop.agent || "N/D")}</span>
                     </div>
-                    <div class="owner-info">
-                        <strong>Propietario:</strong>
-                        <span>${escapeHtml(prop.owner || "N/D")}</span>
+                    <div class="owner-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px dotted #ccc;">
+                        <h4 style="margin-bottom: 5px; font-size: 0.9rem;">Datos del Propietario:</h4>
+                        <p><strong>Nombre:</strong> ${escapeHtml(prop.ownerName || "N/D")}</p>
+                        <p><strong>Tel:</strong> ${escapeHtml(prop.ownerPhone || "N/D")}</p>
+                        <p><strong>Dirección:</strong> ${escapeHtml(prop.ownerAddress || "N/D")}</p>
                     </div>
                 </div>
-                ` : ""}
+                ` : `
+                <div class="agent-box">
+                    <div class="agent-info">
+                        <strong>Agente Asignado:</strong>
+                        <span>${escapeHtml(prop.agent || "Dávalos Propiedades")}</span>
+                    </div>
+                </div>
+                `}
 
                 ${prop.customFeatures && prop.customFeatures.length ? `
                     <div class="custom-features-list">
