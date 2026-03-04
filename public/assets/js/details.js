@@ -152,11 +152,22 @@ function renderDetails(prop) {
                 `}
 
                 ${prop.customFeatures && prop.customFeatures.length ? `
-                    <div class="custom-features-list">
-                        <h3>Características</h3>
-                        <ul>
-                            ${prop.customFeatures.map((feature) => `<li><span>+</span> ${escapeHtml(feature)}</li>`).join("")}
-                        </ul>
+                    <div class="custom-features-section">
+                        <h3 class="section-title">Detalles y Comodidades</h3>
+                        <div class="features-grid">
+                            ${prop.customFeatures.map((feat) => {
+        const isObj = typeof feat === 'object';
+        const icon = isObj ? feat.icon : "✨";
+        const name = isObj ? feat.name : feat;
+        const qty = (isObj && feat.qty) ? `${feat.qty} ` : "";
+        return `
+                                    <div class="feature-item">
+                                        <span class="feature-icon">${icon}</span>
+                                        <span class="feature-text"><strong>${qty}${name}</strong></span>
+                                    </div>
+                                `;
+    }).join("")}
+                        </div>
                     </div>
                 ` : ""}
 

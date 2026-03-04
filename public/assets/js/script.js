@@ -302,6 +302,27 @@ function setAsCover(index) {
     renderThumbnails();
 }
 
+function renderStructuredFeature(feat) {
+    const container = document.getElementById("custom-features-container");
+    if (!container) return;
+
+    const div = document.createElement("div");
+    div.className = "structured-feature-tag";
+    div.style = "display: inline-flex; align-items: center; gap: 8px; background: #f0f4ff; padding: 6px 12px; border-radius: 20px; margin: 0 8px 8px 0; font-size: 0.85rem; border: 1px solid #d0deff;";
+
+    const displayLabel = feat.qty ? `${feat.qty} ${feat.name}` : feat.name;
+
+    div.innerHTML = `
+        <span>${feat.icon}</span>
+        <strong>${displayLabel}</strong>
+        <button type="button" class="btn-remove-feature" style="background:none; border:none; color:#999; cursor:pointer; font-size:1.1rem; padding:0 0 0 5px; line-height:1;">&times;</button>
+        <input type="hidden" class="feature-data" value='${JSON.stringify(feat).replace(/'/g, "&apos;")}'>
+    `;
+
+    container.appendChild(div);
+    div.querySelector(".btn-remove-feature").onclick = () => div.remove();
+}
+
 function populateAgentDropdown() {
     const agentSelect = document.getElementById("prop-agent");
     if (!agentSelect) return;
@@ -368,11 +389,11 @@ function openEditModal(id) {
     container.innerHTML = "";
     if (prop.customFeatures) {
         prop.customFeatures.forEach(feat => {
-            const div = document.createElement("div");
-            div.className = "feature-input-group";
-            div.innerHTML = `<input type="text" value="${escapeHtml(feat)}"><button type="button" class="btn-remove-feature">&times;</button>`;
-            container.appendChild(div);
-            div.querySelector(".btn-remove-feature").onclick = () => div.remove();
+            if (typeof feat === 'string') {
+                renderStructuredFeature({ name: feat, icon: "✨", qty: "" });
+            } else {
+                renderStructuredFeature(feat);
+            }
         });
     }
 
@@ -459,16 +480,24 @@ function bindEvents() {
         };
     }
 
-    // Dynamic Features logic
+    // Structured Features logic
     const btnAddFeature = document.getElementById("btn-add-feature");
     const container = document.getElementById("custom-features-container");
+    const featurePreset = document.getElementById("feature-preset");
+    const featureQty = document.getElementById("feature-qty");
+
     if (btnAddFeature) {
         btnAddFeature.onclick = () => {
-            const div = document.createElement("div");
-            div.className = "feature-input-group";
-            div.innerHTML = `<input type="text" placeholder="Ej: Piscina"><button type="button" class="btn-remove-feature">&times;</button>`;
-            container.appendChild(div);
-            div.querySelector(".btn-remove-feature").onclick = () => div.remove();
+            const name = featurePreset.value;
+            if (!name) return;
+            const selectedOption = featurePreset.options[featurePreset.selectedIndex];
+            renderStructuredFeature({
+                name: name,
+                icon: selectedOption.getAttribute("data-icon"),
+                qty: featureQty.value
+            });
+            featurePreset.value = "";
+            featureQty.value = "";
         };
     }
 
@@ -500,7 +529,7 @@ function bindEvents() {
     if (propertyForm) {
         propertyForm.onsubmit = (e) => {
             e.preventDefault();
-            const customFeatures = Array.from(container.querySelectorAll("input")).map(i => i.value).filter(Boolean);
+            const customFeatures = Array.from(container.querySelectorAll(".feature-data")).map(i => JSON.parse(i.value));
 
             const category = document.getElementById("prop-category").value;
             const type = document.getElementById("prop-type").value;

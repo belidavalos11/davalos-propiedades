@@ -185,33 +185,50 @@
     color: #666;
 }
 
-.custom-features-list {
-    margin-bottom: 24px;
+.custom-features-section {
+    margin-bottom: 34px;
+    background: #fff;
+    padding: 24px;
+    border-radius: 20px;
+    box-shadow: var(--shadow);
 }
 
-.custom-features-list h3 {
-    font-size: 1.15rem;
-    margin-bottom: 12px;
+.section-title {
+    font-size: 1.25rem;
+    margin-bottom: 20px;
+    color: var(--text-dark);
+    font-family: 'Outfit', sans-serif;
 }
 
-.custom-features-list ul {
-    list-style: none;
+.features-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
 }
 
-.custom-features-list li {
-    font-size: 0.93rem;
-    color: var(--text-light);
+.feature-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f8faff;
+    border-radius: 14px;
+    border: 1px solid #edf2ff;
+    transition: var(--transition);
 }
 
-.custom-features-list li span {
-    color: var(--gold-dark);
-    font-weight: bold;
+.feature-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.feature-icon {
+    font-size: 1.4rem;
+}
+
+.feature-text {
+    font-size: 0.95rem;
+    color: var(--text-dark);
 }
 
 .contact-card {
