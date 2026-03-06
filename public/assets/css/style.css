@@ -54,22 +54,20 @@ h3,
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
-.container-header-centered {
+.container-header-horizontal {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    gap: 15px;
+    gap: 20px;
+    padding: 5px 0;
 }
 
 .header-logo-row {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    padding-bottom: 5px;
+    flex-shrink: 0;
 }
 
 .logo-img-main {
-    height: 70px;
+    height: 45px;
     width: auto;
     object-fit: contain;
 }
@@ -77,12 +75,9 @@ h3,
 .nav-main {
     display: flex;
     align-items: center;
+    gap: 20px;
+    flex-grow: 1;
     justify-content: center;
-    gap: 25px;
-    width: 100%;
-    padding: 10px 0;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-    flex-wrap: wrap;
 }
 
 .nav-link {
@@ -90,9 +85,10 @@ h3,
     color: var(--text-dark);
     font-weight: 500;
     transition: var(--transition);
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     position: relative;
-    padding: 5px 0;
+    padding: 8px 0;
+    white-space: nowrap;
 }
 
 .nav-link::after {
@@ -119,8 +115,8 @@ h3,
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-left: 20px;
+    gap: 10px;
+    flex-shrink: 0;
 }
 
 .hero {
@@ -922,23 +918,26 @@ h3,
         grid-column: span 1;
     }
 
-    .nav {
-        gap: 8px;
+    .nav-main {
+        gap: 12px;
     }
 }
 
 @media (max-width: 768px) {
-    .container-header {
-        justify-content: center;
+    .container-header-horizontal {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 0;
     }
 
     .hero {
         min-height: auto;
-        padding-top: 120px;
+        padding-top: 150px;
     }
 
-    .nav {
-        display: none;
+    .nav-main {
+        gap: 10px;
+        justify-content: center;
     }
 
     .search-container {
