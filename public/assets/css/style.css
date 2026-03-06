@@ -56,9 +56,11 @@ h3,
 
 .container-header-horizontal {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
+    /* Align logo and nav to the left */
     align-items: center;
-    gap: 20px;
+    gap: 40px;
+    /* Closer gap between logo and menu */
     padding: 5px 0;
 }
 
@@ -67,7 +69,8 @@ h3,
 }
 
 .logo-img-main {
-    height: 45px;
+    height: 42px;
+    /* Slightly smaller for better fit */
     width: auto;
     object-fit: contain;
 }
@@ -75,9 +78,9 @@ h3,
 .nav-main {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 25px;
+    /* Spacing between sections */
     flex-grow: 1;
-    justify-content: center;
 }
 
 .nav-link {
@@ -89,6 +92,16 @@ h3,
     position: relative;
     padding: 8px 0;
     white-space: nowrap;
+}
+
+/* Reset button styles to look like links */
+.btn-link-style {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
 }
 
 .nav-link::after {
@@ -110,13 +123,6 @@ h3,
 .nav-link:hover,
 .nav-link.active {
     color: var(--primary);
-}
-
-.header-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
 }
 
 .hero {
