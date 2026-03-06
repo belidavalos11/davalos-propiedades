@@ -142,16 +142,18 @@ h3,
 }
 
 .hero-title {
-    font-size: clamp(2rem, 4.6vw, 3.5rem);
-    margin-bottom: 18px;
-    line-height: 1.1;
-    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.22);
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    margin-bottom: 20px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
 }
 
 .highlight {
+    font-weight: 400;
+    /* Slightly bolder for emphasis but keeping it thin */
     color: var(--primary);
-    text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
-    padding: 0 5px;
 }
 
 .search-container {
