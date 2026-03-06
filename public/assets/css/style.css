@@ -377,9 +377,28 @@ h3,
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
 }
 
-.property-image {
+.property-image-container {
     position: relative;
     height: 220px;
+    overflow: hidden;
+}
+
+.property-seal {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 32px;
+    height: auto;
+    z-index: 5;
+    opacity: 0.85;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+    pointer-events: none;
+    transition: var(--transition);
+}
+
+.property-card:hover .property-seal {
+    transform: scale(1.1) rotate(5deg);
+    opacity: 1;
 }
 
 .property-image img {

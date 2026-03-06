@@ -212,10 +212,13 @@ function renderProperties(filtered) {
         const card = document.createElement("article");
         card.className = "property-card";
         card.innerHTML = `
-            <div class="property-image">
-                <img loading="lazy" src="${prop.images[0]}" alt="${escapeHtml(prop.title)}">
-                <span class="badge badge-${prop.category}">${prop.category}</span>
-                ${canManage ? `
+            <div class="property-image-container">
+            <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : 'assets/images/placeholder.jpg'}" alt="${prop.title}" class="property-image">
+            <img src="assets/images/logo-seal.svg" class="property-seal" alt="Seal">
+            <div class="property-badge">${prop.type}</div>
+            <div class="property-price-badge">${prop.currency} ${formatPrice(prop.price)}</div>
+        </div>
+        ${canManage ? `
                 <button class="property-settings-btn" title="Opciones" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">
                     ⚙️
                 </button>
