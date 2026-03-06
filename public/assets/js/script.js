@@ -176,6 +176,26 @@ function applyFilters() {
     renderProperties(filtered);
 }
 
+// Global filter helper for header links
+window.filterByOperation = function (type) {
+    if (filterType) {
+        filterType.value = type;
+        applyFilters();
+
+        // Update active class in nav
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('onclick')?.includes(type)) {
+                link.classList.add('active');
+            }
+        });
+
+        // Scroll to properties
+        const propSection = document.getElementById('propiedades');
+        if (propSection) propSection.scrollIntoView({ behavior: 'smooth' });
+    }
+};
+
 function renderProperties(filtered) {
     grid.innerHTML = "";
     if (resultsCount) resultsCount.textContent = `${filtered.length} resultado${filtered.length === 1 ? "" : "s"}`;
@@ -412,7 +432,13 @@ function bindEvents() {
     if (clearFiltersBtn) clearFiltersBtn.onclick = () => {
         filterType.value = "todos"; filterRooms.value = "0";
         filterPriceMin.value = ""; filterPriceMax.value = "";
-        searchInput.value = ""; applyFilters();
+        searchInput.value = "";
+
+        // Reset nav active state
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        document.querySelector('.nav-link[href="index.html"]')?.classList.add('active');
+
+        applyFilters();
     };
 
     if (btnLogin) btnLogin.onclick = () => openModal(loginModal);

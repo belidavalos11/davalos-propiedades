@@ -24,19 +24,28 @@
 
 <body>
     <header class="header">
-        <div class="container container-header">
-            <a href="index.html" class="logo">
-                <img src="assets/images/logo-simple.png" alt="Logo" class="logo-img-sm">
-                <img src="assets/images/logo-texto.png" alt="DAVALOS PROPIEDADES" class="logo-img-txt">
-            </a>
-            <nav class="nav">
-                <a href="#inicio" class="nav-link active">Inicio</a>
-                <a href="#propiedades" class="nav-link">Propiedades</a>
-                <button id="btn-login" class="btn btn-outline">Iniciar sesión</button>
-                <button id="btn-settings" class="btn btn-outline" style="display: none;">Configuración</button>
-                <button id="btn-logout" class="btn btn-outline" style="display: none;">Cerrar sesión</button>
-                <button id="btn-add-property" class="btn btn-primary" style="display: none;">Cargar propiedad</button>
-                <span id="user-greeting" class="user-greeting" style="display: none;"></span>
+        <div class="container container-header-centered">
+            <div class="header-logo-row">
+                <a href="index.html" class="logo">
+                    <img src="assets/images/logo-completo.png" alt="DAVALOS PROPIEDADES" class="logo-img-main">
+                </a>
+            </div>
+            <nav class="nav-main">
+                <a href="index.html" class="nav-link active">Inicio</a>
+                <a href="#propiedades" class="nav-link" onclick="filterByOperation('venta')">Venta</a>
+                <a href="#propiedades" class="nav-link" onclick="filterByOperation('alquiler')">Alquiler</a>
+                <a href="#mapa" class="nav-link">Mapa de propiedades</a>
+                <a href="#nosotros" class="nav-link">Nosotros</a>
+                <a href="#contacto" class="nav-link">Contacto</a>
+                <div class="header-actions">
+                    <button id="btn-login" class="btn btn-outline btn-small">Acceso</button>
+                    <button id="btn-settings" class="btn btn-outline btn-small"
+                        style="display: none;">Configuración</button>
+                    <button id="btn-logout" class="btn btn-outline btn-small" style="display: none;">Salir</button>
+                    <button id="btn-add-property" class="btn btn-primary btn-small"
+                        style="display: none;">Publicar</button>
+                    <span id="user-greeting" class="user-greeting" style="display: none;"></span>
+                </div>
             </nav>
         </div>
     </header>
@@ -109,6 +118,42 @@
                 </div>
                 <div id="properties-grid" class="properties-grid">
                     <div class="loader">Cargando propiedades...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- New Placeholder Sections -->
+        <section id="mapa" class="section-placeholder" style="padding: 60px 0; background: #fff; text-align: center;">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">Mapa de Propiedades</h2>
+                    <p class="section-subtitle">Localiza tu próximo hogar en el mapa</p>
+                </div>
+                <div
+                    style="background: #f0f4ff; height: 350px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 16px; margin-top: 30px; border: 2px dashed #d0deff;">
+                    <span style="font-size: 3rem; margin-bottom: 15px;">📍</span>
+                    <p style="color: var(--primary); font-weight: 500;">El mapa interactivo se cargará aquí
+                        próximamente.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="nosotros" class="section-placeholder"
+            style="padding: 80px 0; text-align: center; background: var(--background);">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">Sobre DAVALOS PROPIEDADES</h2>
+                </div>
+                <div
+                    style="max-width: 850px; margin: 30px auto; background: #fff; padding: 40px; border-radius: 16px; box-shadow: var(--shadow);">
+                    <p style="font-size: 1.1rem; color: var(--text-light); line-height: 1.8;">
+                        Con más de 20 años de trayectoria en el mercado inmobiliario, en <strong>DAVALOS
+                            PROPIEDADES</strong> nos dedicamos a brindar un servicio de excelencia, basado en la
+                        confianza, la transparencia y la atención personalizada.
+                        <br><br>
+                        Nuestra misión es ayudar a cada cliente a encontrar no solo una propiedad, sino el lugar donde
+                        comenzarán una nueva etapa de su vida.
+                    </p>
                 </div>
             </div>
         </section>
@@ -374,13 +419,10 @@
                         style="height: 50px; font-size: 1rem;">Publicar Propiedad</button>
                 </div>
             </form>
-
-            <button type="submit" class="btn btn-primary btn-full">Publicar propiedad</button>
-            </form>
         </div>
     </div>
 
-    <footer class="footer">
+    <footer id="contacto" class="footer">
         <div class="container">
             <img src="assets/images/logo-completo.png" alt="DAVALOS PROPIEDADES" class="logo-img logo-footer">
             <p>&copy; 2002 DÁVALOS PROPIEDADES - MP N° 96 - DEL MILAGRO 635</p>
