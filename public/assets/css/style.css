@@ -80,7 +80,6 @@ h3,
     align-items: center;
     gap: 25px;
     /* Spacing between sections */
-    flex-grow: 1;
 }
 
 .nav-link {
