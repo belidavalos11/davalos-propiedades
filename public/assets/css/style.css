@@ -154,6 +154,9 @@ h3,
     font-weight: 400;
     /* Slightly bolder for emphasis but keeping it thin */
     color: var(--primary);
+    -webkit-text-stroke: 0.4px rgba(255, 255, 255, 0.6);
+    /* Very thin light border */
+    text-shadow: 0 0 1px rgba(255, 255, 255, 0.3);
 }
 
 .search-container {
