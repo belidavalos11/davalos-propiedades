@@ -115,9 +115,11 @@ async function loadProperties() {
 
         // 3. Merge and Normalize
         const allRaw = [...localProperties, ...jsonList];
+        const deletedIds = JSON.parse(localStorage.getItem("davalos_deleted_ids") || "[]");
+
         properties = allRaw
             .map(p => normalizeProperty(p))
-            .filter(Boolean)
+            .filter(p => p && !deletedIds.includes(p.id))
             .sort((a, b) => b.createdAtTs - a.createdAtTs);
 
         applyFilters();
@@ -258,7 +260,13 @@ function deleteProperty(id) {
         localStorage.setItem("davalos_properties", JSON.stringify(localProperties));
         alert("Publicación eliminada con éxito.");
     } else {
-        alert("Nota: Las publicaciones del catálogo base no se pueden borrar físicamente, pero se simulará su remoción.");
+        // It's a base property, we "soft-delete" it by adding its ID to a deleted list
+        const deletedIds = JSON.parse(localStorage.getItem("davalos_deleted_ids") || "[]");
+        if (!deletedIds.includes(id)) {
+            deletedIds.push(id);
+            localStorage.setItem("davalos_deleted_ids", JSON.stringify(deletedIds));
+        }
+        alert("Publicación eliminada con éxito.");
     }
 
     loadProperties();
