@@ -56,8 +56,8 @@ h3,
 
 .container-header-horizontal {
     display: flex;
-    justify-content: flex-start;
-    /* Align logo and nav to the left */
+    justify-content: center;
+    /* Centering the logo and nav group */
     align-items: center;
     gap: 40px;
     /* Closer gap between logo and menu */
