@@ -218,16 +218,29 @@ function renderProperties(filtered) {
         const manager = window.AuthManager;
         const canManage = manager && manager.hasPermission(manager.Permissions.DELETE_PUBLICATION);
 
+        // Helper to extract numeric values from customFeatures (Rooms/Baths)
+        const getFeatureVal = (namePattern) => {
+            const feat = prop.customFeatures?.find(f =>
+                (typeof f === 'string' && f.toLowerCase().includes(namePattern)) ||
+                (f.name && f.name.toLowerCase().includes(namePattern))
+            );
+            if (!feat) return null;
+            return typeof feat === 'string' ? feat.match(/\d+/) : feat.qty;
+        };
+
+        const rooms = prop.rooms || getFeatureVal('dormitorio') || getFeatureVal('habitacio') || '-';
+        const baths = getFeatureVal('baño') || '-';
+
         const card = document.createElement("article");
         card.className = "property-card";
         card.innerHTML = `
             <div class="property-image-container">
-            <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : 'assets/images/placeholder.jpg'}" alt="${prop.title}" class="property-image">
-            <img src="assets/images/logo-seal.svg" class="property-seal" alt="Seal">
-            <div class="property-badge">${prop.type}</div>
-            <div class="property-price-badge">${prop.currency} ${formatPrice(prop.price)}</div>
-        </div>
-        ${canManage ? `
+                <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : 'assets/images/placeholder.jpg'}" alt="${prop.title}" class="property-image">
+                <img src="assets/images/logo-seal.svg" class="property-seal" alt="Seal">
+                <div class="property-badge">${prop.type}</div>
+                <div class="property-price-badge">${prop.currency} ${formatPrice(prop.price)}</div>
+            </div>
+            ${canManage ? `
                 <button class="property-settings-btn" title="Opciones" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">
                     ⚙️
                 </button>
@@ -239,15 +252,29 @@ function renderProperties(filtered) {
                         Eliminar publicación
                     </button>
                 </div>
-                ` : ""}
-            </div>
+            ` : ""}
             <div class="property-info">
-                <div class="property-price">${(prop.currency === "ARS" ? "AR$" : "U$D")} ${prop.price.toLocaleString("es-AR")}</div>
+                <div class="property-price">${(prop.currency === "ARS" ? "AR$" : "U$D")} ${formatPrice(prop.price)}</div>
                 <h3 class="property-title">${escapeHtml(prop.title)}</h3>
-                <p class="property-description">${escapeHtml(prop.description || "").substring(0, 80)}...</p>
-                <div class="property-features">
-                    <div class="feature"><span>Amb.</span> ${prop.rooms}</div>
-                    <div class="feature"><span>m2</span> ${prop.area}</div>
+                <p class="property-description">${escapeHtml(prop.description || "").substring(0, 70)}...</p>
+                
+                <div class="property-features-new">
+                    <div class="feat-item" title="Referencia">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                        <span>DP-${String(prop.id).slice(-6)}</span>
+                    </div>
+                    <div class="feat-item" title="Habitaciones">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
+                        <span>${rooms}</span>
+                    </div>
+                    <div class="feat-item" title="Baños">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 21v-2a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2"></path><circle cx="12" cy="7" r="4"></circle><path d="M12 11v1"></path></svg>
+                        <span>${baths}</span>
+                    </div>
+                    <div class="feat-item" title="Superficie">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 3H3v18h18V3zM9 3v18m6-18v18m-9-6h3m6 0h3m-12-6h3m6 0h3"></path></svg>
+                        <span>${prop.area || '-'}m²</span>
+                    </div>
                 </div>
             </div>
         `;
