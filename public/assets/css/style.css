@@ -408,6 +408,37 @@ h3,
     display: block;
 }
 
+.property-features-new {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 15px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.feat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #444;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.feat-item svg {
+    width: 16px;
+    height: 16px;
+    color: #001556;
+    /* Brand Blue */
+    flex-shrink: 0;
+}
+
+.feat-item span {
+    white-space: nowrap;
+}
+
 .badge {
     position: absolute;
     top: 14px;

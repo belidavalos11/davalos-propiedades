@@ -261,7 +261,7 @@ function renderProperties(filtered) {
                 <div class="property-features-new">
                     <div class="feat-item" title="Referencia">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-                        <span>DP-${String(prop.id).slice(-6)}</span>
+                        <span>DP-${String(prop.id).padStart(4, '0')}</span>
                     </div>
                     <div class="feat-item" title="Habitaciones">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
