@@ -44,6 +44,13 @@ function escapeHtml(value) {
         .replace(/'/g, "&#39;");
 }
 
+function formatPrice(price) {
+    return Number(price || 0).toLocaleString("es-AR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    });
+}
+
 function safeImageUrl(value) {
     if (typeof value !== "string") return null;
     const trimmed = value.trim();
