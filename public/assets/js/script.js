@@ -1,4 +1,4 @@
-﻿const DATA_URL = "data/properties.json";
+const DATA_URL = "data/properties.json";
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
 
 // DOM Elements - Selection
@@ -26,6 +26,11 @@ function initMap() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+
+    // Fix for tiles not organizing correctly on load
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 300);
 
     // Allow zoom on click
     map.on('focus', () => { map.scrollWheelZoom.enable(); });

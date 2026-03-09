@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --primary: #001556;
     --primary-dark: #000d36;
     --secondary: #1a1a1a;
@@ -1023,4 +1023,33 @@ h3,
     .properties-grid {
         grid-template-columns: 1fr;
     }
+}
+
+#map-view {
+    height: 450px;
+    width: 100%;
+    border-radius: 20px;
+    margin-top: 30px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow);
+    z-index: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Ensure Leaflet tiles and container are correctly sized */
+.leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+    border-radius: 20px;
+}
+
+.leaflet-bar a {
+    background-color: #fff !important;
+    color: var(--primary) !important;
+    border-color: #eee !important;
+}
+
+.leaflet-bar a:hover {
+    background-color: #f1f3f6 !important;
 }
