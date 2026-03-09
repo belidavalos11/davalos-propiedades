@@ -12,6 +12,26 @@ const searchInput = document.getElementById("search-input");
 const sortBy = document.getElementById("sort-by");
 const clearFiltersBtn = document.getElementById("clear-filters");
 
+// Initialize Map
+function initMap() {
+    const mapContainer = document.getElementById('map-view');
+    if (!mapContainer) return;
+
+    // Salta, Argentina center
+    const saltaPos = [-24.7859, -65.4117];
+    const map = L.map('map-view', {
+        scrollWheelZoom: false // Premium UX: don't hijack scroll
+    }).setView(saltaPos, 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Allow zoom on click
+    map.on('focus', () => { map.scrollWheelZoom.enable(); });
+    map.on('blur', () => { map.scrollWheelZoom.disable(); });
+}
+
 // Pill Search Elements
 const searchPill = document.getElementById("search-pill");
 const advancedFilters = document.getElementById("advanced-filters");
@@ -712,7 +732,9 @@ function handleRemoveUser(username) {
 }
 
 function init() {
+    // Initial load
     loadProperties();
+    initMap();
     updateAuthUI();
     bindEvents();
 

@@ -127,12 +127,7 @@
                     <h2 class="section-title">Mapa de Propiedades</h2>
                     <p class="section-subtitle">Localiza tu próximo hogar en el mapa</p>
                 </div>
-                <div
-                    style="background: #f0f4ff; height: 350px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 16px; margin-top: 30px; border: 2px dashed #d0deff;">
-                    <span style="font-size: 3rem; margin-bottom: 15px;">📍</span>
-                    <p style="color: var(--primary); font-weight: 500;">El mapa interactivo se cargará aquí
-                        próximamente.</p>
-                </div>
+                <div id="map-view"></div>
             </div>
         </section>
 
@@ -428,6 +423,8 @@
         </div>
     </footer>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="assets/js/auth.js"></script>
     <script src="assets/js/script.js"></script>
 </body>
