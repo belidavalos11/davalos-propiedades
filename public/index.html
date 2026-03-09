@@ -159,13 +159,13 @@
 
     <!-- Login Modal -->
     <div id="login-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-small">
             <span class="close-modal">&times;</span>
-            <div class="modal-header">
+            <div class="modal-header-clean">
                 <h2>Iniciar sesión</h2>
                 <p>Ingresa tus credenciales de administrador</p>
             </div>
-            <form id="login-form">
+            <form id="login-form" class="standard-form">
                 <div class="form-group">
                     <label for="username">Usuario</label>
                     <input type="text" id="username" required placeholder="Tu usuario">
@@ -174,7 +174,8 @@
                     <label for="password">Contraseña</label>
                     <input type="password" id="password" required placeholder="Tu contraseña">
                 </div>
-                <button type="submit" class="btn btn-primary btn-full">Ingresar</button>
+                <button type="submit" class="btn btn-primary btn-full"
+                    style="height: 50px; margin-top: 20px;">Ingresar</button>
             </form>
         </div>
     </div>
