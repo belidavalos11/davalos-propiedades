@@ -13,28 +13,61 @@ const sortBy = document.getElementById("sort-by");
 const clearFiltersBtn = document.getElementById("clear-filters");
 
 // Initialize Map
-function initMap() {
+let mapInstance = null;
+function initMap(propsToDisplay) {
     const mapContainer = document.getElementById('map-view');
     if (!mapContainer) return;
 
-    // Salta, Argentina center
-    const saltaPos = [-24.7859, -65.4117];
-    const map = L.map('map-view', {
-        scrollWheelZoom: false // Premium UX: don't hijack scroll
-    }).setView(saltaPos, 13);
+    if (!mapInstance) {
+        // Salta, Argentina center
+        const saltaPos = [-24.7859, -65.4117];
+        mapInstance = L.map('map-view', {
+            scrollWheelZoom: false 
+        }).setView(saltaPos, 13);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mapInstance);
 
-    // Fix for tiles not organizing correctly on load
-    setTimeout(() => {
-        map.invalidateSize();
-    }, 300);
+        // Fix for tiles not organizing correctly on load
+        setTimeout(() => {
+            mapInstance.invalidateSize();
+        }, 500);
 
-    // Allow zoom on click
-    map.on('focus', () => { map.scrollWheelZoom.enable(); });
-    map.on('blur', () => { map.scrollWheelZoom.disable(); });
+        // Allow zoom on click
+        mapInstance.on('focus', () => { mapInstance.scrollWheelZoom.enable(); });
+        mapInstance.on('blur', () => { mapInstance.scrollWheelZoom.disable(); });
+    }
+
+    // Clear existing markers (if any)
+    mapInstance.eachLayer((layer) => {
+        if (layer instanceof L.Marker) {
+            mapInstance.removeLayer(layer);
+        }
+    });
+
+    // Add markers for properties with coords
+    if (propsToDisplay && propsToDisplay.length > 0) {
+        const markers = [];
+        propsToDisplay.forEach(p => {
+            if (p.coords && Array.isArray(p.coords) && p.coords.length === 2) {
+                const marker = L.marker(p.coords).addTo(mapInstance);
+                marker.bindPopup(`
+                    <div style="font-family: 'Outfit', sans-serif;">
+                        <h4 style="margin: 0 0 5px 0; color: #001556;">${p.title}</h4>
+                        <p style="margin: 0; font-size: 0.85rem;">${p.currency} ${formatPrice(p.price)}</p>
+                        <a href="details.html?id=${p.id}" style="display: block; margin-top: 8px; font-size: 0.8rem; color: #1a1a1a; font-weight: 600; text-decoration: none;">Ver detalles →</a>
+                    </div>
+                `);
+                markers.push(marker);
+            }
+        });
+
+        // Optionally fit map to markers if there are several
+        if (markers.length > 0) {
+            // mapInstance.fitBounds(L.featureGroup(markers).getBounds(), { padding: [20, 20] });
+        }
+    }
 }
 
 // Pill Search Elements
@@ -208,6 +241,7 @@ function applyFilters() {
     }
 
     renderProperties(filtered);
+    initMap(filtered);
 }
 
 // Global filter helper for header links
