@@ -241,7 +241,6 @@ function applyFilters() {
     }
 
     renderProperties(filtered);
-    initMap(filtered);
 }
 
 // Global filter helper for header links
@@ -773,7 +772,6 @@ function handleRemoveUser(username) {
 function init() {
     // Initial load
     loadProperties();
-    initMap();
     updateAuthUI();
     bindEvents();
 
