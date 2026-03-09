@@ -1,4 +1,4 @@
-﻿const DATA_URL = "data/properties.json";
+const DATA_URL = "data/properties.json";
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
 const WHATSAPP_NUMBER = "5493875053884";
 const PHONE_NUMBER = "+5491123456789";
@@ -106,6 +106,15 @@ function renderDetails(prop) {
                         </div>
                     ` : ""}
                 </div>
+                ${prop.images.length > 1 ? `
+                    <div class="carousel-thumbnails" id="carousel-thumbnails">
+                        ${prop.images.map((img, index) => `
+                            <div class="thumb-item ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})">
+                                <img src="${img}" alt="Thumbnail ${index + 1}">
+                            </div>
+                        `).join("")}
+                    </div>
+                ` : ""}
             </div>
 
             <div class="details-right">
