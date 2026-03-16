@@ -236,7 +236,8 @@ function applyFilters() {
 
     let filtered = properties.filter(prop => {
         const matchesType = type === "todos" || prop.category === type;
-        const matchesRooms = Number(prop.rooms) >= rooms;
+        const propRooms = Number(prop.rooms || 0);
+        const matchesRooms = isNaN(propRooms) ? true : propRooms >= rooms;
         const matchesPrice = prop.price >= min && (max === Infinity || prop.price <= max);
         const haystack = `${prop.title} ${prop.description} ${prop.agent} ${prop.owner}`.toLowerCase();
         const matchesText = !text || haystack.includes(text);
@@ -742,8 +743,9 @@ function bindEvents() {
                 alert(currentEditingId ? "Propiedad actualizada con éxito" : "Propiedad publicada con éxito");
                 currentEditingId = null;
             } catch (err) {
-                console.error("Error publishing property:", err);
-                alert("Error al publicar la propiedad. Verifica tu conexión y configuración.");
+                console.error("CRITICAL ERROR publishing property:", err);
+                console.log("Failed Data:", propertyData);
+                alert(`Error al publicar la propiedad: ${err.message || 'Error desconocido'}. Verifica tu conexión y configuración de Firebase Storage.`);
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
