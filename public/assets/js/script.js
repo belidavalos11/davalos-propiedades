@@ -175,16 +175,27 @@ async function loadProperties() {
             jsonList = Array.isArray(payload?.properties) ? payload.properties : [];
         }
 
-        // 2. Load from LocalStorage (User's additions)
-        localProperties = JSON.parse(localStorage.getItem("davalos_properties") || "[]");
+        // 2. Load from Firestore (User's additions)
+        let firebaseList = [];
+        if (window.db) {
+            const snapshot = await window.db.collection("properties").get();
+            firebaseList = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
+        }
 
-        // 3. Merge and Normalize
-        const allRaw = [...localProperties, ...jsonList];
-        const deletedIds = JSON.parse(localStorage.getItem("davalos_deleted_ids") || "[]");
+        // 3. Load Deleted IDs from Firestore
+        let deletedIds = [];
+        if (window.db) {
+            const delSnapshot = await window.db.collection("deleted_properties").get();
+            deletedIds = delSnapshot.docs.map(doc => doc.id);
+        }
+
+        // 4. Merge and Normalize
+        // We use firebaseId as the primary key if available, otherwise numeric id
+        const allRaw = [...firebaseList, ...jsonList];
 
         properties = allRaw
             .map(p => normalizeProperty(p))
-            .filter(p => p && !deletedIds.includes(p.id))
+            .filter(p => p && !deletedIds.includes(String(p.id)))
             .sort((a, b) => b.createdAtTs - a.createdAtTs);
 
         applyFilters();
@@ -341,27 +352,26 @@ function renderProperties(filtered) {
     });
 }
 
-function deleteProperty(id) {
+async function deleteProperty(id) {
     if (!confirm("¿Estás seguro de que deseas eliminar esta publicación permanentemente?")) return;
 
-    localProperties = JSON.parse(localStorage.getItem("davalos_properties") || "[]");
-    const initialCount = localProperties.length;
-    localProperties = localProperties.filter(p => p.id !== id);
-
-    if (localProperties.length < initialCount) {
-        localStorage.setItem("davalos_properties", JSON.stringify(localProperties));
-        alert("Publicación eliminada con éxito.");
-    } else {
-        // It's a base property, we "soft-delete" it by adding its ID to a deleted list
-        const deletedIds = JSON.parse(localStorage.getItem("davalos_deleted_ids") || "[]");
-        if (!deletedIds.includes(id)) {
-            deletedIds.push(id);
-            localStorage.setItem("davalos_deleted_ids", JSON.stringify(deletedIds));
+    try {
+        const prop = properties.find(p => p.id === id);
+        
+        if (prop && prop.firebaseId) {
+            // Delete from Firestore
+            await window.db.collection("properties").doc(prop.firebaseId).delete();
+        } else {
+            // It's a base property, we "soft-delete" it by adding its ID to Firestore
+            await window.db.collection("deleted_properties").doc(String(id)).set({ deletedAt: new Date().toISOString() });
         }
+        
         alert("Publicación eliminada con éxito.");
+        loadProperties();
+    } catch (err) {
+        console.error("Error deleting property:", err);
+        alert("Error al eliminar la propiedad.");
     }
-
-    loadProperties();
 }
 
 // Global Image State
@@ -379,8 +389,9 @@ function renderThumbnails() {
         thumb.draggable = true;
         thumb.dataset.index = index;
 
+        const displaySrc = typeof img === 'string' ? img : img.preview;
         thumb.innerHTML = `
-            <img src="${img}">
+            <img src="${displaySrc}">
             <button type="button" class="btn-set-cover" onclick="setAsCover(${index})" title="Poner como portada">✨</button>
             <button type="button" class="btn-remove-preview" onclick="removeThumbnail(${index})">&times;</button>
         `;
@@ -641,70 +652,102 @@ function bindEvents() {
     if (fileInput) {
         fileInput.onchange = async (e) => {
             const files = Array.from(e.target.files);
+            const statusText = document.createElement("p");
+            statusText.textContent = "Procesando imágenes...";
+            statusText.style.fontSize = "0.8rem";
+            fileInput.parentElement.appendChild(statusText);
+
             for (const file of files) {
                 try {
+                    // We compress or just convert for preview for now
+                    // Real upload happens on form submit to avoid orphans in Storage
                     const base64 = await toBase64(file);
-                    uploadedImages.push(base64);
+                    uploadedImages.push({ file, preview: base64 });
                     renderThumbnails();
                 } catch (err) {
                     console.error("Error processing file:", err);
                 }
             }
+            statusText.remove();
             fileInput.value = "";
         };
     }
 
     // Form Submission (Create or Edit)
     if (propertyForm) {
-        propertyForm.onsubmit = (e) => {
+        propertyForm.onsubmit = async (e) => {
             e.preventDefault();
-            const customFeatures = Array.from(container.querySelectorAll(".feature-data")).map(i => JSON.parse(i.value));
+            const submitBtn = propertyForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Publicando...";
 
-            const category = document.getElementById("prop-category").value;
-            const type = document.getElementById("prop-type").value;
-            const price = Number(document.getElementById("prop-price").value);
-            const currency = document.getElementById("prop-currency").value;
-            const agent = document.getElementById("prop-agent").value;
+            try {
+                const customFeatures = Array.from(container.querySelectorAll(".feature-data")).map(i => JSON.parse(i.value));
+                const category = document.getElementById("prop-category").value;
+                const type = document.getElementById("prop-type").value;
+                const price = Number(document.getElementById("prop-price").value);
+                const currency = document.getElementById("prop-currency").value;
+                const agent = document.getElementById("prop-agent").value;
 
-            const propertyData = {
-                id: currentEditingId || Date.now(),
-                title: document.getElementById("prop-title").value,
-                description: document.getElementById("prop-desc").value,
-                price: price,
-                currency: currency,
-                category: category,
-                type: type,
-                ownerName: document.getElementById("prop-owner-name").value,
-                ownerPhone: document.getElementById("prop-owner-phone").value,
-                ownerAddress: document.getElementById("prop-owner-address").value,
-                agent: agent,
-                creditEligible: (category === "venta") ? document.getElementById("prop-credit").checked : false,
-                mapLink: document.getElementById("prop-map-link").value,
-                createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
-                createdAtTs: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAtTs || Date.now()) : Date.now(),
-                images: [...uploadedImages],
-                customFeatures
-            };
-
-            localProperties = JSON.parse(localStorage.getItem("davalos_properties") || "[]");
-
-            if (currentEditingId) {
-                const index = localProperties.findIndex(p => p.id === currentEditingId);
-                if (index > -1) {
-                    localProperties[index] = propertyData;
-                } else {
-                    // It was a base property, we "save" it locally as an override
-                    localProperties.unshift(propertyData);
+                // 1. Upload new images to Firebase Storage
+                const finalImageUrls = [];
+                for (const item of uploadedImages) {
+                    if (typeof item === 'string') {
+                        // Already a URL (editing existing)
+                        finalImageUrls.push(item);
+                    } else if (item.file) {
+                        // New file to upload
+                        const fileName = `${Date.now()}_${item.file.name}`;
+                        const storageRef = window.storage.ref(`properties/${fileName}`);
+                        const snapshot = await storageRef.put(item.file);
+                        const url = await snapshot.ref.getDownloadURL();
+                        finalImageUrls.push(url);
+                    }
                 }
-            } else {
-                localProperties.unshift(propertyData);
-            }
 
-            localStorage.setItem("davalos_properties", JSON.stringify(localProperties));
-            closeModal();
-            loadProperties();
-            alert(currentEditingId ? "Propiedad actualizada con éxito" : "Propiedad publicada con éxito");
-            currentEditingId = null;
+                const propertyData = {
+                    id: currentEditingId || Date.now(),
+                    title: document.getElementById("prop-title").value,
+                    description: document.getElementById("prop-desc").value,
+                    price: price,
+                    currency: currency,
+                    category: category,
+                    type: type,
+                    ownerName: document.getElementById("prop-owner-name").value,
+                    ownerPhone: document.getElementById("prop-owner-phone").value,
+                    ownerAddress: document.getElementById("prop-owner-address").value,
+                    agent: agent,
+                    creditEligible: (category === "venta") ? document.getElementById("prop-credit").checked : false,
+                    mapLink: document.getElementById("prop-map-link").value,
+                    createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+                    images: finalImageUrls,
+                    customFeatures
+                };
+
+                if (currentEditingId) {
+                    const existing = properties.find(p => p.id === currentEditingId);
+                    if (existing && existing.firebaseId) {
+                        await window.db.collection("properties").doc(existing.firebaseId).update(propertyData);
+                    } else {
+                        // It was a base property or local, now moving to cloud
+                        await window.db.collection("properties").add(propertyData);
+                    }
+                } else {
+                    await window.db.collection("properties").add(propertyData);
+                }
+
+                closeModal();
+                loadProperties();
+                alert(currentEditingId ? "Propiedad actualizada con éxito" : "Propiedad publicada con éxito");
+                currentEditingId = null;
+            } catch (err) {
+                console.error("Error publishing property:", err);
+                alert("Error al publicar la propiedad. Verifica tu conexión y configuración.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
         };
     }
 }

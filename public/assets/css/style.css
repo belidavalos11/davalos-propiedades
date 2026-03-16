@@ -708,7 +708,9 @@ h3,
     color: var(--text);
 }
 
-.standard-form input {
+.standard-form input,
+.standard-form select,
+.standard-form textarea {
     width: 100%;
     padding: 14px;
     border: 1px solid #e2e8f0;
@@ -717,14 +719,29 @@ h3,
     font-size: 1rem;
     background-color: #f8fafc;
     transition: all 0.2s ease;
+    box-sizing: border-box;
 }
 
-.standard-form input:focus {
+.standard-form textarea {
+    resize: vertical;
+    min-height: 160px;
+}
+
+.standard-form input:focus,
+.standard-form select:focus,
+.standard-form textarea:focus {
     outline: none;
     border-color: var(--primary);
     background-color: #fff;
     box-shadow: 0 0 0 4px rgba(0, 21, 86, 0.08);
 }
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
 
 .modal-info {
     color: var(--text-light);

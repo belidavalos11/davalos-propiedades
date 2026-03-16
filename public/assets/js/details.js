@@ -245,16 +245,31 @@ if (lightboxClose) lightboxClose.onclick = () => {
     if (!propId) return showNotFound();
 
     try {
-        const response = await fetch(DATA_URL, { cache: "no-store" });
-        let jsonList = [];
-        if (response.ok) {
-            const payload = await response.json();
-            jsonList = Array.isArray(payload?.properties) ? payload.properties : [];
+        // 1. Check if it's a deleted base property
+        if (window.db) {
+            const delDoc = await window.db.collection("deleted_properties").doc(String(propId)).get();
+            if (delDoc.exists) return showNotFound();
         }
 
-        const localList = JSON.parse(localStorage.getItem("davalos_properties") || "[]");
-        const all = [...localList, ...jsonList];
-        const property = all.map(p => normalizeProperty(p)).find(p => p.id === propId);
+        // 2. Try to fetch from Firestore first (New/Edited properties)
+        let property = null;
+        if (window.db) {
+            const snapshot = await window.db.collection("properties").where("id", "==", propId).get();
+            if (!snapshot.empty) {
+                const doc = snapshot.docs[0];
+                property = normalizeProperty({ ...doc.data(), firebaseId: doc.id });
+            }
+        }
+
+        // 3. Fallback to JSON if not in Firestore
+        if (!property) {
+            const response = await fetch(DATA_URL, { cache: "no-store" });
+            if (response.ok) {
+                const payload = await response.json();
+                const jsonList = Array.isArray(payload?.properties) ? payload.properties : [];
+                property = jsonList.map(p => normalizeProperty(p)).find(p => p.id === propId);
+            }
+        }
 
         if (!property) return showNotFound();
         renderDetails(property);
@@ -268,7 +283,7 @@ if (lightboxClose) lightboxClose.onclick = () => {
             greeting.style.display = "block";
         }
     } catch (e) {
-        console.error(e);
+        console.error("Error loading property details:", e);
         showNotFound();
     }
 })();
