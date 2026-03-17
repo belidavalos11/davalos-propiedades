@@ -329,10 +329,6 @@ function renderProperties(filtered) {
                 <p class="property-description">${escapeHtml(prop.description || "").substring(0, 70)}...</p>
                 
                 <div class="property-features-new">
-                    <div class="feat-item" title="Referencia">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-                        <span>DP-${String(prop.id).padStart(4, '0')}</span>
-                    </div>
                     <div class="feat-item" title="Habitaciones">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
                         <span>${rooms}</span>
@@ -341,9 +337,13 @@ function renderProperties(filtered) {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 21v-2a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2"></path><circle cx="12" cy="7" r="4"></circle><path d="M12 11v1"></path></svg>
                         <span>${baths}</span>
                     </div>
-                    <div class="feat-item" title="Superficie">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 3H3v18h18V3zM9 3v18m6-18v18m-9-6h3m6 0h3m-12-6h3m6 0h3"></path></svg>
-                        <span>${prop.area || '-'}m²</span>
+                    <div class="feat-item" title="m² Construidos">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
+                        <span>${prop.areaBuilt ? `${prop.areaBuilt}m²` : '-'}</span>
+                    </div>
+                    <div class="feat-item" title="Garage">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
+                        <span>${getFeatureVal('cochera') || getFeatureVal('garage') || '-'}</span>
                     </div>
                 </div>
             </div>
