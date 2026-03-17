@@ -684,7 +684,8 @@ function bindEvents() {
             submitBtn.textContent = "Publicando...";
 
             try {
-                const customFeatures = Array.from(container.querySelectorAll(".feature-data")).map(i => JSON.parse(i.value));
+                const featuresContainer = document.getElementById("custom-features-container");
+                const customFeatures = featuresContainer ? Array.from(featuresContainer.querySelectorAll(".feature-data")).map(i => JSON.parse(i.value)) : [];
                 const category = document.getElementById("prop-category").value;
                 const type = document.getElementById("prop-type").value;
                 const price = Number(document.getElementById("prop-price").value);
@@ -744,7 +745,6 @@ function bindEvents() {
                 currentEditingId = null;
             } catch (err) {
                 console.error("CRITICAL ERROR publishing property:", err);
-                console.log("Failed Data:", propertyData);
                 alert(`Error al publicar la propiedad: ${err.message || 'Error desconocido'}. Verifica tu conexión y configuración de Firebase Storage.`);
             } finally {
                 submitBtn.disabled = false;
