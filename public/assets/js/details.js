@@ -125,6 +125,8 @@ function renderDetails(prop) {
 
                 <div class="property-info-pills" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
                     <span class="pill"><strong>Tipo:</strong> ${escapeHtml(prop.type || "N/D")}</span>
+                    ${prop.areaTotal ? `<span class="pill"><strong>Terreno:</strong> ${prop.areaTotal} m²</span>` : ""}
+                    ${prop.areaBuilt ? `<span class="pill"><strong>Cubiertos:</strong> ${prop.areaBuilt} m²</span>` : ""}
                     ${prop.creditEligible ? '<span class="pill highlight-pill">✅ Apto Crédito</span>' : ""}
                 </div>
 

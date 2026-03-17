@@ -515,6 +515,10 @@ function openEditModal(id) {
     // Sync visibility
     updateCreditVisibility();
 
+    // Surfaces
+    document.getElementById("prop-area-total").value = prop.areaTotal || "";
+    document.getElementById("prop-area-built").value = prop.areaBuilt || "";
+
     // Images
     uploadedImages = [...prop.images];
     renderThumbnails();
@@ -587,6 +591,8 @@ function bindEvents() {
             propertyForm.reset();
             populateAgentDropdown();
             updateCreditVisibility();
+            document.getElementById("prop-area-total").value = "";
+            document.getElementById("prop-area-built").value = "";
             document.getElementById("custom-features-container").innerHTML = "";
             document.getElementById("image-previews").innerHTML = "";
             uploadedImages = [];
@@ -692,6 +698,9 @@ function bindEvents() {
                 const currency = document.getElementById("prop-currency").value;
                 const agent = document.getElementById("prop-agent").value;
 
+                const areaTotal = document.getElementById("prop-area-total").value;
+                const areaBuilt = document.getElementById("prop-area-built").value;
+
                 // 1. Upload new images to Firebase Storage
                 const finalImageUrls = [];
                 for (const item of uploadedImages) {
@@ -724,7 +733,9 @@ function bindEvents() {
                     mapLink: document.getElementById("prop-map-link").value,
                     createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
                     images: finalImageUrls,
-                    customFeatures
+                    customFeatures,
+                    areaTotal: areaTotal ? Number(areaTotal) : null,
+                    areaBuilt: areaBuilt ? Number(areaBuilt) : null
                 };
 
                 if (currentEditingId) {
