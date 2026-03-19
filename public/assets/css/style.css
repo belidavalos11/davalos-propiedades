@@ -151,8 +151,8 @@ h3,
 }
 
 .highlight {
-    font-weight: 400;
-    /* Slightly bolder for emphasis but keeping it thin */
+    font-weight: 600;
+    /* Bolder inner text */
     color: var(--primary);
     -webkit-text-stroke: 1px rgba(255, 255, 255, 0.8);
     /* 80% opacity for better contrast */
