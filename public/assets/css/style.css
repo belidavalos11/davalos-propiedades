@@ -151,12 +151,17 @@ h3,
 }
 
 .highlight {
-    font-weight: 600;
-    /* Bolder inner text */
+    font-weight: 700;
+    /* Much bolder to ensure the blue inside is very visible */
     color: var(--primary);
-    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.8);
-    /* 80% opacity for better contrast */
-    text-shadow: 0 0 2px rgba(255, 255, 255, 0.4);
+    
+    /* Using multiple text-shadows to create an OUTLINE that doesn't eat the inside color */
+    text-shadow: 
+        -1px -1px 0 rgba(255, 255, 255, 1),  
+         1px -1px 0 rgba(255, 255, 255, 1),
+        -1px  1px 0 rgba(255, 255, 255, 1),
+         1px  1px 0 rgba(255, 255, 255, 1),
+         0px  3px 10px rgba(0, 0, 0, 0.4); /* Nice drop shadow for depth behind the outline */
 }
 
 .search-container {
