@@ -1,4 +1,4 @@
-﻿const AuthManager = {
+const AuthManager = {
     Roles: {
         SUPER_ADMIN: "SUPER_ADMIN",
         ADMIN: "ADMIN",
@@ -146,7 +146,12 @@
 
     getAllUsers() {
         const extras = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
-        return [...this._users, ...extras];
+        const deletedCore = JSON.parse(localStorage.getItem("davalos_deleted_core_users") || "[]");
+        
+        // Filter out core users that have been "deleted"
+        const filteredCore = this._users.filter(u => !deletedCore.includes(u.username));
+        
+        return [...filteredCore, ...extras];
     },
 
     addUser(userData) {
@@ -168,14 +173,33 @@
     removeUser(username) {
         if (!this.hasPermission(this.Permissions.MANAGE_USERS)) return false;
         const normalized = this._normalizeUsername(username);
+        const currentUser = this.getCurrentUser();
 
-        // Cannot remove core users for safety (simulated)
-        if (this._users.some(u => u.username === normalized)) return false;
+        // 1. Safety: Cannot remove the main "admin" or yourself
+        if (normalized === "admin") return false;
+        if (normalized === currentUser) return false;
 
+        // 2. Check if it's a core user
+        if (this._users.some(u => u.username === normalized)) {
+            const deletedCore = JSON.parse(localStorage.getItem("davalos_deleted_core_users") || "[]");
+            if (!deletedCore.includes(normalized)) {
+                deletedCore.push(normalized);
+                localStorage.setItem("davalos_deleted_core_users", JSON.stringify(deletedCore));
+            }
+            return true;
+        }
+
+        // 3. Otherwise, it's an extra user
         let extras = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
+        const originalLength = extras.length;
         extras = extras.filter(u => u.username !== normalized);
-        localStorage.setItem("davalos_extra_users", JSON.stringify(extras));
-        return true;
+        
+        if (extras.length < originalLength) {
+            localStorage.setItem("davalos_extra_users", JSON.stringify(extras));
+            return true;
+        }
+
+        return false;
     }
 };
 

@@ -774,25 +774,37 @@ function toBase64(file) {
 }
 
 // User Management Helpers
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function renderUserList() {
     const container = document.getElementById("user-list");
     if (!container) return;
 
     const manager = window.AuthManager;
     const users = manager.getAllUsers();
+    const currentUser = manager.getCurrentUser();
 
-    container.innerHTML = users.map(u => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
-            <div>
-                <strong>${escapeHtml(u.displayName)}</strong> (${u.username})<br>
-                <small style="color: #666;">${u.role}</small>
+    container.innerHTML = users.map(u => {
+        const isProtected = u.username === "admin" || u.username === currentUser;
+        
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
+                <div>
+                    <strong>${escapeHtml(u.displayName)}</strong> (${u.username})<br>
+                    <small style="color: #666;">${u.role}</small>
+                </div>
+                ${!isProtected ? `
+                    <button class="btn btn-outline btn-small" style="color: #e74c3c; border-color: #e74c3c;" onclick="handleRemoveUser('${u.username}')">Eliminar</button>
+                ` : ""}
             </div>
-            ${!manager._users.some(core => core.username === u.username) ? `
-                <button class="btn btn-outline btn-small" style="color: #e74c3c; border-color: #e74c3c;" onclick="handleRemoveUser('${u.username}')">Eliminar</button>
-            ` : ""}
-        </div>
-    `).join("");
+        `;
+    }).join("");
 }
+window.renderUserList = renderUserList;
 
 function handleAddUser(e) {
     e.preventDefault();
@@ -817,13 +829,15 @@ function handleAddUser(e) {
 }
 
 function handleRemoveUser(username) {
-    if (!confirm(`¿Estás seguro de que deseas eliminar al usuario ${username}?`)) return;
+    if (!confirm(`¿Estás seguro de que deseas eliminar al usuario "${username}"? Esta acción no se puede deshacer.`)) return;
     if (window.AuthManager.removeUser(username)) {
         renderUserList();
+        alert("Usuario eliminado correctamente.");
     } else {
-        alert("No se pudo eliminar al usuario.");
+        alert("Error: No se pudo eliminar al usuario. Es posible que sea una cuenta protegida o no tengas permisos.");
     }
 }
+window.handleRemoveUser = handleRemoveUser;
 
 function init() {
     // Initial load
