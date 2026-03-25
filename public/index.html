@@ -291,6 +291,19 @@
                         placeholder="Escribe aquí la descripción detallada de la propiedad..."></textarea>
                 </div>
 
+                <!-- 4.1 Memoria Descriptiva (Optional) -->
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <input type="checkbox" id="prop-has-memory" style="width: auto;">
+                        <label for="prop-has-memory" style="margin-bottom: 0; font-weight: 500;">Memoria descriptiva</label>
+                    </div>
+                    <div id="memory-description-wrapper" style="display: none;">
+                        <label for="prop-memory-desc" style="font-size: 0.85rem; color: #666; display: block; margin-bottom: 5px;">Texto de la memoria descriptiva</label>
+                        <textarea id="prop-memory-desc" rows="4"
+                            placeholder="Añade aquí los detalles técnicos o adicionales de la memoria descriptiva..."></textarea>
+                    </div>
+                </div>
+
                 <!-- 5. Details (Structured Features) -->
                 <div class="form-section" style="margin-top: 10px; margin-bottom: 20px;">
                     <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px;">Detalles

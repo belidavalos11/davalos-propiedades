@@ -181,17 +181,26 @@ function renderDetails(prop) {
                         <h3 class="section-title">Detalles y Comodidades</h3>
                         <div class="features-grid">
                             ${prop.customFeatures.map((feat) => {
-        const isObj = typeof feat === 'object';
-        const icon = isObj ? feat.icon : "✨";
-        const name = isObj ? feat.name : feat;
-        const qty = (isObj && feat.qty) ? `${feat.qty} ` : "";
-        return `
-                                    <div class="feature-item">
-                                        <span class="feature-icon">${icon}</span>
-                                        <span class="feature-text"><strong>${qty}${name}</strong></span>
-                                    </div>
-                                `;
-    }).join("")}
+                                const isObj = typeof feat === 'object';
+                                const icon = isObj ? feat.icon : "✨";
+                                const name = isObj ? feat.name : feat;
+                                const qty = (isObj && feat.qty) ? `${feat.qty} ` : "";
+                                return `
+                                            <div class="feature-item">
+                                                <span class="feature-icon">${icon}</span>
+                                                <span class="feature-text"><strong>${qty}${name}</strong></span>
+                                            </div>
+                                        `;
+                            }).join("")}
+                        </div>
+                    </div>
+                ` : ""}
+
+                ${prop.memoryDescription ? `
+                    <div class="memory-description-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                        <h3 class="section-title">Memoria Descriptiva</h3>
+                        <div class="memory-content" style="white-space: pre-line; line-height: 1.6; color: #555;">
+                            ${escapeHtml(prop.memoryDescription)}
                         </div>
                     </div>
                 ` : ""}

@@ -512,6 +512,13 @@ function openEditModal(id) {
     document.getElementById("prop-credit").checked = !!prop.creditEligible;
     document.getElementById("prop-map-link").value = prop.mapLink || "";
 
+    // Memoria Descriptiva
+    const hasMemory = !!prop.memoryDescription;
+    document.getElementById("prop-has-memory").checked = hasMemory;
+    const memoryWrapper = document.getElementById("memory-description-wrapper");
+    memoryWrapper.style.display = hasMemory ? "block" : "none";
+    document.getElementById("prop-memory-desc").value = prop.memoryDescription || "";
+
     // Sync visibility
     updateCreditVisibility();
 
@@ -593,6 +600,9 @@ function bindEvents() {
             updateCreditVisibility();
             document.getElementById("prop-area-total").value = "";
             document.getElementById("prop-area-built").value = "";
+            document.getElementById("prop-has-memory").checked = false;
+            document.getElementById("memory-description-wrapper").style.display = "none";
+            document.getElementById("prop-memory-desc").value = "";
             document.getElementById("custom-features-container").innerHTML = "";
             document.getElementById("image-previews").innerHTML = "";
             uploadedImages = [];
@@ -645,6 +655,15 @@ function bindEvents() {
             });
             featurePreset.value = "";
             featureQty.value = "";
+        };
+    }
+
+    // Memoria Descriptiva toggle
+    const propHasMemory = document.getElementById("prop-has-memory");
+    if (propHasMemory) {
+        propHasMemory.onchange = (e) => {
+            const wrapper = document.getElementById("memory-description-wrapper");
+            wrapper.style.display = e.target.checked ? "block" : "none";
         };
     }
 
@@ -735,7 +754,8 @@ function bindEvents() {
                     images: finalImageUrls,
                     customFeatures,
                     areaTotal: areaTotal ? Number(areaTotal) : null,
-                    areaBuilt: areaBuilt ? Number(areaBuilt) : null
+                    areaBuilt: areaBuilt ? Number(areaBuilt) : null,
+                    memoryDescription: document.getElementById("prop-has-memory").checked ? document.getElementById("prop-memory-desc").value : ""
                 };
 
                 if (currentEditingId) {
