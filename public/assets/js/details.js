@@ -135,7 +135,14 @@ function renderDetails(prop) {
                 <span class="badge badge-${safeCategory}">${safeCategory.toUpperCase()}</span>
                 <h1 class="details-title">${safeTitle}</h1>
                 <p class="section-subtitle">${safeDescription}</p>
-                <div class="details-price">${formatCurrency(prop.price, prop.currency)}</div>
+                <div class="details-price">
+                    ${formatCurrency(prop.price, prop.currency)}
+                    ${prop.expensasAmount ? `
+                        <div class="expensas-info" style="font-size: 1rem; color: #666; font-weight: 400; margin-top: 5px;">
+                            + ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} de expensas
+                        </div>
+                    ` : ""}
+                </div>
 
                 <div class="property-info-pills" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
                     <span class="pill"><strong>Tipo:</strong> ${escapeHtml(prop.type || "N/D")}</span>

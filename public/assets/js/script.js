@@ -519,6 +519,14 @@ function openEditModal(id) {
     memoryWrapper.style.display = hasMemory ? "block" : "none";
     document.getElementById("prop-memory-desc").value = prop.memoryDescription || "";
 
+    // Expensas
+    const hasExpensas = !!prop.expensasAmount;
+    document.getElementById("prop-has-expensas").checked = hasExpensas;
+    const expensasWrapper = document.getElementById("expensas-wrapper");
+    expensasWrapper.style.display = hasExpensas ? "flex" : "none";
+    document.getElementById("prop-expensas-amount").value = prop.expensasAmount || "";
+    document.getElementById("prop-expensas-currency").value = prop.expensasCurrency || "ARS";
+
     // Sync visibility
     updateCreditVisibility();
 
@@ -603,6 +611,9 @@ function bindEvents() {
             document.getElementById("prop-has-memory").checked = false;
             document.getElementById("memory-description-wrapper").style.display = "none";
             document.getElementById("prop-memory-desc").value = "";
+            document.getElementById("prop-has-expensas").checked = false;
+            document.getElementById("expensas-wrapper").style.display = "none";
+            document.getElementById("prop-expensas-amount").value = "";
             document.getElementById("custom-features-container").innerHTML = "";
             document.getElementById("image-previews").innerHTML = "";
             uploadedImages = [];
@@ -664,6 +675,15 @@ function bindEvents() {
         propHasMemory.onchange = (e) => {
             const wrapper = document.getElementById("memory-description-wrapper");
             wrapper.style.display = e.target.checked ? "block" : "none";
+        };
+    }
+
+    // Expensas toggle
+    const propHasExpensas = document.getElementById("prop-has-expensas");
+    if (propHasExpensas) {
+        propHasExpensas.onchange = (e) => {
+            const wrapper = document.getElementById("expensas-wrapper");
+            wrapper.style.display = e.target.checked ? "flex" : "none";
         };
     }
 
@@ -755,7 +775,9 @@ function bindEvents() {
                     customFeatures,
                     areaTotal: areaTotal ? Number(areaTotal) : null,
                     areaBuilt: areaBuilt ? Number(areaBuilt) : null,
-                    memoryDescription: document.getElementById("prop-has-memory").checked ? document.getElementById("prop-memory-desc").value : ""
+                    memoryDescription: document.getElementById("prop-has-memory").checked ? document.getElementById("prop-memory-desc").value : "",
+                    expensasAmount: document.getElementById("prop-has-expensas").checked ? Number(document.getElementById("prop-expensas-amount").value) : null,
+                    expensasCurrency: document.getElementById("prop-expensas-currency").value
                 };
 
                 if (currentEditingId) {
