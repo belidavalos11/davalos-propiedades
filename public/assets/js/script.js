@@ -103,10 +103,23 @@ function escapeHtml(value) {
 }
 
 function formatPrice(price) {
-    return Number(price || 0).toLocaleString("es-AR", {
+    if (!price && price !== 0) return "0";
+    return Number(price).toLocaleString("es-AR", {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     });
+}
+
+function formatNumber(val) {
+    if (!val && val !== 0) return "";
+    const num = Number(String(val).replace(/\./g, "").replace(/,/g, ""));
+    if (isNaN(num)) return val;
+    return num.toLocaleString("es-AR");
+}
+
+function unformatNumber(val) {
+    if (typeof val !== "string") return val;
+    return Number(val.replace(/\./g, "")) || 0;
 }
 
 function safeImageUrl(value) {
@@ -339,7 +352,7 @@ function renderProperties(filtered) {
                     </div>
                     <div class="feat-item" title="m² Construidos">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
-                        <span>${prop.areaBuilt ? `${prop.areaBuilt}m²` : '-'}</span>
+                        <span>${prop.areaBuilt ? `${formatNumber(prop.areaBuilt)}m²` : '-'}</span>
                     </div>
                     <div class="feat-item" title="Garage">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
@@ -500,7 +513,7 @@ function openEditModal(id) {
     document.getElementById("prop-category").value = prop.category || "venta";
     document.getElementById("prop-type").value = prop.type || "casa";
     document.getElementById("prop-desc").value = prop.description || "";
-    document.getElementById("prop-price").value = prop.price || 0;
+    document.getElementById("prop-price").value = formatNumber(prop.price);
     document.getElementById("prop-currency").value = prop.currency || "USD";
 
     // Owner data
@@ -524,15 +537,15 @@ function openEditModal(id) {
     document.getElementById("prop-has-expensas").checked = hasExpensas;
     const expensasWrapper = document.getElementById("expensas-wrapper");
     expensasWrapper.style.display = hasExpensas ? "flex" : "none";
-    document.getElementById("prop-expensas-amount").value = prop.expensasAmount || "";
+    document.getElementById("prop-expensas-amount").value = formatNumber(prop.expensasAmount);
     document.getElementById("prop-expensas-currency").value = prop.expensasCurrency || "ARS";
 
     // Sync visibility
     updateCreditVisibility();
 
     // Surfaces
-    document.getElementById("prop-area-total").value = prop.areaTotal || "";
-    document.getElementById("prop-area-built").value = prop.areaBuilt || "";
+    document.getElementById("prop-area-total").value = formatNumber(prop.areaTotal);
+    document.getElementById("prop-area-built").value = formatNumber(prop.areaBuilt);
 
     // Images
     uploadedImages = [...prop.images];
@@ -669,6 +682,18 @@ function bindEvents() {
         };
     }
 
+    // Dynamic Numeric Input Mask (dots)
+    document.querySelectorAll(".numeric-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            let value = e.target.value.replace(/\D/g, "");
+            if (value === "") {
+                e.target.value = "";
+                return;
+            }
+            e.target.value = Number(value).toLocaleString("es-AR");
+        });
+    });
+
     // Memoria Descriptiva toggle
     const propHasMemory = document.getElementById("prop-has-memory");
     if (propHasMemory) {
@@ -733,12 +758,12 @@ function bindEvents() {
                 const customFeatures = featuresContainer ? Array.from(featuresContainer.querySelectorAll(".feature-data")).map(i => JSON.parse(i.value)) : [];
                 const category = document.getElementById("prop-category").value;
                 const type = document.getElementById("prop-type").value;
-                const price = Number(document.getElementById("prop-price").value);
+                const price = unformatNumber(document.getElementById("prop-price").value);
                 const currency = document.getElementById("prop-currency").value;
                 const agent = document.getElementById("prop-agent").value;
 
-                const areaTotal = document.getElementById("prop-area-total").value;
-                const areaBuilt = document.getElementById("prop-area-built").value;
+                const areaTotal = unformatNumber(document.getElementById("prop-area-total").value);
+                const areaBuilt = unformatNumber(document.getElementById("prop-area-built").value);
 
                 // 1. Upload new images to Firebase Storage
                 const finalImageUrls = [];
@@ -773,10 +798,10 @@ function bindEvents() {
                     createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
                     images: finalImageUrls,
                     customFeatures,
-                    areaTotal: areaTotal ? Number(areaTotal) : null,
-                    areaBuilt: areaBuilt ? Number(areaBuilt) : null,
+                    areaTotal: areaTotal || null,
+                    areaBuilt: areaBuilt || null,
                     memoryDescription: document.getElementById("prop-has-memory").checked ? document.getElementById("prop-memory-desc").value : "",
-                    expensasAmount: document.getElementById("prop-has-expensas").checked ? Number(document.getElementById("prop-expensas-amount").value) : null,
+                    expensasAmount: document.getElementById("prop-has-expensas").checked ? unformatNumber(document.getElementById("prop-expensas-amount").value) : null,
                     expensasCurrency: document.getElementById("prop-expensas-currency").value
                 };
 

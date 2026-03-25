@@ -341,7 +341,7 @@
                             <option value="Sótano" data-icon="📦">Sótano 📦</option>
                             <option value="Altillo" data-icon="🪜">Altillo 🪜</option>
                         </select>
-                        <input type="number" id="feature-qty" placeholder="Cant." min="1">
+                        <input type="text" id="feature-qty" placeholder="Cant." class="numeric-input">
                         <button type="button" id="btn-add-feature" class="btn btn-outline"
                             style="padding: 0 15px;">+</button>
                     </div>
@@ -357,11 +357,11 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="prop-area-total">Terreno / Total</label>
-                            <input type="number" id="prop-area-total" placeholder="Ej: 300">
+                            <input type="text" id="prop-area-total" placeholder="Ej: 300" class="numeric-input">
                         </div>
                         <div class="form-group">
                             <label for="prop-area-built">Construidos / Cubiertos</label>
-                            <input type="number" id="prop-area-built" placeholder="Ej: 150">
+                            <input type="text" id="prop-area-built" placeholder="Ej: 150" class="numeric-input">
                         </div>
                     </div>
                 </div>
@@ -370,7 +370,7 @@
                 <div class="form-row price-row">
                     <div class="form-group">
                         <label for="prop-price">Precio</label>
-                        <input type="number" id="prop-price" required placeholder="Monto numérico">
+                        <input type="text" id="prop-price" required placeholder="Monto numérico" class="numeric-input">
                     </div>
                     <div class="form-group">
                         <label for="prop-currency">Moneda</label>
@@ -390,7 +390,7 @@
                     <div id="expensas-wrapper" class="form-row" style="display: none; border-left: 3px solid var(--primary); padding-left: 15px;">
                         <div class="form-group">
                             <label for="prop-expensas-amount">Monto de expensas</label>
-                            <input type="number" id="prop-expensas-amount" placeholder="Ej: 5000">
+                            <input type="text" id="prop-expensas-amount" placeholder="Ej: 5.000" class="numeric-input">
                         </div>
                         <div class="form-group">
                             <label for="prop-expensas-currency">Moneda expensas</label>

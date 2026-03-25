@@ -61,7 +61,12 @@ function getSafePropertyId() {
 
 function formatCurrency(value, currency = "USD") {
     const symbol = currency === "ARS" ? "AR$" : "U$D";
-    return `${symbol} ${value.toLocaleString("es-AR")}`;
+    return `${symbol} ${formatNumber(value)}`;
+}
+
+function formatNumber(val) {
+    if (!val && val !== 0) return "-";
+    return Number(val).toLocaleString("es-AR");
 }
 
 function getAgentPhone(prop) {
@@ -146,8 +151,8 @@ function renderDetails(prop) {
 
                 <div class="property-info-pills" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
                     <span class="pill"><strong>Tipo:</strong> ${escapeHtml(prop.type || "N/D")}</span>
-                    ${prop.areaTotal ? `<span class="pill"><strong>Terreno:</strong> ${prop.areaTotal} m²</span>` : ""}
-                    ${prop.areaBuilt ? `<span class="pill"><strong>Cubiertos:</strong> ${prop.areaBuilt} m²</span>` : ""}
+                    ${prop.areaTotal ? `<span class="pill"><strong>Terreno:</strong> ${formatNumber(prop.areaTotal)} m²</span>` : ""}
+                    ${prop.areaBuilt ? `<span class="pill"><strong>Cubiertos:</strong> ${formatNumber(prop.areaBuilt)} m²</span>` : ""}
                     ${prop.creditEligible ? '<span class="pill highlight-pill">✅ Apto Crédito</span>' : ""}
                 </div>
 
@@ -195,7 +200,7 @@ function renderDetails(prop) {
                                 return `
                                             <div class="feature-item">
                                                 <span class="feature-icon">${icon}</span>
-                                                <span class="feature-text"><strong>${qty}${name}</strong></span>
+                                                <span class="feature-text"><strong>${qty ? formatNumber(qty) + ' ' : ''}${name}</strong></span>
                                             </div>
                                         `;
                             }).join("")}
