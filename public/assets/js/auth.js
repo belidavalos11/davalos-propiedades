@@ -24,11 +24,11 @@ const AuthManager = {
     },
 
     _users: [
-        { username: "admin", password: "admin1234", displayName: "Admin", role: "SUPER_ADMIN" },
-        { username: "beli", password: "beli2026", displayName: "Beli", role: "SUPER_ADMIN" },
-        { username: "belidavalos", password: "beli2026", displayName: "Beli", role: "SUPER_ADMIN" },
-        { username: "irenegarcia", password: "ire2026", displayName: "Ire", role: "SUPER_ADMIN" },
-        { username: "flopypfister", password: "flopy2026", displayName: "Flopy", role: "SUPER_ADMIN" },
+        { username: "admin", password: "admin1234", displayName: "Admin", role: "SUPER_ADMIN", phone: "5493875053884" },
+        { username: "beli", password: "beli2026", displayName: "Beli", role: "SUPER_ADMIN", phone: "5493875053884" },
+        { username: "belidavalos", password: "beli2026", displayName: "Beli", role: "SUPER_ADMIN", phone: "5493875053884" },
+        { username: "irenegarcia", password: "ire2026", displayName: "Ire", role: "SUPER_ADMIN", phone: "5493871234567" },
+        { username: "flopypfister", password: "flopy2026", displayName: "Flopy", role: "SUPER_ADMIN", phone: "5493871234567" },
     ],
 
     _sessionHours: 12,

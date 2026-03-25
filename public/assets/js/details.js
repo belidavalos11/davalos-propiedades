@@ -64,10 +64,24 @@ function formatCurrency(value, currency = "USD") {
     return `${symbol} ${value.toLocaleString("es-AR")}`;
 }
 
+function getAgentPhone(prop) {
+    if (!prop || !prop.agent) return WHATSAPP_NUMBER;
+    if (window.AuthManager) {
+        const users = window.AuthManager.getAllUsers();
+        const agentUser = users.find(u => u.displayName === prop.agent || u.username === prop.agent);
+        if (agentUser && agentUser.phone) {
+            const numericPhone = agentUser.phone.replace(/\D/g, '');
+            if (numericPhone) return numericPhone;
+        }
+    }
+    return WHATSAPP_NUMBER;
+}
+
 function buildWhatsappUrl(prop) {
     const propertyUrl = window.location.href;
     const text = encodeURIComponent(`Hola, quiero consultar por "${prop.title}" (ID ${prop.id}). Link: ${propertyUrl}`);
-    return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
+    const phone = getAgentPhone(prop);
+    return `https://wa.me/${phone}?text=${text}`;
 }
 
 function showNotFound() {
@@ -186,7 +200,7 @@ function renderDetails(prop) {
                     <h3>¿Te interesa esta propiedad?</h3>
                     <p>Contáctanos para coordinar una visita o recibir más información.</p>
                     <a class="btn btn-full btn-whatsapp" target="_blank" rel="noopener noreferrer" href="${buildWhatsappUrl(prop)}">Consultar por WhatsApp</a>
-                    <a class="btn btn-full btn-outline" href="tel:${PHONE_NUMBER}">Llamar ahora</a>
+                    <a class="btn btn-full btn-outline" href="tel:+${getAgentPhone(prop)}">Llamar ahora</a>
                 </div>
             </div>
         </div>
@@ -210,7 +224,7 @@ function bindLightbox() {
 function setupFloating(prop) {
     if (!floatingContact) return;
     floatingWhatsapp.href = buildWhatsappUrl(prop);
-    floatingCall.href = `tel:${PHONE_NUMBER}`;
+    floatingCall.href = `tel:+${getAgentPhone(prop)}`;
     floatingContact.style.display = "flex";
 }
 
