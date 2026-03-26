@@ -236,11 +236,6 @@ function renderDetails(prop) {
 
             <div class="column-right-sidebar">
                 <div class="contact-card-v2">
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <button class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 8px;" onclick="window.print()">🖨️ Imprimir</button>
-                        <button class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 8px;" onclick="navigator.share({title: '${safeTitle}', url: window.location.href})">🔗 Compartir</button>
-                    </div>
-
                     <h3>Contáctanos</h3>
                     <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">Envíanos tu consulta y un asesor te contactará a la brevedad.</p>
                     
