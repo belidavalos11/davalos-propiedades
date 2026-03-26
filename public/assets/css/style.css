@@ -444,24 +444,31 @@ h3,
     white-space: nowrap;
 }
 
-.badge {
+.operation-badge {
     position: absolute;
-    top: 14px;
-    left: 14px;
-    padding: 6px 12px;
-    border-radius: 4px;
+    top: 15px;
+    left: 15px;
+    padding: 8px 16px;
+    border-radius: 30px;
     font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--white);
+    z-index: 10;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
 }
 
 .badge-venta {
-    background-color: var(--primary);
+    background-color: var(--white);
+    color: var(--primary);
+    border-color: var(--white);
 }
 
 .badge-alquiler {
-    background-color: var(--secondary);
+    background-color: var(--primary);
+    color: var(--white);
+    border-color: var(--primary);
 }
 
 .gallery-badge {

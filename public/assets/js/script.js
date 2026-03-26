@@ -318,6 +318,7 @@ function renderProperties(filtered) {
         card.className = "property-card";
         card.innerHTML = `
             <div class="property-image-container">
+                <div class="operation-badge badge-${(prop.category || 'venta').toLowerCase()}">${prop.category || 'Venta'}</div>
                 <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : 'assets/images/placeholder.jpg'}" alt="${prop.title}" class="property-image">
                 <img src="assets/images/logo-seal.svg" class="property-seal" alt="Seal">
                 <div class="property-badge">${prop.type}</div>
