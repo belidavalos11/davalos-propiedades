@@ -100,6 +100,16 @@ function showNotFound() {
     if (floatingContact) floatingContact.style.display = "none";
 }
 
+function getFeatureVal(namePattern, prop) {
+    if (!prop || !prop.customFeatures) return null;
+    const feat = prop.customFeatures.find(f =>
+        (typeof f === 'string' && f.toLowerCase().includes(namePattern)) ||
+        (f.name && f.name.toLowerCase().includes(namePattern))
+    );
+    if (!feat) return null;
+    return typeof feat === 'string' ? feat.match(/\d+/) : feat.qty;
+}
+
 function renderDetails(prop) {
     const logged = window.AuthManager && window.AuthManager.isLoggedIn();
     const safeTitle = escapeHtml(prop.title);
@@ -107,47 +117,96 @@ function renderDetails(prop) {
     const safeDescription = escapeHtml(prop.description || "");
 
     container.innerHTML = `
-        <div class="details-grid">
-            <div class="details-left">
-                <div class="carousel" id="property-carousel">
-                    <div class="carousel-inner" id="carousel-inner">
-                        ${prop.images.map((img, index) => `
-                            <div class="carousel-item ${index === 0 ? "active" : ""}">
-                                <img loading="lazy" src="${img}" alt="${safeTitle}" class="carousel-img">
-                            </div>
-                        `).join("")}
-                    </div>
-                    ${prop.images.length > 1 ? `
-                        <button class="carousel-control prev" type="button" onclick="moveCarousel(-1)">&#10094;</button>
-                        <button class="carousel-control next" type="button" onclick="moveCarousel(1)">&#10095;</button>
-                        <div class="carousel-indicators">
-                            ${prop.images.map((_, index) => `<span class="dot ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})"></span>`).join("")}
+        <!-- Section 1: Gallery -->
+        <div class="details-gallery-section" style="margin-bottom: 20px;">
+            <div class="carousel" id="property-carousel">
+                <div class="carousel-inner" id="carousel-inner">
+                    ${prop.images.map((img, index) => `
+                        <div class="carousel-item ${index === 0 ? "active" : ""}">
+                            <img loading="lazy" src="${img}" alt="${safeTitle}" class="carousel-img">
                         </div>
-                    ` : ""}
+                    `).join("")}
                 </div>
                 ${prop.images.length > 1 ? `
-                    <div class="carousel-thumbnails" id="carousel-thumbnails">
-                        ${prop.images.map((img, index) => `
-                            <div class="thumb-item ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})">
-                                <img src="${img}" alt="Thumbnail ${index + 1}">
-                            </div>
-                        `).join("")}
+                    <button class="carousel-control prev" type="button" onclick="moveCarousel(-1)">&#10094;</button>
+                    <button class="carousel-control next" type="button" onclick="moveCarousel(1)">&#10095;</button>
+                    <div class="carousel-indicators">
+                        ${prop.images.map((_, index) => `<span class="dot ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})"></span>`).join("")}
                     </div>
                 ` : ""}
+            </div>
+            ${prop.images.length > 1 ? `
+                <div class="carousel-thumbnails" id="carousel-thumbnails">
+                    ${prop.images.map((img, index) => `
+                        <div class="thumb-item ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})">
+                            <img src="${img}" alt="Thumbnail ${index + 1}">
+                        </div>
+                    `).join("")}
+                </div>
+            ` : ""}
+        </div>
 
-                <div class="details-description-desktop" style="margin-top: 30px; padding: 25px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <h3 style="margin-bottom: 15px; color: var(--primary); font-size: 1.1rem; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px;">Descripción</h3>
-                    <p class="section-subtitle" style="color: #444; line-height: 1.7; font-size: 0.95rem;">${safeDescription}</p>
+        <!-- Section 2: Header Row (Title & Price) -->
+        <div class="details-header-row">
+            <div class="details-title-block">
+                <span class="badge badge-${safeCategory}" style="margin-bottom: 8px; display: inline-block;">${safeCategory.toUpperCase()}</span>
+                <h1>${safeTitle}</h1>
+                <div class="details-location-breadcrumb">
+                    🏠 ${escapeHtml(prop.type || "N/D")} en ${safeCategory} | 📍 Ubicación disponible
+                    ${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="margin-left: 10px; color: var(--primary); font-weight: 600;">Ver mapa</a>` : ""}
                 </div>
             </div>
+            <div class="details-price-block">
+                <div class="price-main">${formatCurrency(prop.price, prop.currency)}</div>
+                ${prop.expensasAmount ? `
+                    <div class="expensas-sub">+ ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} expensas</div>
+                ` : ""}
+            </div>
+        </div>
 
-            <div class="details-right">
-                <span class="badge badge-${safeCategory}">${safeCategory.toUpperCase()}</span>
-                <h1 class="details-title" style="margin-bottom: 25px;">${safeTitle}</h1>
+        <!-- Section 3: Horizontal Features Bar -->
+        <div class="features-horizontal-bar">
+            ${prop.areaTotal ? `
+                <div class="feat-bar-item">
+                    <span class="feat-bar-label">Sup. total</span>
+                    <span class="feat-bar-value">${formatNumber(prop.areaTotal)} m²</span>
+                </div>
+            ` : ""}
+            ${prop.areaBuilt ? `
+                <div class="feat-bar-item">
+                    <span class="feat-bar-label">Sup. cubierta</span>
+                    <span class="feat-bar-value">${formatNumber(prop.areaBuilt)} m²</span>
+                </div>
+            ` : ""}
+            <div class="feat-bar-item">
+                <span class="feat-bar-label">Dormitorios</span>
+                <span class="feat-bar-value">${prop.rooms || "-"}</span>
+            </div>
+            <div class="feat-bar-item">
+                <span class="feat-bar-label">Baños</span>
+                <span class="feat-bar-value">${getFeatureVal('baño', prop) || "-"}</span>
+            </div>
+            ${prop.creditEligible ? `
+                <div class="feat-bar-item">
+                    <span class="feat-bar-label">Crédito</span>
+                    <span class="feat-bar-value" style="color: #2e7d32;">Apto ✅</span>
+                </div>
+            ` : ""}
+        </div>
+
+        <!-- Section 4: Main Content Grid -->
+        <div class="details-content-columns">
+            <div class="column-left-main">
+                <section class="description-section">
+                    <h2>Descripción</h2>
+                    <div style="white-space: pre-line; line-height: 1.8; color: #444; font-size: 1.05rem;">
+                        ${safeDescription}
+                    </div>
+                </section>
 
                 ${prop.customFeatures && prop.customFeatures.length ? `
-                    <div class="custom-features-section" style="margin-top: 0; margin-bottom: 25px;">
-                        <h3 class="section-title">Detalles y Comodidades</h3>
+                    <section class="comodidades-section">
+                        <h2>Más detalles y comodidades</h2>
                         <div class="features-grid">
                             ${prop.customFeatures.map((feat) => {
                                 const isObj = typeof feat === 'object';
@@ -162,72 +221,55 @@ function renderDetails(prop) {
                                         `;
                             }).join("")}
                         </div>
-                    </div>
+                    </section>
                 ` : ""}
-
-                <div class="details-price" style="margin-bottom: 20px;">
-                    <span style="display: block; font-size: 0.9rem; color: #666; margin-bottom: 5px; font-weight: 500;">Precio</span>
-                    ${formatCurrency(prop.price, prop.currency)}
-                    ${prop.expensasAmount ? `
-                        <div class="expensas-info" style="font-size: 1rem; color: #666; font-weight: 400; margin-top: 5px;">
-                            + ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} de expensas
-                        </div>
-                    ` : ""}
-                </div>
-
-                <div class="property-info-pills" style="display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; border-top: 1px solid #eee; padding-top: 20px;">
-                    ${prop.creditEligible ? '<span class="pill highlight-pill" style="background: #e6fffa; color: #234e52; border: 1px solid #b2f5ea; padding: 8px 15px; font-weight: 600;">✅ Apto Crédito</span>' : ""}
-                    <span class="pill"><strong>Tipo:</strong> ${escapeHtml(prop.type || "N/D")}</span>
-                    ${prop.areaTotal ? `<span class="pill"><strong>Terreno:</strong> ${formatNumber(prop.areaTotal)} m²</span>` : ""}
-                    ${prop.areaBuilt ? `<span class="pill"><strong>Cubiertos:</strong> ${formatNumber(prop.areaBuilt)} m²</span>` : ""}
-                </div>
-
-                ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
-                <div class="agent-box admin-only" style="margin-bottom: 25px;">
-                    <div class="agent-info">
-                        <strong>Agente:</strong>
-                        <span>${escapeHtml(prop.agent || "N/D")}</span>
-                    </div>
-                    <div class="owner-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px dotted #ccc;">
-                        <h4 style="margin-bottom: 5px; font-size: 0.9rem;">Datos del Propietario:</h4>
-                        <p><strong>Nombre:</strong> ${escapeHtml(prop.ownerName || "N/D")}</p>
-                        <p><strong>Tel:</strong> ${escapeHtml(prop.ownerPhone || "N/D")}</p>
-                        <p><strong>Dirección:</strong> ${escapeHtml(prop.ownerAddress || "N/D")}</p>
-                    </div>
-                </div>
-                ` : `
-                <div class="agent-box" style="margin-bottom: 25px;">
-                    <div class="agent-info">
-                        <strong>Agente Asignado:</strong>
-                        <span>${escapeHtml(prop.agent || "Dávalos Propiedades")}</span>
-                    </div>
-                </div>
-                `}
-
-                <div class="details-features" style="margin-bottom: 25px;">
-                    <div class="detail-feature">
-                        <span class="icon">📍</span>
-                        <div>
-                            <strong>Ubicación</strong>
-                            <p>${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); text-decoration: underline;">Ver en mapa</a>` : "No disponible"}</p>
-                        </div>
-                    </div>
-                </div>
 
                 ${prop.memoryDescription ? `
-                    <div class="memory-description-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; margin-bottom: 25px;">
-                        <h3 class="section-title">Memoria Descriptiva</h3>
-                        <div class="memory-content" style="white-space: pre-line; line-height: 1.6; color: #555;">
+                    <section class="memory-section">
+                        <h2>Memoria Descriptiva</h2>
+                        <div style="white-space: pre-line; line-height: 1.8; color: #555; background: #fdfdfd; padding: 20px; border-left: 4px solid var(--primary); border-radius: 4px;">
                             ${escapeHtml(prop.memoryDescription)}
                         </div>
-                    </div>
+                    </section>
                 ` : ""}
+            </div>
 
-                <div class="contact-card">
-                    <h3>¿Te interesa esta propiedad?</h3>
-                    <p>Contáctanos para coordinar una visita o recibir más información.</p>
-                    <a class="btn btn-full btn-whatsapp" target="_blank" rel="noopener noreferrer" href="${buildWhatsappUrl(prop)}">Consultar por WhatsApp</a>
-                    <a class="btn btn-full btn-outline" href="tel:+${getAgentPhone(prop)}">Llamar ahora</a>
+            <div class="column-right-sidebar">
+                <div class="contact-card-v2">
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <button class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 8px;" onclick="window.print()">🖨️ Imprimir</button>
+                        <button class="btn btn-outline" style="flex: 1; font-size: 0.8rem; padding: 8px;" onclick="navigator.share({title: '${safeTitle}', url: window.location.href})">🔗 Compartir</button>
+                    </div>
+
+                    <h3>Contáctanos</h3>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">Envíanos tu consulta y un asesor te contactará a la brevedad.</p>
+                    
+                    <div class="btn-group-v2">
+                        <a class="btn btn-full btn-whatsapp" target="_blank" rel="noopener noreferrer" href="${buildWhatsappUrl(prop)}">
+                            <span>📱 Contactar por WhatsApp</span>
+                        </a>
+                        <a class="btn btn-full btn-outline" href="tel:+${getAgentPhone(prop)}" style="background: var(--primary); color: #fff;">
+                            <span>📞 Llamar ahora</span>
+                        </a>
+                    </div>
+
+                    <div style="margin-top: 25px; pt: 15px; border-top: 1px solid #eee;">
+                        <span style="display: block; font-size: 0.75rem; color: #999; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Agente a cargo</span>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; background: #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
+                                ${escapeHtml(prop.agent || "D").charAt(0)}
+                            </div>
+                            <span style="font-weight: 600; color: var(--text-dark);">${escapeHtml(prop.agent || "Dávalos Propiedades")}</span>
+                        </div>
+                    </div>
+
+                    ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
+                        <div style="margin-top: 15px; padding: 12px; background: #fff5f5; border-radius: 8px; border: 1px solid #fed7d7;">
+                            <span style="display: block; font-size: 0.7rem; color: #c53030; font-weight: 600; text-transform: uppercase;">🔒 Datos Privados (Admin)</span>
+                            <p style="font-size: 0.85rem; margin-top: 5px;"><strong>Owner:</strong> ${escapeHtml(prop.ownerName || "N/D")}</p>
+                            <p style="font-size: 0.85rem;"><strong>Tel:</strong> ${escapeHtml(prop.ownerPhone || "N/D")}</p>
+                        </div>
+                    ` : ""}
                 </div>
             </div>
         </div>

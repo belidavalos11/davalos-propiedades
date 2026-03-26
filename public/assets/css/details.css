@@ -11,7 +11,110 @@
 }
 
 .details-left, .details-right {
-    min-width: 0; /* Prevent grid items from growing beyond their allocated space */
+    min-width: 0;
+}
+
+/* New Zonaprop-style Layout */
+.details-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 24px 0;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 20px;
+}
+
+.details-title-block h1 {
+    font-size: 2rem;
+    margin: 0;
+    color: var(--text-dark);
+}
+
+.details-location-breadcrumb {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 4px;
+}
+
+.details-price-block {
+    text-align: right;
+}
+
+.details-price-block .price-main {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.details-price-block .expensas-sub {
+    font-size: 0.95rem;
+    color: #888;
+}
+
+.features-horizontal-bar {
+    display: flex;
+    gap: 40px;
+    padding: 20px 0;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.feat-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.feat-bar-label {
+    font-size: 0.8rem;
+    color: #888;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.feat-bar-value {
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    font-weight: 700;
+}
+
+.details-content-columns {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 40px;
+}
+
+.column-left-main section {
+    margin-bottom: 40px;
+}
+
+.column-left-main h2 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    color: var(--text-dark);
+    font-family: 'Outfit', sans-serif;
+}
+
+.contact-card-v2 {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    position: sticky;
+    top: 100px;
+}
+
+.contact-card-v2 h3 {
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.btn-group-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .carousel {
@@ -379,8 +482,21 @@
         grid-template-columns: 1fr;
     }
 
-    .custom-features-list ul {
+    .details-content-columns {
         grid-template-columns: 1fr;
+    }
+
+    .contact-card-v2 {
+        position: static;
+    }
+
+    .details-header-row {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .details-price-block {
+        text-align: left;
     }
 }
 
