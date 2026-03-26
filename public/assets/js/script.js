@@ -350,6 +350,10 @@ function renderProperties(filtered) {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 21v-2a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2"></path><circle cx="12" cy="7" r="4"></circle><path d="M12 11v1"></path></svg>
                         <span>${baths}</span>
                     </div>
+                    <div class="feat-item" title="m² Totales / Terreno">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+                        <span>${prop.areaTotal ? `${formatNumber(prop.areaTotal)}m²` : '-'}</span>
+                    </div>
                     <div class="feat-item" title="m² Construidos">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
                         <span>${prop.areaBuilt ? `${formatNumber(prop.areaBuilt)}m²` : '-'}</span>
