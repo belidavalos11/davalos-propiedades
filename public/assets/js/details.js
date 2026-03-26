@@ -134,62 +134,19 @@ function renderDetails(prop) {
                         `).join("")}
                     </div>
                 ` : ""}
+
+                <div class="details-description-desktop" style="margin-top: 30px; padding: 25px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <h3 style="margin-bottom: 15px; color: var(--primary); font-size: 1.1rem; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px;">Descripción</h3>
+                    <p class="section-subtitle" style="color: #444; line-height: 1.7; font-size: 0.95rem;">${safeDescription}</p>
+                </div>
             </div>
 
             <div class="details-right">
                 <span class="badge badge-${safeCategory}">${safeCategory.toUpperCase()}</span>
-                <h1 class="details-title">${safeTitle}</h1>
-                <p class="section-subtitle">${safeDescription}</p>
-                <div class="details-price">
-                    ${formatCurrency(prop.price, prop.currency)}
-                    ${prop.expensasAmount ? `
-                        <div class="expensas-info" style="font-size: 1rem; color: #666; font-weight: 400; margin-top: 5px;">
-                            + ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} de expensas
-                        </div>
-                    ` : ""}
-                </div>
-
-                <div class="property-info-pills" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-                    <span class="pill"><strong>Tipo:</strong> ${escapeHtml(prop.type || "N/D")}</span>
-                    ${prop.areaTotal ? `<span class="pill"><strong>Terreno:</strong> ${formatNumber(prop.areaTotal)} m²</span>` : ""}
-                    ${prop.areaBuilt ? `<span class="pill"><strong>Cubiertos:</strong> ${formatNumber(prop.areaBuilt)} m²</span>` : ""}
-                    ${prop.creditEligible ? '<span class="pill highlight-pill">✅ Apto Crédito</span>' : ""}
-                </div>
-
-                <div class="details-features">
-                    <div class="detail-feature">
-                        <span class="icon">📍</span>
-                        <div>
-                            <strong>Ubicación</strong>
-                            <p>${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); text-decoration: underline;">Ver en mapa</a>` : "No disponible"}</p>
-                        </div>
-                    </div>
-                </div>
-
-                ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
-                <div class="agent-box admin-only">
-                    <div class="agent-info">
-                        <strong>Agente:</strong>
-                        <span>${escapeHtml(prop.agent || "N/D")}</span>
-                    </div>
-                    <div class="owner-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px dotted #ccc;">
-                        <h4 style="margin-bottom: 5px; font-size: 0.9rem;">Datos del Propietario:</h4>
-                        <p><strong>Nombre:</strong> ${escapeHtml(prop.ownerName || "N/D")}</p>
-                        <p><strong>Tel:</strong> ${escapeHtml(prop.ownerPhone || "N/D")}</p>
-                        <p><strong>Dirección:</strong> ${escapeHtml(prop.ownerAddress || "N/D")}</p>
-                    </div>
-                </div>
-                ` : `
-                <div class="agent-box">
-                    <div class="agent-info">
-                        <strong>Agente Asignado:</strong>
-                        <span>${escapeHtml(prop.agent || "Dávalos Propiedades")}</span>
-                    </div>
-                </div>
-                `}
+                <h1 class="details-title" style="margin-bottom: 25px;">${safeTitle}</h1>
 
                 ${prop.customFeatures && prop.customFeatures.length ? `
-                    <div class="custom-features-section">
+                    <div class="custom-features-section" style="margin-top: 0; margin-bottom: 25px;">
                         <h3 class="section-title">Detalles y Comodidades</h3>
                         <div class="features-grid">
                             ${prop.customFeatures.map((feat) => {
@@ -208,8 +165,57 @@ function renderDetails(prop) {
                     </div>
                 ` : ""}
 
+                <div class="details-price" style="margin-bottom: 20px;">
+                    <span style="display: block; font-size: 0.9rem; color: #666; margin-bottom: 5px; font-weight: 500;">Precio</span>
+                    ${formatCurrency(prop.price, prop.currency)}
+                    ${prop.expensasAmount ? `
+                        <div class="expensas-info" style="font-size: 1rem; color: #666; font-weight: 400; margin-top: 5px;">
+                            + ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} de expensas
+                        </div>
+                    ` : ""}
+                </div>
+
+                <div class="property-info-pills" style="display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; border-top: 1px solid #eee; padding-top: 20px;">
+                    ${prop.creditEligible ? '<span class="pill highlight-pill" style="background: #e6fffa; color: #234e52; border: 1px solid #b2f5ea; padding: 8px 15px; font-weight: 600;">✅ Apto Crédito</span>' : ""}
+                    <span class="pill"><strong>Tipo:</strong> ${escapeHtml(prop.type || "N/D")}</span>
+                    ${prop.areaTotal ? `<span class="pill"><strong>Terreno:</strong> ${formatNumber(prop.areaTotal)} m²</span>` : ""}
+                    ${prop.areaBuilt ? `<span class="pill"><strong>Cubiertos:</strong> ${formatNumber(prop.areaBuilt)} m²</span>` : ""}
+                </div>
+
+                ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
+                <div class="agent-box admin-only" style="margin-bottom: 25px;">
+                    <div class="agent-info">
+                        <strong>Agente:</strong>
+                        <span>${escapeHtml(prop.agent || "N/D")}</span>
+                    </div>
+                    <div class="owner-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px dotted #ccc;">
+                        <h4 style="margin-bottom: 5px; font-size: 0.9rem;">Datos del Propietario:</h4>
+                        <p><strong>Nombre:</strong> ${escapeHtml(prop.ownerName || "N/D")}</p>
+                        <p><strong>Tel:</strong> ${escapeHtml(prop.ownerPhone || "N/D")}</p>
+                        <p><strong>Dirección:</strong> ${escapeHtml(prop.ownerAddress || "N/D")}</p>
+                    </div>
+                </div>
+                ` : `
+                <div class="agent-box" style="margin-bottom: 25px;">
+                    <div class="agent-info">
+                        <strong>Agente Asignado:</strong>
+                        <span>${escapeHtml(prop.agent || "Dávalos Propiedades")}</span>
+                    </div>
+                </div>
+                `}
+
+                <div class="details-features" style="margin-bottom: 25px;">
+                    <div class="detail-feature">
+                        <span class="icon">📍</span>
+                        <div>
+                            <strong>Ubicación</strong>
+                            <p>${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); text-decoration: underline;">Ver en mapa</a>` : "No disponible"}</p>
+                        </div>
+                    </div>
+                </div>
+
                 ${prop.memoryDescription ? `
-                    <div class="memory-description-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                    <div class="memory-description-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; margin-bottom: 25px;">
                         <h3 class="section-title">Memoria Descriptiva</h3>
                         <div class="memory-content" style="white-space: pre-line; line-height: 1.6; color: #555;">
                             ${escapeHtml(prop.memoryDescription)}
