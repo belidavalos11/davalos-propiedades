@@ -125,6 +125,7 @@
     aspect-ratio: 16 / 10;
     max-height: 580px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
 }
 
 .carousel-inner {
@@ -139,7 +140,9 @@
 }
 
 .carousel-item.active {
-    display: block;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     animation: fadeIn 0.5s ease;
 }
 
@@ -429,6 +432,7 @@
     padding-bottom: 8px;
     scrollbar-width: thin;
     scrollbar-color: var(--primary) transparent;
+    justify-content: center;
 }
 
 .carousel-thumbnails::-webkit-scrollbar {
