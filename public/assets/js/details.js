@@ -11,8 +11,12 @@ const floatingCall = document.getElementById("floating-call");
 const lightbox = document.getElementById("lightbox");
 const lightboxImage = document.getElementById("lightbox-image");
 const lightboxClose = document.getElementById("lightbox-close");
+const lightboxPrev = document.getElementById("lightbox-prev");
+const lightboxNext = document.getElementById("lightbox-next");
 
 let currentSlide = 0;
+let currentLightboxImages = [];
+let currentLightboxIndex = 0;
 
 // Utility
 function escapeHtml(value) {
@@ -270,19 +274,89 @@ function renderDetails(prop) {
         </div>
     `;
 
-    bindLightbox();
+    bindLightbox(prop.images);
     setupFloating(prop);
 }
 
-function bindLightbox() {
+function bindLightbox(images) {
+    currentLightboxImages = images || [];
     const imgs = document.querySelectorAll(".carousel-img");
-    imgs.forEach(img => {
+    
+    imgs.forEach((img, index) => {
         img.onclick = () => {
-            lightboxImage.src = img.src;
+            currentLightboxIndex = index;
+            updateLightboxView();
             lightbox.style.display = "flex";
             document.body.style.overflow = "hidden";
         };
     });
+
+    // Navigation buttons
+    if (lightboxPrev) lightboxPrev.onclick = (e) => { e.stopPropagation(); changeLightbox(-1); };
+    if (lightboxNext) lightboxNext.onclick = (e) => { e.stopPropagation(); changeLightbox(1); };
+
+    // Close on background click
+    lightbox.onclick = (e) => {
+        if (e.target === lightbox) closeLightbox();
+    };
+
+    // Keyboard support
+    document.addEventListener('keydown', handleLightboxKeys);
+
+    // Swipe support
+    setupSwipeSupport();
+}
+
+function updateLightboxView() {
+    if (currentLightboxImages.length > 0) {
+        lightboxImage.src = currentLightboxImages[currentLightboxIndex];
+    }
+    
+    // Hide buttons if only one image
+    if (currentLightboxImages.length <= 1) {
+        if (lightboxPrev) lightboxPrev.style.display = "none";
+        if (lightboxNext) lightboxNext.style.display = "none";
+    } else {
+        if (lightboxPrev) lightboxPrev.style.display = "flex";
+        if (lightboxNext) lightboxNext.style.display = "flex";
+    }
+}
+
+function changeLightbox(dir) {
+    if (currentLightboxImages.length <= 1) return;
+    currentLightboxIndex = (currentLightboxIndex + dir + currentLightboxImages.length) % currentLightboxImages.length;
+    updateLightboxView();
+}
+
+function closeLightbox() {
+    lightbox.style.display = "none";
+    document.body.style.overflow = "auto";
+}
+
+function handleLightboxKeys(e) {
+    if (lightbox.style.display !== "flex") return;
+    if (e.key === "ArrowLeft") changeLightbox(-1);
+    if (e.key === "ArrowRight") changeLightbox(1);
+    if (e.key === "Escape") closeLightbox();
+}
+
+function setupSwipeSupport() {
+    let touchstartX = 0;
+    let touchendX = 0;
+
+    lightbox.addEventListener('touchstart', e => {
+        touchstartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    lightbox.addEventListener('touchend', e => {
+        touchendX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+        if (touchendX < touchstartX - 50) changeLightbox(1); // Swipe left -> next
+        if (touchendX > touchstartX + 50) changeLightbox(-1); // Swipe right -> prev
+    }
 }
 
 function setupFloating(prop) {
@@ -314,10 +388,7 @@ window.setCarousel = (idx) => {
     if (dots[currentSlide]) dots[currentSlide].classList.add("active");
 };
 
-if (lightboxClose) lightboxClose.onclick = () => {
-    lightbox.style.display = "none";
-    document.body.style.overflow = "auto";
-};
+if (lightboxClose) lightboxClose.onclick = closeLightbox;
 
 // Initialization
 (async function init() {
