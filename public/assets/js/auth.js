@@ -36,6 +36,21 @@ const AuthManager = {
     _init() {
         this._overrides = JSON.parse(localStorage.getItem("davalos_user_overrides")) || {};
         this._ensureSessionValidity();
+        this._syncWithFirebase();
+    },
+
+    async _syncWithFirebase() {
+        if (this.isLoggedIn() && window.auth) {
+            const user = window.auth.currentUser;
+            if (!user) {
+                try {
+                    await window.auth.signInAnonymously();
+                    console.log("Firebase session synced (Anonymous)");
+                } catch (e) {
+                    console.error("Firebase sync error:", e);
+                }
+            }
+        }
     },
 
     _normalizeUsername(value) {
@@ -110,12 +125,21 @@ const AuthManager = {
 
         localStorage.setItem(this._sessionKey(), JSON.stringify(authData));
         localStorage.setItem("davalos_current_user", normalized);
+
+        // Sync with Firebase
+        if (window.auth) {
+            window.auth.signInAnonymously().catch(e => console.error("Firebase Auth Error:", e));
+        }
+
         return true;
     },
 
     logout() {
         localStorage.removeItem(this._sessionKey());
         localStorage.removeItem("davalos_current_user");
+        if (window.auth) {
+            window.auth.signOut().catch(e => console.error("Firebase SignOut Error:", e));
+        }
     },
 
     logoutAndClearSessionData() {

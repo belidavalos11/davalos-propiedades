@@ -14,6 +14,7 @@ const firebaseConfig = {
 if (typeof firebase !== 'undefined') {
     firebase.initializeApp(firebaseConfig);
     window.db = firebase.firestore();
+    window.auth = firebase.auth();
     window.storage = firebase.storage();
     console.log("Firebase initialized");
 } else {
