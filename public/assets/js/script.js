@@ -483,7 +483,7 @@ function populateAgentDropdown() {
     // Save current selection to restore it if possible
     const currentVal = agentSelect.value;
 
-    const users = window.AuthManager.getAllUsers() || [];
+    const users = window.AuthManager.getAllUsersSync() || [];
     agentSelect.innerHTML = '<option value="">Seleccionar agente...</option>';
 
     users.forEach(user => {
@@ -880,9 +880,8 @@ window.renderUserList = renderUserList;
 
 async function handleAddUser(e) {
     e.preventDefault();
-
-    AuthManager._init();
-    window.AuthManager = AuthManager;
+    const manager = window.AuthManager;
+    await manager._loadUsersFromFirestore(); // Ensure we have latest before adding
     const userData = {
         username: document.getElementById("new-username").value,
         displayName: document.getElementById("new-displayname").value,
