@@ -658,9 +658,9 @@ function bindEvents() {
     }
 
     if (loginForm) {
-        loginForm.onsubmit = (e) => {
+        loginForm.onsubmit = async (e) => {
             e.preventDefault();
-            const success = window.AuthManager.login(document.getElementById("username").value, document.getElementById("password").value);
+            const success = await window.AuthManager.login(document.getElementById("username").value, document.getElementById("password").value);
             if (success) { closeModal(); updateAuthUI(); }
             else { alert("Credenciales incorrectas"); }
         };
@@ -852,12 +852,12 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function renderUserList() {
+async function renderUserList() {
     const container = document.getElementById("user-list");
     if (!container) return;
 
     const manager = window.AuthManager;
-    const users = manager.getAllUsers();
+    const users = await manager.getAllUsers();
     const currentUser = manager.getCurrentUser();
 
     container.innerHTML = users.map(u => {
@@ -878,9 +878,11 @@ function renderUserList() {
 }
 window.renderUserList = renderUserList;
 
-function handleAddUser(e) {
+async function handleAddUser(e) {
     e.preventDefault();
-    const manager = window.AuthManager;
+
+    AuthManager._init();
+    window.AuthManager = AuthManager;
     const userData = {
         username: document.getElementById("new-username").value,
         displayName: document.getElementById("new-displayname").value,
@@ -891,19 +893,21 @@ function handleAddUser(e) {
         role: document.getElementById("new-role").value
     };
 
-    if (manager.addUser(userData)) {
+    const success = await manager.addUser(userData);
+    if (success) {
         e.target.reset();
-        renderUserList();
+        await renderUserList();
         alert("Usuario creado con éxito.");
     } else {
         alert("Error: El usuario ya existe o no tienes permisos.");
     }
 }
 
-function handleRemoveUser(username) {
+async function handleRemoveUser(username) {
     if (!confirm(`¿Estás seguro de que deseas eliminar al usuario "${username}"? Esta acción no se puede deshacer.`)) return;
-    if (window.AuthManager.removeUser(username)) {
-        renderUserList();
+    const success = await window.AuthManager.removeUser(username);
+    if (success) {
+        await renderUserList();
         alert("Usuario eliminado correctamente.");
     } else {
         alert("Error: No se pudo eliminar al usuario. Es posible que sea una cuenta protegida o no tengas permisos.");

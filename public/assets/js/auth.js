@@ -37,6 +37,19 @@ const AuthManager = {
         this._overrides = JSON.parse(localStorage.getItem("davalos_user_overrides")) || {};
         this._ensureSessionValidity();
         this._syncWithFirebase();
+        this._cachedUsers = [];
+        this._loadUsersFromFirestore();
+    },
+
+    async _loadUsersFromFirestore() {
+        if (!window.db) return;
+        try {
+            const snapshot = await window.db.collection("users").get();
+            this._cachedUsers = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
+            console.log("Usuarios cargados desde Firestore:", this._cachedUsers.length);
+        } catch (e) {
+            console.error("Error al cargar usuarios de Firestore:", e);
+        }
     },
 
     async _syncWithFirebase() {
@@ -92,7 +105,7 @@ const AuthManager = {
     getUserData() {
         const username = this.getCurrentUser();
         if (!username) return null;
-        const users = this.getAllUsers();
+        const users = this.getAllUsersSync();
         return users.find(u => u.username === username);
     },
 
@@ -109,9 +122,13 @@ const AuthManager = {
         return perms.includes(permission);
     },
 
-    login(username, password) {
+    async login(username, password) {
         const normalized = this._normalizeUsername(username);
-        const users = this.getAllUsers();
+        
+        // Refresh users from Firestore before login to ensure we have the latest
+        await this._loadUsersFromFirestore();
+        
+        const users = this.getAllUsersSync();
         const user = users.find((u) => u.username === normalized);
         if (!user) return false;
 
@@ -128,7 +145,11 @@ const AuthManager = {
 
         // Sync with Firebase
         if (window.auth) {
-            window.auth.signInAnonymously().catch(e => console.error("Firebase Auth Error:", e));
+            try {
+                await window.auth.signInAnonymously();
+            } catch(e) {
+                console.error("Firebase Auth Error:", e);
+            }
         }
 
         return true;
@@ -163,38 +184,48 @@ const AuthManager = {
         localStorage.removeItem("davalos_user_overrides");
         localStorage.removeItem("davalos_properties");
         localStorage.removeItem("davalos_extra_users");
+        localStorage.removeItem("davalos_deleted_core_users");
         this._overrides = {};
+        this._cachedUsers = [];
         this.logout();
         console.log("Sistema reseteado a los valores por defecto.");
     },
 
-    getAllUsers() {
-        const extras = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
+    getAllUsersSync() {
         const deletedCore = JSON.parse(localStorage.getItem("davalos_deleted_core_users") || "[]");
-        
-        // Filter out core users that have been "deleted"
         const filteredCore = this._users.filter(u => !deletedCore.includes(u.username));
-        
-        return [...filteredCore, ...extras];
+        return [...filteredCore, ...this._cachedUsers];
     },
 
-    addUser(userData) {
+    async getAllUsers() {
+        await this._loadUsersFromFirestore();
+        return this.getAllUsersSync();
+    },
+
+    async addUser(userData) {
         if (!this.hasPermission(this.Permissions.MANAGE_USERS)) return false;
-        const extras = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
-
+        
+        const normalized = this._normalizeUsername(userData.username);
+        const all = await this.getAllUsers();
+        
         // Prevent duplicates
-        const all = this.getAllUsers();
-        if (all.some(u => u.username === this._normalizeUsername(userData.username))) return false;
+        if (all.some(u => u.username === normalized)) return false;
 
-        extras.push({
-            ...userData,
-            username: this._normalizeUsername(userData.username)
-        });
-        localStorage.setItem("davalos_extra_users", JSON.stringify(extras));
-        return true;
+        try {
+            await window.db.collection("users").add({
+                ...userData,
+                username: normalized,
+                createdAt: new Date().toISOString()
+            });
+            await this._loadUsersFromFirestore();
+            return true;
+        } catch (e) {
+            console.error("Error al agregar usuario a Firestore:", e);
+            return false;
+        }
     },
 
-    removeUser(username) {
+    async removeUser(username) {
         if (!this.hasPermission(this.Permissions.MANAGE_USERS)) return false;
         const normalized = this._normalizeUsername(username);
         const currentUser = this.getCurrentUser();
@@ -213,14 +244,18 @@ const AuthManager = {
             return true;
         }
 
-        // 3. Otherwise, it's an extra user
-        let extras = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
-        const originalLength = extras.length;
-        extras = extras.filter(u => u.username !== normalized);
-        
-        if (extras.length < originalLength) {
-            localStorage.setItem("davalos_extra_users", JSON.stringify(extras));
-            return true;
+        // 3. Otherwise, it's a Firestore user
+        try {
+            const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
+            if (!snapshot.empty) {
+                const batch = window.db.batch();
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                await this._loadUsersFromFirestore();
+                return true;
+            }
+        } catch (e) {
+            console.error("Error al eliminar usuario de Firestore:", e);
         }
 
         return false;
