@@ -888,7 +888,7 @@ async function handleAddUser(e) {
         firstName: document.getElementById("new-firstname").value,
         lastName: document.getElementById("new-lastname").value,
         phone: document.getElementById("new-phone").value,
-        password: document.getElementById("new-password").value,
+        password: document.getElementById("new-user-password").value,
         role: document.getElementById("new-role").value
     };
 
