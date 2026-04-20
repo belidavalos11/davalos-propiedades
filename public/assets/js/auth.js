@@ -124,6 +124,7 @@ const AuthManager = {
 
     async login(username, password) {
         const normalized = this._normalizeUsername(username);
+        const cleanPassword = String(password || "").trim();
         
         // Refresh users from Firestore before login to ensure we have the latest
         await this._loadUsersFromFirestore();
@@ -132,8 +133,8 @@ const AuthManager = {
         const user = users.find((u) => u.username === normalized);
         if (!user) return false;
 
-        const storedPassword = this._overrides[normalized] || user.password;
-        if (password !== storedPassword) return false;
+        const storedPassword = (this._overrides[normalized] || user.password || "").trim();
+        if (cleanPassword !== storedPassword) return false;
 
         const authData = {
             logged: true,
@@ -212,11 +213,13 @@ const AuthManager = {
         if (all.some(u => u.username === normalized)) return false;
 
         try {
-            await window.db.collection("users").add({
+            const cleanUserData = {
                 ...userData,
                 username: normalized,
+                password: String(userData.password || "").trim(),
                 createdAt: new Date().toISOString()
-            });
+            };
+            await window.db.collection("users").add(cleanUserData);
             await this._loadUsersFromFirestore();
             return true;
         } catch (e) {
