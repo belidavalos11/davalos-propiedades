@@ -1,0 +1,26 @@
+1. GitHub (El Libro de Recetas)
+GitHub es donde guardamos el código fuente (las instrucciones de cómo debe verse y funcionar la página).
+
+¿Qué hace?: Guarda versiones de tu proyecto. Si algo sale mal, podemos volver atrás.
+El proceso: Cuando yo hago un cambio en tu computadora y lo "subo" (hago Push), lo que estoy haciendo es actualizar el "Libro de Recetas" oficial que está en internet.
+2. Vercel (El Salón del Restaurante)
+Vercel es el lugar físico (en la nube) donde vive tu página para que los clientes puedan entrar.
+
+¿Qué hace?: "Lee" tu libro de recetas en GitHub. Cada vez que detecta que el libro cambió, Vercel automáticamente "cocina" la nueva versión de la web y la sirve a los clientes.
+Resumen: GitHub guarda el código, Vercel lo muestra al mundo.
+3. Firebase (La Despensa y el Almacén)
+Mientras que GitHub guarda el "cómo se hace", Firebase guarda el contenido real (las casas, los precios, las fotos).
+
+Firestore (Base de Datos): Aquí se guarda el texto. Si cargas una casa con "Patio", ese texto se guarda aquí.
+Storage (Almacén de Fotos): Aquí se guardan los archivos pesados (las fotos de las propiedades que subes).
+¿Por qué es aparte?: Porque no queremos cambiar el código (GitHub) cada vez que vendes una casa. Firebase permite que tú cargues y borres casas sin tocar el código de la página.
+El "Paso a Paso" de lo que acabamos de hacer:
+Modificación (Local): Yo edité el código en tu computadora para agregar la opción "Patio" al menú.
+Sincronización (GitHub): Subimos ese cambio a GitHub.
+Actualización Automática (Vercel): Vercel vio que en GitHub había una mejora, tomó el código nuevo y actualizó la web en vivo.
+Uso de la Web (Firebase): Ahora, cuando tú entras a la web y seleccionas "Patio" en una nueva propiedad:
+La página envía esa información a Firebase.
+Cuando un cliente entra a ver la casa, la página le pide a Firebase los detalles de esa casa y muestra el icono de "Patio".
+Resumen para solucionar errores:
+Si no ves un cambio de diseño o una opción nueva en el menú: El problema suele estar entre GitHub y Vercel (falta subir el cambio o esperar a que Vercel termine).
+Si una casa no aparece o la foto no carga: El problema suele estar en Firebase (la conexión falló al guardar o los datos en la base de datos están incompletos).

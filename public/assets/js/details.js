@@ -38,8 +38,9 @@ function safeImageUrl(value) {
 
 function normalizeProperty(prop) {
     if (!prop || typeof prop !== "object") return null;
-    const id = Number(prop.id) || 0;
+    const id = prop.id;
     const title = String(prop.title || "").trim();
+    const category = String(prop.category || "venta").toLowerCase();
     const price = Number(prop.price) || 0;
     const rooms = Number(prop.rooms) || 0;
     const area = Number(prop.area) || 0;
@@ -51,6 +52,7 @@ function normalizeProperty(prop) {
         ...prop,
         id,
         title,
+        category,
         price,
         rooms,
         area,
@@ -60,7 +62,10 @@ function normalizeProperty(prop) {
 
 function getSafePropertyId() {
     const raw = new URLSearchParams(window.location.search).get("id");
-    return raw ? Number(raw) : null;
+    if (!raw) return null;
+    // Try to return as number if it looks like one, otherwise return as string
+    const num = Number(raw);
+    return isNaN(num) ? raw : num;
 }
 
 function formatCurrency(value, currency = "USD") {
@@ -76,7 +81,7 @@ function formatNumber(val) {
 function getAgentPhone(prop) {
     if (!prop || !prop.agent) return WHATSAPP_NUMBER;
     if (window.AuthManager) {
-        const users = window.AuthManager.getAllUsers();
+        const users = window.AuthManager.getAllUsersSync();
         const agentUser = users.find(u => u.displayName === prop.agent || u.username === prop.agent);
         if (agentUser && agentUser.phone) {
             const numericPhone = agentUser.phone.replace(/\D/g, '');
@@ -398,27 +403,38 @@ if (lightboxClose) lightboxClose.onclick = closeLightbox;
     try {
         // 1. Check if it's a deleted base property
         if (window.db) {
-            const delDoc = await window.db.collection("deleted_properties").doc(String(propId)).get();
-            if (delDoc.exists) return showNotFound();
+            try {
+                const delDoc = await window.db.collection("deleted_properties").doc(String(propId)).get();
+                if (delDoc.exists) return showNotFound();
+            } catch (err) {
+                console.warn("Could not check deleted_properties, continuing...", err);
+            }
         }
 
         // 2. Try to fetch from Firestore first (New/Edited properties)
         let property = null;
         if (window.db) {
-            const snapshot = await window.db.collection("properties").where("id", "==", propId).get();
-            if (!snapshot.empty) {
-                const doc = snapshot.docs[0];
-                property = normalizeProperty({ ...doc.data(), firebaseId: doc.id });
+            try {
+                // Try searching by numeric ID or string ID to be robust. Remove duplicates and NaN to avoid Firestore errors.
+                const searchIds = [...new Set([propId, String(propId), Number(propId)])].filter(val => val !== null && val !== undefined && !Number.isNaN(val));
+                const snapshot = await window.db.collection("properties").where("id", "in", searchIds).get();
+                if (!snapshot.empty) {
+                    const doc = snapshot.docs[0];
+                    property = normalizeProperty({ ...doc.data(), firebaseId: doc.id });
+                }
+            } catch (err) {
+                console.warn("Firestore fetch failed, will try JSON fallback...", err);
             }
         }
 
-        // 3. Fallback to JSON if not in Firestore
+        // 3. Fallback to JSON if not in Firestore or Firestore failed
         if (!property) {
             const response = await fetch(DATA_URL, { cache: "no-store" });
             if (response.ok) {
                 const payload = await response.json();
                 const jsonList = Array.isArray(payload?.properties) ? payload.properties : [];
-                property = jsonList.map(p => normalizeProperty(p)).find(p => p.id === propId);
+                // Comparison: use String() to avoid type mismatch issues (1 === "1")
+                property = jsonList.map(p => normalizeProperty(p)).find(p => String(p.id) === String(propId));
             }
         }
 

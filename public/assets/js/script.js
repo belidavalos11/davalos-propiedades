@@ -56,7 +56,7 @@ function initMap(propsToDisplay) {
                     <div style="font-family: 'Outfit', sans-serif;">
                         <h4 style="margin: 0 0 5px 0; color: #001556;">${p.title}</h4>
                         <p style="margin: 0; font-size: 0.85rem;">${p.currency} ${formatPrice(p.price)}</p>
-                        <a href="details.html?id=${p.id}" style="display: block; margin-top: 8px; font-size: 0.8rem; color: #1a1a1a; font-weight: 600; text-decoration: none;">Ver detalles →</a>
+                        <a href="details?id=${p.id}" style="display: block; margin-top: 8px; font-size: 0.8rem; color: #1a1a1a; font-weight: 600; text-decoration: none;">Ver detalles →</a>
                     </div>
                 `);
                 markers.push(marker);
@@ -220,10 +220,10 @@ async function loadProperties() {
 
 function normalizeProperty(prop) {
     if (!prop || typeof prop !== "object") return null;
-    const id = Number(prop.id) || Date.now();
+    const id = prop.id || Date.now();
     const title = String(prop.title || "").trim();
     const price = Number(prop.price) || 0;
-    const createdAt = prop.createdAt || new Error().stack; // fallback to unique
+    const createdAt = prop.createdAt || new Date().toISOString(); 
     const images = (Array.isArray(prop.images) ? prop.images : [])
         .map(img => safeImageUrl(img))
         .filter(Boolean);
@@ -233,7 +233,7 @@ function normalizeProperty(prop) {
         id,
         title,
         price,
-        createdAtTs: Date.parse(prop.createdAt) || id,
+        createdAtTs: Date.parse(prop.createdAt) || (typeof id === 'number' ? id : Date.now()),
         images: images.length ? images : [PLACEHOLDER_IMAGE]
     };
 }
@@ -366,7 +366,7 @@ function renderProperties(filtered) {
                 </div>
             </div>
         `;
-        card.onclick = () => window.location.href = `details.html?id=${prop.id}`;
+        card.onclick = () => window.location.href = `details?id=${prop.id}`;
         grid.appendChild(card);
     });
 }

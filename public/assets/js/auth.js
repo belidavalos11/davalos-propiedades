@@ -53,7 +53,7 @@ const AuthManager = {
     },
 
     async _syncWithFirebase() {
-        if (this.isLoggedIn() && window.auth) {
+        if (window.auth) {
             const user = window.auth.currentUser;
             if (!user) {
                 try {
