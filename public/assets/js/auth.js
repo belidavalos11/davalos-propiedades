@@ -126,6 +126,15 @@ const AuthManager = {
         const normalized = this._normalizeUsername(username);
         const cleanPassword = String(password || "").trim();
         
+        // Sync with Firebase to ensure we can read Firestore users
+        if (window.auth) {
+            try {
+                await window.auth.signInAnonymously();
+            } catch(e) {
+                console.error("Firebase Auth Error:", e);
+            }
+        }
+        
         // Refresh users from Firestore before login to ensure we have the latest
         await this._loadUsersFromFirestore();
         
@@ -143,15 +152,6 @@ const AuthManager = {
 
         localStorage.setItem(this._sessionKey(), JSON.stringify(authData));
         localStorage.setItem("davalos_current_user", normalized);
-
-        // Sync with Firebase
-        if (window.auth) {
-            try {
-                await window.auth.signInAnonymously();
-            } catch(e) {
-                console.error("Firebase Auth Error:", e);
-            }
-        }
 
         return true;
     },
