@@ -348,7 +348,7 @@ function renderProperties(filtered) {
                         <span>${rooms}</span>
                     </div>
                     <div class="feat-item" title="Baños">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 21v-2a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2"></path><circle cx="12" cy="7" r="4"></circle><path d="M12 11v1"></path></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-1-.5C4.67 3 4 3.67 4 4.5V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H9Z"></path><path d="M7 21v-2"></path><path d="M17 21v-2"></path></svg>
                         <span>${baths}</span>
                     </div>
                     <div class="feat-item" title="m² Totales / Terreno">
