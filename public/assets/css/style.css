@@ -126,7 +126,7 @@ h3,
 
 .hero {
     background: linear-gradient(135deg, rgba(26, 26, 26, 0.7) 0%, rgba(26, 26, 26, 0.4) 100%),
-        url('../images/hero-cabildo.png');
+        url('../images/hero-cabildo.jpg');
     background-size: cover;
     background-position: center;
     min-height: 84vh;
