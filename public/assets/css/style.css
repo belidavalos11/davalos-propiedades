@@ -126,7 +126,7 @@ h3,
 
 .hero {
     background: linear-gradient(135deg, rgba(26, 26, 26, 0.7) 0%, rgba(26, 26, 26, 0.4) 100%),
-        url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Salta_-_Capital_-_Salta_-_Cabildo_de_la_Ciudad_de_Salta.jpg/1280px-Salta_-_Capital_-_Salta_-_Cabildo_de_la_Ciudad_de_Salta.jpg');
+        url('../images/hero-cabildo.png');
     background-size: cover;
     background-position: center;
     min-height: 84vh;
