@@ -158,11 +158,12 @@ function renderDetails(prop) {
         <!-- Section 2: Header Row (Title & Price) -->
         <div class="details-header-row">
             <div class="details-title-block">
-                <span class="badge badge-${safeCategory}" style="margin-bottom: 8px; display: inline-block;">${safeCategory.toUpperCase()}</span>
-                <h1>${safeTitle}</h1>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <h1 style="margin: 0;">${safeTitle}</h1>
+                    ${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); font-weight: 600; font-size: 0.9rem; text-decoration: none; display: flex; align-items: center; gap: 4px;"><span style="font-size: 1.1rem;">🗺️</span> Ver mapa</a>` : ""}
+                </div>
                 <div class="details-location-breadcrumb">
-                    🏠 ${escapeHtml(prop.type || "N/D")} en ${safeCategory} | 📍 Ubicación disponible
-                    ${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="margin-left: 10px; color: var(--primary); font-weight: 600;">Ver mapa</a>` : ""}
+                    ${escapeHtml(prop.type || "N/D")} en ${safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1)}, ${escapeHtml(prop.location || "Salta")}
                 </div>
             </div>
             <div class="details-price-block">
@@ -177,28 +178,53 @@ function renderDetails(prop) {
         <div class="features-horizontal-bar">
             ${prop.areaTotal ? `
                 <div class="feat-bar-item">
-                    <span class="feat-bar-label">Sup. total</span>
-                    <span class="feat-bar-value">${formatNumber(prop.areaTotal)} m²</span>
+                    <div class="feat-icon-svg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+                    </div>
+                    <div class="feat-content">
+                        <span class="feat-bar-label">Sup. total:</span>
+                        <span class="feat-bar-value">${formatNumber(prop.areaTotal)} m²</span>
+                    </div>
                 </div>
             ` : ""}
             ${prop.areaBuilt ? `
                 <div class="feat-bar-item">
-                    <span class="feat-bar-label">Sup. cubierta</span>
-                    <span class="feat-bar-value">${formatNumber(prop.areaBuilt)} m²</span>
+                    <div class="feat-icon-svg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
+                    </div>
+                    <div class="feat-content">
+                        <span class="feat-bar-label">Sup. cubierta:</span>
+                        <span class="feat-bar-value">${formatNumber(prop.areaBuilt)} m²</span>
+                    </div>
                 </div>
             ` : ""}
             <div class="feat-bar-item">
-                <span class="feat-bar-label">Dormitorios</span>
-                <span class="feat-bar-value">${prop.rooms || getFeatureVal('dormitorio', prop) || getFeatureVal('habitacio', prop) || "-"}</span>
+                <div class="feat-icon-svg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
+                </div>
+                <div class="feat-content">
+                    <span class="feat-bar-label">Dormitorio/s:</span>
+                    <span class="feat-bar-value">${prop.rooms || getFeatureVal('dormitorio', prop) || getFeatureVal('habitacio', prop) || "-"}</span>
+                </div>
             </div>
             <div class="feat-bar-item">
-                <span class="feat-bar-label">Baños</span>
-                <span class="feat-bar-value">${getFeatureVal('baño', prop) || "-"}</span>
+                <div class="feat-icon-svg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18l-2 6H6a3 3 0 0 1-3-3V5c0-2 2-3 4-3s4 1 5 3"></path><path d="M11 5l3 3"></path></svg>
+                </div>
+                <div class="feat-content">
+                    <span class="feat-bar-label">Baño/s:</span>
+                    <span class="feat-bar-value">${getFeatureVal('baño', prop) || "-"}</span>
+                </div>
             </div>
             ${prop.creditEligible ? `
                 <div class="feat-bar-item">
-                    <span class="feat-bar-label">Crédito</span>
-                    <span class="feat-bar-value" style="color: #2e7d32;">Apto ✅</span>
+                    <div class="feat-icon-svg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5 5 2 7-7-4-7 4 2-7-5-5h7z"></path></svg>
+                    </div>
+                    <div class="feat-content">
+                        <span class="feat-bar-label">Crédito:</span>
+                        <span class="feat-bar-value" style="color: #2e7d32;">Apto ✅</span>
+                    </div>
                 </div>
             ` : ""}
         </div>
@@ -244,43 +270,84 @@ function renderDetails(prop) {
             </div>
 
             <div class="column-right-sidebar">
-                <div class="contact-card-v2">
-                    <h3>Contáctanos</h3>
-                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">Envíanos tu consulta y un asesor te contactará a la brevedad.</p>
-                    
-                    <div class="btn-group-v2">
-                        <a class="btn btn-full btn-whatsapp" target="_blank" rel="noopener noreferrer" href="${buildWhatsappUrl(prop)}">
-                            <span>📱 Contactar por WhatsApp</span>
-                        </a>
-                        <a class="btn btn-full btn-outline" href="tel:+${getAgentPhone(prop)}" style="background: var(--primary); color: #fff;">
-                            <span>📞 Llamar ahora</span>
-                        </a>
-                    </div>
+                <div class="sidebar-actions-row">
+                    <button class="btn btn-sidebar-action" onclick="shareProperty()"><span class="icon">🔗</span> Compartir</button>
+                    <button class="btn btn-sidebar-action" onclick="window.print()"><span class="icon">🖨️</span> Imprimir</button>
+                </div>
 
-                    <div style="margin-top: 25px; pt: 15px; border-top: 1px solid #eee;">
-                        <span style="display: block; font-size: 0.75rem; color: #999; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Agente a cargo</span>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 40px; height: 40px; background: #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
-                                ${escapeHtml(prop.agent || "D").charAt(0)}
-                            </div>
-                            <span style="font-weight: 600; color: var(--text-dark);">${escapeHtml(prop.agent || "Dávalos Propiedades")}</span>
+                <div class="contact-card-v3">
+                    <div class="contact-card-header">
+                        <h3>Contáctanos</h3>
+                        <span class="required-note">* Campos obligatorios</span>
+                    </div>
+                    
+                    <form id="contact-form-sidebar" class="sidebar-form">
+                        <div class="form-group-sidebar">
+                            <input type="text" id="contact-name" placeholder="Nombre *" required>
+                        </div>
+                        <div class="form-group-sidebar">
+                            <input type="tel" id="contact-phone" placeholder="Teléfono *" required>
+                        </div>
+                        <div class="form-group-sidebar">
+                            <input type="email" id="contact-email" placeholder="Email *" required>
+                        </div>
+                        <div class="form-group-sidebar">
+                            <textarea id="contact-msg" rows="4">Hola, vi esta propiedad en el sitio web de la inmobiliaria y me gustaría que me contacten. Cód. aviso: ${prop.id}. Gracias.</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-full btn-dark-sidebar">Contactar</button>
+                        <a class="btn btn-full btn-whatsapp-v2" target="_blank" rel="noopener noreferrer" href="${buildWhatsappUrl(prop)}">
+                            <span>Contactar por WhatsApp</span>
+                        </a>
+                    </form>
+
+                    <div class="agent-compact-info">
+                        <span class="agent-label">Agente a cargo</span>
+                        <div class="agent-row">
+                            <div class="agent-avatar">${escapeHtml(prop.agent || "D").charAt(0)}</div>
+                            <span class="agent-name">${escapeHtml(prop.agent || "Dávalos Propiedades")}</span>
                         </div>
                     </div>
 
                     ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
-                        <div style="margin-top: 15px; padding: 12px; background: #fff5f5; border-radius: 8px; border: 1px solid #fed7d7;">
-                            <span style="display: block; font-size: 0.7rem; color: #c53030; font-weight: 600; text-transform: uppercase;">🔒 Datos Privados (Admin)</span>
-                            <p style="font-size: 0.85rem; margin-top: 5px;"><strong>Owner:</strong> ${escapeHtml(prop.ownerName || "N/D")}</p>
-                            <p style="font-size: 0.85rem;"><strong>Tel:</strong> ${escapeHtml(prop.ownerPhone || "N/D")}</p>
+                        <div class="admin-data-box">
+                            <span class="admin-label">🔒 Datos Privados (Admin)</span>
+                            <p><strong>Owner:</strong> ${escapeHtml(prop.ownerName || "N/D")}</p>
+                            <p><strong>Tel:</strong> ${escapeHtml(prop.ownerPhone || "N/D")}</p>
                         </div>
                     ` : ""}
                 </div>
             </div>
         </div>
+
+        <section class="location-section" style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 30px;">
+            <h2>Ubicación</h2>
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; color: #444;">
+                <span>📍 ${escapeHtml(prop.title)}</span>
+            </div>
+            ${prop.mapLink ? `
+                <div class="map-iframe-container" style="margin-top: 20px; border-radius: 12px; overflow: hidden; height: 400px; background: #eee;">
+                    <iframe width="100%" height="100%" frameborder="0" style="border:0" src="${prop.mapLink.includes('google.com/maps/embed') ? prop.mapLink : `https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(prop.title)}`}" allowfullscreen></iframe>
+                </div>
+            ` : ""}
+        </section>
     `;
 
     bindLightbox(prop.images);
     setupFloating(prop);
+}
+
+function shareProperty() {
+    const shareData = {
+        title: document.title,
+        text: 'Mira esta propiedad en Dávalos Propiedades',
+        url: window.location.href
+    };
+    if (navigator.share) {
+        navigator.share(shareData).catch(err => console.log('Error sharing:', err));
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Enlace copiado al portapapeles');
+    }
 }
 
 function bindLightbox(images) {
