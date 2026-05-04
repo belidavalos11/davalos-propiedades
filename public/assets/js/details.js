@@ -126,6 +126,25 @@ function renderDetails(prop) {
     const safeDescription = escapeHtml(prop.description || "");
 
     container.innerHTML = `
+        <!-- Section 2: Header Row (Title & Price) -->
+        <div class="details-header-row">
+            <div class="details-title-block">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <h1 style="margin: 0;">${safeTitle}</h1>
+                    ${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); font-weight: 600; font-size: 0.9rem; text-decoration: none; display: flex; align-items: center; gap: 4px;"><span style="font-size: 1.1rem;">🗺️</span> Ver mapa</a>` : ""}
+                </div>
+                <div class="details-location-breadcrumb">
+                    ${escapeHtml(prop.type || "N/D")} en ${safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1)}, ${escapeHtml(prop.location || "Salta")}
+                </div>
+            </div>
+            <div class="details-price-block">
+                <div class="price-main">${formatCurrency(prop.price, prop.currency)}</div>
+                ${prop.expensasAmount ? `
+                    <div class="expensas-sub">+ ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} expensas</div>
+                ` : ""}
+            </div>
+        </div>
+
         <!-- Section 1: Gallery -->
         <div class="details-gallery-section" style="margin-bottom: 20px;">
             <div class="carousel" id="property-carousel">
@@ -153,25 +172,6 @@ function renderDetails(prop) {
                     `).join("")}
                 </div>
             ` : ""}
-        </div>
-
-        <!-- Section 2: Header Row (Title & Price) -->
-        <div class="details-header-row">
-            <div class="details-title-block">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <h1 style="margin: 0;">${safeTitle}</h1>
-                    ${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); font-weight: 600; font-size: 0.9rem; text-decoration: none; display: flex; align-items: center; gap: 4px;"><span style="font-size: 1.1rem;">🗺️</span> Ver mapa</a>` : ""}
-                </div>
-                <div class="details-location-breadcrumb">
-                    ${escapeHtml(prop.type || "N/D")} en ${safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1)}, ${escapeHtml(prop.location || "Salta")}
-                </div>
-            </div>
-            <div class="details-price-block">
-                <div class="price-main">${formatCurrency(prop.price, prop.currency)}</div>
-                ${prop.expensasAmount ? `
-                    <div class="expensas-sub">+ ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} expensas</div>
-                ` : ""}
-            </div>
         </div>
 
         <!-- Section 3: Horizontal Features Bar -->
