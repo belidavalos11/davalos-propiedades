@@ -189,7 +189,7 @@ function renderDetails(prop) {
             ` : ""}
             <div class="feat-bar-item">
                 <span class="feat-bar-label">Dormitorios</span>
-                <span class="feat-bar-value">${prop.rooms || "-"}</span>
+                <span class="feat-bar-value">${prop.rooms || getFeatureVal('dormitorio', prop) || getFeatureVal('habitacio', prop) || "-"}</span>
             </div>
             <div class="feat-bar-item">
                 <span class="feat-bar-label">Baños</span>

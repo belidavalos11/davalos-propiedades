@@ -32,23 +32,34 @@ const AuthManager = {
     ],
 
     _sessionHours: 12,
+    _readyPromise: null,
 
     _init() {
-        this._overrides = JSON.parse(localStorage.getItem("davalos_user_overrides")) || {};
-        this._ensureSessionValidity();
-        this._syncWithFirebase();
-        this._cachedUsers = [];
-        this._loadUsersFromFirestore();
+        this._readyPromise = (async () => {
+            this._overrides = JSON.parse(localStorage.getItem("davalos_user_overrides")) || {};
+            this._ensureSessionValidity();
+            
+            // Ensure Firebase is synced before loading users
+            await this._syncWithFirebase();
+            
+            this._cachedUsers = [];
+            await this._loadUsersFromFirestore();
+        })();
     },
 
     async _loadUsersFromFirestore() {
-        if (!window.db) return;
+        if (!window.db) {
+            console.warn("Firestore (window.db) no está inicializado.");
+            return;
+        }
         try {
+            console.log("Cargando usuarios desde Firestore...");
             const snapshot = await window.db.collection("users").get();
             this._cachedUsers = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
-            console.log("Usuarios cargados desde Firestore:", this._cachedUsers.length);
+            console.log("Usuarios cargados desde Firestore con éxito:", this._cachedUsers.length);
         } catch (e) {
-            console.error("Error al cargar usuarios de Firestore:", e);
+            console.error("ERROR CRÍTICO al cargar usuarios de Firestore:", e);
+            // Don't clear cache on error, keep what we have but log it
         }
     },
 
@@ -126,12 +137,18 @@ const AuthManager = {
         const normalized = this._normalizeUsername(username);
         const cleanPassword = String(password || "").trim();
         
+        console.log(`Intentando login para el usuario: "${normalized}"`);
+
         // Sync with Firebase to ensure we can read Firestore users
         if (window.auth) {
             try {
-                await window.auth.signInAnonymously();
+                const currentUser = window.auth.currentUser;
+                if (!currentUser) {
+                    console.log("Sincronizando sesión anónima antes del login...");
+                    await window.auth.signInAnonymously();
+                }
             } catch(e) {
-                console.error("Firebase Auth Error:", e);
+                console.error("Error de Auth en Firebase durante login:", e);
             }
         }
         
@@ -140,10 +157,20 @@ const AuthManager = {
         
         const users = this.getAllUsersSync();
         const user = users.find((u) => u.username === normalized);
-        if (!user) return false;
+        
+        if (!user) {
+            console.warn(`Login fallido: El usuario "${normalized}" no existe en el sistema.`);
+            return false;
+        }
 
         const storedPassword = (this._overrides[normalized] || user.password || "").trim();
-        if (cleanPassword !== storedPassword) return false;
+        
+        if (cleanPassword !== storedPassword) {
+            console.warn(`Login fallido para "${normalized}": La contraseña no coincide.`);
+            // Diagnostic: Log lengths to see if there are hidden characters
+            console.log(`Longitud ingresada: ${cleanPassword.length}, Longitud esperada: ${storedPassword.length}`);
+            return false;
+        }
 
         const authData = {
             logged: true,
@@ -153,6 +180,7 @@ const AuthManager = {
         localStorage.setItem(this._sessionKey(), JSON.stringify(authData));
         localStorage.setItem("davalos_current_user", normalized);
 
+        console.log(`Login exitoso para "${normalized}" (${user.role})`);
         return true;
     },
 

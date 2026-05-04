@@ -299,7 +299,7 @@ function renderProperties(filtered) {
 
     filtered.forEach(prop => {
         const manager = window.AuthManager;
-        const canManage = manager && manager.hasPermission(manager.Permissions.DELETE_PUBLICATION);
+        const canManage = manager && manager.hasPermission(manager.Permissions.EDIT_PROPERTY);
 
         // Helper to extract numeric values from customFeatures (Rooms/Baths)
         const getFeatureVal = (namePattern) => {
@@ -640,7 +640,7 @@ function bindEvents() {
             openModal(propertyModal);
         };
     }
-    if (btnLogout) btnLogout.onclick = () => { window.AuthManager.logout(); updateAuthUI(); };
+    if (btnLogout) btnLogout.onclick = () => { window.AuthManager.logout(); updateAuthUI(); applyFilters(); };
     closeBtns.forEach(btn => btn.onclick = closeModal);
 
     if (searchPill) {
@@ -661,7 +661,7 @@ function bindEvents() {
         loginForm.onsubmit = async (e) => {
             e.preventDefault();
             const success = await window.AuthManager.login(document.getElementById("username").value, document.getElementById("password").value);
-            if (success) { closeModal(); updateAuthUI(); }
+            if (success) { closeModal(); updateAuthUI(); applyFilters(); }
             else { alert("Credenciales incorrectas"); }
         };
     }
@@ -914,7 +914,10 @@ async function handleRemoveUser(username) {
 }
 window.handleRemoveUser = handleRemoveUser;
 
-function init() {
+async function init() {
+    if (window.AuthManager && window.AuthManager._readyPromise) {
+        await window.AuthManager._readyPromise;
+    }
     // Initial load
     loadProperties();
     updateAuthUI();
