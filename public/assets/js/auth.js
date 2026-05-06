@@ -49,17 +49,15 @@ const AuthManager = {
 
     async _loadUsersFromFirestore() {
         if (!window.db) {
-            console.warn("Firestore (window.db) no está inicializado.");
+            console.warn("Firestore (window.db) no está inicializado. No se pueden cargar usuarios externos.");
             return;
         }
         try {
-            console.log("Cargando usuarios desde Firestore...");
             const snapshot = await window.db.collection("users").get();
             this._cachedUsers = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
-            console.log("Usuarios cargados desde Firestore con éxito:", this._cachedUsers.length);
+            console.log(`[Auth] Sincronización exitosa: ${this._cachedUsers.length} usuarios externos cargados.`);
         } catch (e) {
-            console.error("ERROR CRÍTICO al cargar usuarios de Firestore:", e);
-            // Don't clear cache on error, keep what we have but log it
+            console.error("[Auth] ERROR al cargar usuarios de Firestore:", e);
         }
     },
 
@@ -137,51 +135,53 @@ const AuthManager = {
         const normalized = this._normalizeUsername(username);
         const cleanPassword = String(password || "").trim();
         
-        console.log(`Intentando login para el usuario: "${normalized}"`);
+        console.log(`[Auth] Intento de login: "${normalized}"`);
 
-        // Sync with Firebase to ensure we can read Firestore users
-        if (window.auth) {
+        // Wait for ready promise if it exists to ensure initial sync
+        if (this._readyPromise) {
+            await this._readyPromise;
+        }
+
+        // Final check for Firebase/Firestore
+        if (window.auth && !window.auth.currentUser) {
             try {
-                const currentUser = window.auth.currentUser;
-                if (!currentUser) {
-                    console.log("Sincronizando sesión anónima antes del login...");
-                    await window.auth.signInAnonymously();
-                }
+                await window.auth.signInAnonymously();
             } catch(e) {
-                console.error("Error de Auth en Firebase durante login:", e);
+                console.error("[Auth] Error de sesión anónima:", e);
             }
         }
         
-        // Refresh users from Firestore before login to ensure we have the latest
+        // Refresh to ensure latest data
         await this._loadUsersFromFirestore();
         
         const users = this.getAllUsersSync();
         const user = users.find((u) => u.username === normalized);
         
         if (!user) {
-            console.warn(`Login fallido: El usuario "${normalized}" no existe en el sistema.`);
+            console.warn(`[Auth] Login fallido: El usuario "${normalized}" no fue encontrado en la base de datos (${users.length} usuarios totales).`);
             return false;
         }
 
+        // Password matching
         const storedPassword = (this._overrides[normalized] || user.password || "").trim();
         
-        if (cleanPassword !== storedPassword) {
-            console.warn(`Login fallido para "${normalized}": La contraseña no coincide.`);
-            // Diagnostic: Log lengths to see if there are hidden characters
-            console.log(`Longitud ingresada: ${cleanPassword.length}, Longitud esperada: ${storedPassword.length}`);
+        if (cleanPassword === storedPassword) {
+            const authData = {
+                logged: true,
+                timestamp: Date.now()
+            };
+
+            localStorage.setItem(this._sessionKey(), JSON.stringify(authData));
+            localStorage.setItem("davalos_current_user", normalized);
+
+            console.log(`[Auth] Login exitoso: "${normalized}" con rol ${user.role}`);
+            return true;
+        } else {
+            console.warn(`[Auth] Login fallido para "${normalized}": Contraseña incorrecta.`);
+            // Diagnostic for the developer (don't show full passwords in prod usually, but here it helps)
+            console.log(`[Auth Diagnostic] Longitudes - Ingresada: ${cleanPassword.length}, Guardada: ${storedPassword.length}`);
             return false;
         }
-
-        const authData = {
-            logged: true,
-            timestamp: Date.now()
-        };
-
-        localStorage.setItem(this._sessionKey(), JSON.stringify(authData));
-        localStorage.setItem("davalos_current_user", normalized);
-
-        console.log(`Login exitoso para "${normalized}" (${user.role})`);
-        return true;
     },
 
     logout() {
@@ -239,6 +239,12 @@ const AuthManager = {
         
         // Prevent duplicates
         if (all.some(u => u.username === normalized)) return false;
+
+        // Clear any old local overrides for this username to avoid credential mismatch
+        if (this._overrides[normalized]) {
+            delete this._overrides[normalized];
+            localStorage.setItem("davalos_user_overrides", JSON.stringify(this._overrides));
+        }
 
         try {
             const cleanUserData = {
