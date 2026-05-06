@@ -919,11 +919,24 @@ async function init() {
         await window.AuthManager._readyPromise;
     }
     // Initial load
-    loadProperties();
+    await loadProperties();
     updateAuthUI();
     bindEvents();
 
     document.getElementById("add-user-form")?.addEventListener("submit", handleAddUser);
+
+    // Check for edit parameter to auto-open modal from details page
+    const urlParams = new URLSearchParams(window.location.search);
+    const editId = urlParams.get('edit');
+    if (editId) {
+        const numId = Number(editId);
+        const prop = properties.find(p => p.id === numId || String(p.id) === editId);
+        if (prop && window.AuthManager && window.AuthManager.hasPermission(window.AuthManager.Permissions.EDIT_PROPERTY)) {
+            openEditModal(prop.id);
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
 }
 
 init();

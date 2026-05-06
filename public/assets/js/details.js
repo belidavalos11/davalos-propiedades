@@ -273,6 +273,11 @@ function renderDetails(prop) {
                 <div class="sidebar-actions-row">
                     <button class="btn btn-sidebar-action" onclick="shareProperty()"><span class="icon">🔗</span> Compartir</button>
                     <button class="btn btn-sidebar-action" onclick="window.print()"><span class="icon">🖨️</span> Imprimir</button>
+                    ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.EDIT_PROPERTY)) ? `
+                        <button class="btn btn-sidebar-action" onclick="window.location.href='index.html?edit=${prop.id}'" style="color: var(--primary); border-color: var(--primary); font-weight: 600;">
+                            <span class="icon">✏️</span> Editar
+                        </button>
+                    ` : ""}
                 </div>
 
                 <div class="contact-card-v3">

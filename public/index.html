@@ -13,10 +13,13 @@
     <meta property="og:type" content="website">
     <meta property="og:image" content="assets/images/logo-completo.png">
     <meta name="theme-color" content="#001556">
-    <link rel="icon" type="image/png" href="assets/images/logo-simple.png">
-    <link rel="icon" type="image/svg+xml" href="assets/images/logo-favicon.svg">
-    <link rel="apple-touch-icon" href="assets/images/logo-simple.png">
-    <link rel="shortcut icon" href="assets/images/logo-simple.png" type="image/x-icon">
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -33,6 +36,11 @@
                     <img src="assets/images/logo-horizontal.svg" alt="DAVALOS PROPIEDADES" class="logo-img-main">
                 </a>
             </div>
+            <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
             <nav class="nav-main">
                 <a href="index.html" class="nav-link active">Inicio</a>
                 <a href="#propiedades" class="nav-link" onclick="filterByOperation('venta')">Venta</a>
@@ -496,6 +504,27 @@
 
     <script src="assets/js/auth.js"></script>
     <script src="assets/js/script.js"></script>
+    <script>
+        const menuToggle = document.getElementById('mobile-menu-toggle');
+        const navMain = document.querySelector('.nav-main');
+        
+        if (menuToggle && navMain) {
+            menuToggle.addEventListener('click', function() {
+                this.classList.toggle('active');
+                navMain.classList.toggle('active');
+                document.body.style.overflow = navMain.classList.contains('active') ? 'hidden' : 'auto';
+            });
+
+            // Close menu when clicking a link (especially useful for anchors)
+            navMain.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    menuToggle.classList.remove('active');
+                    navMain.classList.remove('active');
+                    document.body.style.overflow = 'auto';
+                });
+            });
+        }
+    </script>
 </body>
 
 </html>
