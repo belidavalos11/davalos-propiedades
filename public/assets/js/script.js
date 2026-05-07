@@ -366,7 +366,13 @@ function renderProperties(filtered) {
                 </div>
             </div>
         `;
-        card.onclick = () => window.location.href = `details?id=${prop.id}`;
+        card.onclick = () => {
+            if (window.triggerLoader) {
+                window.triggerLoader(`details?id=${prop.id}`);
+            } else {
+                window.location.href = `details?id=${prop.id}`;
+            }
+        };
         grid.appendChild(card);
     });
 }
@@ -810,6 +816,8 @@ function bindEvents() {
                     expensasCurrency: document.getElementById("prop-expensas-currency").value
                 };
 
+                if (window.showLoader) window.showLoader();
+
                 if (currentEditingId) {
                     const existing = properties.find(p => p.id === currentEditingId);
                     if (existing && existing.firebaseId) {
@@ -824,9 +832,13 @@ function bindEvents() {
 
                 closeModal();
                 loadProperties();
+                
+                if (window.hideLoader) window.hideLoader();
+
                 alert(currentEditingId ? "Propiedad actualizada con éxito" : "Propiedad publicada con éxito");
                 currentEditingId = null;
             } catch (err) {
+                if (window.hideLoader) window.hideLoader();
                 console.error("CRITICAL ERROR publishing property:", err);
                 alert(`Error al publicar la propiedad: ${err.message || 'Error desconocido'}. Verifica tu conexión y configuración de Firebase Storage.`);
             } finally {

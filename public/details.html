@@ -21,11 +21,22 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=3">
+    <link rel="stylesheet" href="assets/css/loader.css">
     <link rel="stylesheet" href="assets/css/details.css">
 </head>
 
 <body>
+    <!-- Page Loader -->
+    <div id="page-loader" class="page-loader">
+        <div class="loader-content">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 53" class="loader-svg">
+                <path class="logo-path" pathLength="1" d="M48.52,24.92C47,13.28,36.42,3.86,24.66,3.93c-3.81,0-7.62,0-11.43,0H.31c-.31,0-.31,0-.31.3V9.79c0,.19,0,.2.21.2h24a18.34,18.34,0,0,1,4.18.46c9.36,2,16,11.93,13.89,21.54A18.42,18.42,0,0,1,24.45,46.6c-1.93,0-3.86,0-5.79,0-.43,0-.39,0-.39-.4V28.54c0-.22,0-.22-.21-.23H12.57c-.42,0-.37,0-.37.37V52.32c0,.4,0,.35.35.35H24.24a25.45,25.45,0,0,0,3.69-.27A24.48,24.48,0,0,0,48.52,24.92Z" />
+                <path class="logo-path" pathLength="1" d="M25.92,22.39a6.17,6.17,0,0,1,4.54,5.35A5.94,5.94,0,0,1,28,33.22a5.88,5.88,0,0,1-3.33,1.18c-.22,0-.23,0-.23.24v5.62c0,.21,0,.23.22.22.58,0,1.17-.07,1.74-.17a11.86,11.86,0,0,0,7-3.79,12.11,12.11,0,0,0-2.11-18.27,12,12,0,0,0-7-2.14q-11.86,0-23.73,0c-.48,0-.44-.06-.44.44V34.38H0v18c0,.24,0,.24.25.24H5.63c.48,0,.44.08.44-.44V22.48c0-.29,0-.29.29-.29h18A6.37,6.37,0,0,1,25.92,22.39Z" />
+            </svg>
+        </div>
+    </div>
+
     <header class="header">
         <div class="container container-header-horizontal">
             <div class="header-logo-row">
@@ -82,6 +93,7 @@
     <script src="assets/js/firebase-config.js"></script>
 
     <script src="assets/js/auth.js"></script>
+    <script src="assets/js/loader.js"></script>
     <script src="assets/js/details.js"></script>
     <script>
         const menuToggle = document.getElementById('mobile-menu-toggle');
