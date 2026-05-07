@@ -179,6 +179,7 @@ function closeModal() {
 
 // Logic - Data Loading
 async function loadProperties() {
+    if (window.showLoader) window.showLoader();
     try {
         // 1. Fetch from JSON (Base Catalog)
         const response = await fetch(DATA_URL, { cache: "no-store" });
@@ -266,6 +267,7 @@ function applyFilters() {
     }
 
     renderProperties(filtered);
+    if (window.hideLoader) window.hideLoader();
 }
 
 // Global filter helper for header links

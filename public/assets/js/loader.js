@@ -28,16 +28,18 @@ window.hideLoader = function() {
     const loader = document.getElementById('page-loader');
     if (!loader) return;
     
+    // Ensure the animation completes (drawLogo is 2s)
+    // We wait 2100ms to be safe and let the fill settle
     setTimeout(() => {
         loader.classList.add('hidden');
-    }, 1200);
+    }, 2100);
 };
 
 window.triggerLoader = function(url) {
     window.showLoader();
 
-    // Navigate after the drawing phase starts to feel completed (approx 1.8s)
+    // Navigate after the full animation completes
     setTimeout(() => {
         window.location.href = url;
-    }, 1800);
+    }, 2200);
 };
