@@ -647,7 +647,9 @@ window.downloadAllImages = async function () {
         const downloadUrl = URL.createObjectURL(zipBlob);
         const link = document.createElement("a");
         link.href = downloadUrl;
-        link.download = `propiedad_${currentProperty.id}_imagenes.zip`;
+        const sanitizeFilename = (name) => name.toLowerCase().replace(/[^a-z0-9]/gi, "_").replace(/_{2,}/g, "_");
+        const filename = (sanitizeFilename(currentProperty.title) || "propiedad") + "_imagenes.zip";
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
