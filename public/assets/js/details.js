@@ -17,6 +17,7 @@ const lightboxNext = document.getElementById("lightbox-next");
 let currentSlide = 0;
 let currentLightboxImages = [];
 let currentLightboxIndex = 0;
+let currentProperty = null;
 
 // Utility
 function escapeHtml(value) {
@@ -273,6 +274,11 @@ function renderDetails(prop) {
                 <div class="sidebar-actions-row">
                     <button class="btn btn-sidebar-action" onclick="shareProperty()"><span class="icon">🔗</span> Compartir</button>
                     <button class="btn btn-sidebar-action" onclick="window.print()"><span class="icon">🖨️</span> Imprimir</button>
+                    ${logged ? `
+                        <button class="btn btn-sidebar-action" id="btn-download-images" onclick="downloadAllImages()">
+                            <span class="icon">📥</span> Descargar imágenes
+                        </button>
+                    ` : ""}
                     ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.EDIT_PROPERTY)) ? `
                         <button class="btn btn-sidebar-action" onclick="window.location.href='index.html?edit=${prop.id}'" style="color: var(--primary); border-color: var(--primary); font-weight: 600;">
                             <span class="icon">✏️</span> Editar
@@ -511,6 +517,7 @@ if (lightboxClose) lightboxClose.onclick = closeLightbox;
         }
 
         if (!property) return showNotFound();
+        currentProperty = property;
         renderDetails(property);
 
         // Show greeting if logged in
@@ -580,3 +587,73 @@ window.addEventListener("click", (e) => {
 
 // Update auth UI on load
 updateDetailsAuthUI();
+
+window.downloadAllImages = async function () {
+    if (!currentProperty || !currentProperty.images || currentProperty.images.length === 0) {
+        alert("No hay imágenes para descargar.");
+        return;
+    }
+
+    const btn = document.getElementById("btn-download-images");
+    const originalContent = btn ? btn.innerHTML : "";
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="icon">⌛</span> Procesando...';
+    }
+
+    try {
+        const zip = new JSZip();
+        // Use property title or ID for the folder name
+        const folderName = "propiedad_" + currentProperty.id;
+        const imgFolder = zip.folder(folderName);
+
+        const promises = currentProperty.images.map(async (url, index) => {
+            try {
+                // Handle cases where URL might be relative or absolute
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Network response was not ok");
+                const blob = await response.blob();
+
+                // Determine extension from content type if possible, default to jpg
+                let ext = "jpg";
+                const contentType = response.headers.get("content-type");
+                if (contentType) {
+                    if (contentType.includes("png")) ext = "png";
+                    else if (contentType.includes("webp")) ext = "webp";
+                    else if (contentType.includes("gif")) ext = "gif";
+                } else {
+                    // Try to guess from URL
+                    const match = url.match(/\.(jpg|jpeg|png|webp|gif)(\?|$)/i);
+                    if (match) ext = match[1].toLowerCase();
+                }
+
+                imgFolder.file(`imagen_${index + 1}.${ext}`, blob);
+            } catch (err) {
+                console.error("Error descargando imagen individual:", url, err);
+            }
+        });
+
+        await Promise.all(promises);
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const downloadUrl = URL.createObjectURL(zipBlob);
+        
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = `${folderName}_imagenes.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+
+    } catch (err) {
+        console.error("Error general en downloadAllImages:", err);
+        alert("Ocurrió un error al generar el archivo de descarga.");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+};
