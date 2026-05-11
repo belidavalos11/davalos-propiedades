@@ -590,7 +590,7 @@ updateDetailsAuthUI();
 
 window.downloadAllImages = async function () {
     if (!currentProperty || !currentProperty.images || currentProperty.images.length === 0) {
-        alert("No hay im√°genes para descargar.");
+        alert("No hay im·genes para descargar.");
         return;
     }
 
@@ -598,23 +598,19 @@ window.downloadAllImages = async function () {
     const originalContent = btn ? btn.innerHTML : "";
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="icon">‚åõ</span> Procesando...';
+        btn.innerHTML = `<span class="icon">?</span> Descargando (0/${currentProperty.images.length})`;
     }
 
     try {
         const zip = new JSZip();
-        // Use property title or ID for the folder name
-        const folderName = "propiedad_" + currentProperty.id;
-        const imgFolder = zip.folder(folderName);
+        let downloadedCount = 0;
 
         const promises = currentProperty.images.map(async (url, index) => {
             try {
-                // Handle cases where URL might be relative or absolute
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Network response was not ok");
+                const response = await fetch(url, { mode: "cors" });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const blob = await response.blob();
 
-                // Determine extension from content type if possible, default to jpg
                 let ext = "jpg";
                 const contentType = response.headers.get("content-type");
                 if (contentType) {
@@ -622,34 +618,45 @@ window.downloadAllImages = async function () {
                     else if (contentType.includes("webp")) ext = "webp";
                     else if (contentType.includes("gif")) ext = "gif";
                 } else {
-                    // Try to guess from URL
                     const match = url.match(/\.(jpg|jpeg|png|webp|gif)(\?|$)/i);
                     if (match) ext = match[1].toLowerCase();
                 }
 
-                imgFolder.file(`imagen_${index + 1}.${ext}`, blob);
+                zip.file(`imagen_${index + 1}.${ext}`, blob);
+                downloadedCount++;
+                if (btn) btn.innerHTML = `<span class="icon">?</span> Descargando (${downloadedCount}/${currentProperty.images.length})`;
             } catch (err) {
-                console.error("Error descargando imagen individual:", url, err);
+                console.error("Error descargando imagen " + (index + 1) + ":", url, err);
             }
         });
 
         await Promise.all(promises);
 
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        const downloadUrl = URL.createObjectURL(zipBlob);
+        if (downloadedCount === 0) {
+            alert("No se pudo descargar ninguna imagen. Esto suele ocurrir por bloqueos de seguridad (CORS) del servidor donde est·n alojadas las fotos (ej: Firebase).");
+            return;
+        }
+
+        if (btn) btn.innerHTML = "<span class=\"icon\">?</span> Finalizando...";
         
+        const zipBlob = await zip.generateAsync({ 
+            type: "blob",
+            compression: "STORE" 
+        });
+        
+        const downloadUrl = URL.createObjectURL(zipBlob);
         const link = document.createElement("a");
         link.href = downloadUrl;
-        link.download = `${folderName}_imagenes.zip`;
+        link.download = `propiedad_${currentProperty.id}_imagenes.zip`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
 
     } catch (err) {
         console.error("Error general en downloadAllImages:", err);
-        alert("Ocurri√≥ un error al generar el archivo de descarga.");
+        alert("OcurriÛ un error al generar el archivo: " + err.message);
     } finally {
         if (btn) {
             btn.disabled = false;
