@@ -279,7 +279,8 @@ window.filterByOperation = function (type) {
         // Update active class in nav
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.remove('active');
-            if (link.getAttribute('onclick')?.includes(type)) {
+            const href = link.getAttribute('href');
+            if (href === '#propiedades' || (type === 'venta' && href?.includes('venta')) || (type === 'alquiler' && href?.includes('alquiler'))) {
                 link.classList.add('active');
             }
         });
@@ -936,6 +937,7 @@ async function init() {
     await loadProperties();
     updateAuthUI();
     bindEvents();
+    initNavigation();
 
     document.getElementById("add-user-form")?.addEventListener("submit", handleAddUser);
 
@@ -951,6 +953,65 @@ async function init() {
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }
+}
+
+/**
+ * Navigation & Active State Management (ScrollSpy)
+ */
+function initNavigation() {
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = [
+        { id: 'inicio', element: document.querySelector('.header') }, 
+        { id: 'propiedades', element: document.getElementById('propiedades') },
+        { id: 'nosotros', element: document.getElementById('nosotros') },
+        { id: 'contacto', element: document.getElementById('contacto') }
+    ];
+
+    const updateActive = (id) => {
+        navLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            // Avoid removing active from special buttons like login/logout/publish
+            if (link.id && link.id.startsWith('btn-')) return;
+            
+            link.classList.remove('active');
+            if (id === 'inicio' && (href === 'index.html' || href === 'index.html#')) {
+                link.classList.add('active');
+            } else if (href === '#' + id) {
+                link.classList.add('active');
+            }
+        });
+    };
+
+    // Intersection Observer for ScrollSpy
+    const observerOptions = {
+        root: null,
+        rootMargin: '-40% 0px -40% 0px',
+        threshold: 0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const id = entry.target.id || (entry.target.classList.contains('header') ? 'inicio' : '');
+                if (id) updateActive(id);
+            }
+        });
+    }, observerOptions);
+
+    sections.forEach(sec => {
+        if (sec.element) {
+            observer.observe(sec.element);
+        }
+    });
+
+    // Manual click handling
+    navLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (this.id && this.id.startsWith('btn-')) return;
+            navLinks.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
 }
 
 init();
