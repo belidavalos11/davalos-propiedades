@@ -526,3 +526,57 @@ if (lightboxClose) lightboxClose.onclick = closeLightbox;
         showNotFound();
     }
 })();
+
+// Auth UI for details page
+const btnLogin = document.getElementById("btn-login");
+const btnLogout = document.getElementById("btn-logout");
+const loginModal = document.getElementById("login-modal");
+const loginClose = document.getElementById("login-close");
+const loginForm = document.getElementById("login-form");
+
+function updateDetailsAuthUI() {
+    const logged = window.AuthManager && window.AuthManager.isLoggedIn();
+    if (btnLogin) btnLogin.style.display = logged ? "none" : "block";
+    if (btnLogout) btnLogout.style.display = logged ? "block" : "none";
+}
+
+if (btnLogin && loginModal) {
+    btnLogin.onclick = () => {
+        loginModal.style.display = "block";
+        document.body.style.overflow = "hidden";
+    };
+}
+if (loginClose && loginModal) {
+    loginClose.onclick = () => {
+        loginModal.style.display = "none";
+        document.body.style.overflow = "auto";
+    };
+}
+if (loginForm) {
+    loginForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const success = await window.AuthManager.login(document.getElementById("username").value, document.getElementById("password").value);
+        if (success) {
+            loginModal.style.display = "none";
+            document.body.style.overflow = "auto";
+            window.location.reload(); // Reload to show admin features
+        } else {
+            alert("Credenciales incorrectas");
+        }
+    };
+}
+if (btnLogout) {
+    btnLogout.onclick = () => {
+        window.AuthManager.logout();
+        window.location.reload();
+    };
+}
+window.addEventListener("click", (e) => {
+    if (loginModal && e.target === loginModal) {
+        loginModal.style.display = "none";
+        document.body.style.overflow = "auto";
+    }
+});
+
+// Update auth UI on load
+updateDetailsAuthUI();
