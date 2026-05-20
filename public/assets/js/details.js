@@ -85,8 +85,36 @@ function getAgentPhone(prop) {
         const users = window.AuthManager.getAllUsersSync();
         const agentUser = users.find(u => u.displayName === prop.agent || u.username === prop.agent);
         if (agentUser && agentUser.phone) {
-            const numericPhone = agentUser.phone.replace(/\D/g, '');
-            if (numericPhone) return numericPhone;
+            let phone = agentUser.phone.replace(/\D/g, '');
+            if (!phone) return WHATSAPP_NUMBER;
+
+            // Remove leading zero if present (e.g., 0387 -> 387)
+            if (phone.startsWith('0')) {
+                phone = phone.substring(1);
+            }
+
+            // Remove Argentine local mobile prefix "15" if present
+            // e.g., 387 15 4155902 -> 387154155902 -> 3874155902
+            if (phone.startsWith('38715') && phone.length === 12) {
+                phone = '387' + phone.substring(5);
+            } else if (phone.length === 12 && phone.substring(2, 4) === '15') {
+                // e.g. 11 15 12345678
+                phone = phone.substring(0, 2) + phone.substring(4);
+            } else if (phone.length === 11 && phone.startsWith('15')) {
+                phone = phone.substring(2);
+            }
+
+            // Ensure the number is formatted with the international country code "549" for Argentina mobiles
+            if (phone.startsWith('549')) {
+                return phone;
+            } else if (phone.startsWith('54')) {
+                // If it has country code but lacks mobile '9', insert it
+                const remaining = phone.substring(2);
+                return '549' + remaining;
+            } else {
+                // Local number (e.g. 3874155902), prepend 549
+                return '549' + phone;
+            }
         }
     }
     return WHATSAPP_NUMBER;
