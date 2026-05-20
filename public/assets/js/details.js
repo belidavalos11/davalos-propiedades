@@ -1,7 +1,7 @@
 const DATA_URL = "data/properties.json";
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
-const WHATSAPP_NUMBER = "5493875053884";
-const PHONE_NUMBER = "+5491123456789";
+const WHATSAPP_NUMBER = "5493874155902";
+const PHONE_NUMBER = "+543874155902";
 
 // DOM Elements
 const container = document.getElementById("details-container");
@@ -590,7 +590,7 @@ updateDetailsAuthUI();
 
 window.downloadAllImages = async function () {
     if (!currentProperty || !currentProperty.images || currentProperty.images.length === 0) {
-        alert("No hay imágenes para descargar.");
+        alert("No hay imï¿½genes para descargar.");
         return;
     }
 
@@ -633,7 +633,7 @@ window.downloadAllImages = async function () {
         await Promise.all(promises);
 
         if (downloadedCount === 0) {
-            alert("No se pudo descargar ninguna imagen. Esto suele ocurrir por bloqueos de seguridad (CORS) del servidor donde están alojadas las fotos (ej: Firebase).");
+            alert("No se pudo descargar ninguna imagen. Esto suele ocurrir por bloqueos de seguridad (CORS) del servidor donde estï¿½n alojadas las fotos (ej: Firebase).");
             return;
         }
 
@@ -658,7 +658,7 @@ window.downloadAllImages = async function () {
 
     } catch (err) {
         console.error("Error general en downloadAllImages:", err);
-        alert("Ocurrió un error al generar el archivo: " + err.message);
+        alert("Ocurriï¿½ un error al generar el archivo: " + err.message);
     } finally {
         if (btn) {
             btn.disabled = false;
