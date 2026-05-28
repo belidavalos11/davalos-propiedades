@@ -628,6 +628,42 @@ function bindEvents() {
             form.style.display = form.style.display === "block" ? "none" : "block";
         };
     }
+
+    const pwForm = document.getElementById("pw-form");
+    if (pwForm) {
+        pwForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const newPasswordInput = document.getElementById("new-password");
+            const newPassword = newPasswordInput.value;
+            const success = window.AuthManager.changePassword(newPassword);
+            if (success) {
+                alert("Contraseña actualizada con éxito.");
+                newPasswordInput.value = "";
+                document.getElementById("change-password-form").style.display = "none";
+            } else {
+                alert("Error al cambiar la contraseña. Asegúrate de que tenga al menos 6 caracteres.");
+            }
+        };
+    }
+
+    // Inicializar visualización de contraseña (ojito)
+    document.querySelectorAll(".toggle-password").forEach(btn => {
+        btn.onclick = function() {
+            const input = this.previousElementSibling;
+            const eyeOpen = this.querySelector(".eye-open");
+            const eyeClosed = this.querySelector(".eye-closed");
+            
+            if (input.type === "password") {
+                input.type = "text";
+                if (eyeOpen) eyeOpen.style.display = "none";
+                if (eyeClosed) eyeClosed.style.display = "block";
+            } else {
+                input.type = "password";
+                if (eyeOpen) eyeOpen.style.display = "block";
+                if (eyeClosed) eyeClosed.style.display = "none";
+            }
+        };
+    });
     if (btnAddProperty) {
         btnAddProperty.onclick = () => {
             currentEditingId = null;

@@ -616,6 +616,25 @@ window.addEventListener("click", (e) => {
 // Update auth UI on load
 updateDetailsAuthUI();
 
+// Inicializar visualización de contraseña (ojito)
+document.querySelectorAll(".toggle-password").forEach(btn => {
+    btn.onclick = function() {
+        const input = this.previousElementSibling;
+        const eyeOpen = this.querySelector(".eye-open");
+        const eyeClosed = this.querySelector(".eye-closed");
+        
+        if (input.type === "password") {
+            input.type = "text";
+            if (eyeOpen) eyeOpen.style.display = "none";
+            if (eyeClosed) eyeClosed.style.display = "block";
+        } else {
+            input.type = "password";
+            if (eyeOpen) eyeOpen.style.display = "block";
+            if (eyeClosed) eyeClosed.style.display = "none";
+        }
+    };
+});
+
 window.downloadAllImages = async function () {
     if (!currentProperty || !currentProperty.images || currentProperty.images.length === 0) {
         alert("No hay im�genes para descargar.");
