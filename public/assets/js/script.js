@@ -91,6 +91,7 @@ const closeBtns = document.querySelectorAll(".close-modal");
 let properties = [];
 let localProperties = [];
 let currentEditingId = null;
+let currentEditingUsername = null;
 
 // Utility
 function escapeHtml(value) {
@@ -884,14 +885,74 @@ async function renderUserList() {
                     <strong>${escapeHtml(u.displayName)}</strong> (${u.username})<br>
                     <small style="color: #666;">${u.role}</small>
                 </div>
-                ${!isProtected ? `
-                    <button class="btn btn-outline btn-small" style="color: #e74c3c; border-color: #e74c3c;" onclick="handleRemoveUser('${u.username}')">Eliminar</button>
-                ` : ""}
+                <div style="display: flex; gap: 8px;">
+                    ${u.username !== "admin" ? `
+                        <button class="btn btn-outline btn-small" style="color: #3498db; border-color: #3498db;" onclick="handleStartEditUser('${u.username}')">Editar</button>
+                    ` : ""}
+                    ${!isProtected ? `
+                        <button class="btn btn-outline btn-small" style="color: #e74c3c; border-color: #e74c3c;" onclick="handleRemoveUser('${u.username}')">Eliminar</button>
+                    ` : ""}
+                </div>
             </div>
         `;
     }).join("");
 }
 window.renderUserList = renderUserList;
+
+async function handleStartEditUser(username) {
+    const manager = window.AuthManager;
+    const users = await manager.getAllUsers();
+    const user = users.find(u => u.username === username);
+    if (!user) return;
+
+    currentEditingUsername = username;
+
+    // Poblar el formulario
+    document.getElementById("new-username").value = user.username;
+    document.getElementById("new-username").disabled = true; // No permitir cambiar el identificador
+    document.getElementById("new-displayname").value = user.displayName || "";
+    document.getElementById("new-firstname").value = user.firstName || "";
+    document.getElementById("new-lastname").value = user.lastName || "";
+    document.getElementById("new-phone").value = user.phone || "";
+    document.getElementById("new-user-password").value = ""; // Dejar vacío para indicar "sin cambios"
+    document.getElementById("new-user-password").placeholder = "Ingresa nueva o deja vacío";
+    document.getElementById("new-role").value = user.role || "ADMIN";
+
+    // Modificar interfaz del formulario
+    const form = document.getElementById("add-user-form");
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.textContent = "Guardar Cambios";
+
+    // Añadir botón de cancelar si no existe
+    let cancelBtn = document.getElementById("btn-cancel-edit-user");
+    if (!cancelBtn) {
+        cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.id = "btn-cancel-edit-user";
+        cancelBtn.className = "btn btn-outline btn-full";
+        cancelBtn.style.marginTop = "8px";
+        cancelBtn.textContent = "Cancelar Edición";
+        cancelBtn.onclick = handleCancelEditUser;
+        submitBtn.parentNode.insertBefore(cancelBtn, submitBtn.nextSibling);
+    }
+}
+
+function handleCancelEditUser() {
+    currentEditingUsername = null;
+    
+    // Resetear formulario
+    const form = document.getElementById("add-user-form");
+    form.reset();
+    document.getElementById("new-username").disabled = false;
+    document.getElementById("new-user-password").placeholder = "Contraseña inicial";
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.textContent = "Crear Usuario";
+
+    // Eliminar botón cancelar
+    const cancelBtn = document.getElementById("btn-cancel-edit-user");
+    if (cancelBtn) cancelBtn.remove();
+}
 
 async function handleAddUser(e) {
     e.preventDefault();
@@ -907,24 +968,69 @@ async function handleAddUser(e) {
         role: document.getElementById("new-role").value
     };
 
-    const success = await manager.addUser(userData);
-    if (success) {
-        e.target.reset();
-        await renderUserList();
-        alert("Usuario creado con éxito.");
+    if (currentEditingUsername !== null) {
+        // Modo Edición
+        const result = await manager.updateUser(currentEditingUsername, userData);
+        if (result.success) {
+            handleCancelEditUser();
+            await renderUserList();
+            if (result.mode === "firestore") {
+                alert("Usuario actualizado con éxito en la base de datos en la nube.");
+            } else if (result.mode === "local" || result.mode === "core") {
+                alert("Usuario actualizado con éxito en el almacenamiento local del navegador.");
+            }
+        } else {
+            if (result.reason === "permission") {
+                alert("Error: No tienes permisos de administrador para modificar usuarios.");
+            } else {
+                alert(`Error al actualizar el usuario: ${result.error || 'Error desconocido'}`);
+            }
+        }
     } else {
-        alert("Error: El usuario ya existe o no tienes permisos.");
+        // Modo Creación
+        const result = await manager.addUser(userData);
+        if (result.success) {
+            e.target.reset();
+            await renderUserList();
+            if (result.mode === "firestore") {
+                alert("Usuario creado con éxito en la base de datos en la nube.");
+            } else if (result.mode === "local") {
+                alert(`Usuario creado y guardado localmente en este navegador.\n\n(Nota: La base de datos en la nube no aceptó la escritura directa debido a permisos o conexión, pero podrás iniciar sesión normalmente en este equipo).`);
+            }
+        } else {
+            if (result.reason === "duplicate") {
+                alert("Error: El nombre de usuario ya está registrado.");
+            } else if (result.reason === "permission") {
+                alert("Error: No tienes permisos de administrador para agregar usuarios.");
+            } else {
+                alert(`Error al crear el usuario: ${result.error || 'Error desconocido'}`);
+            }
+        }
     }
 }
 
 async function handleRemoveUser(username) {
     if (!confirm(`¿Estás seguro de que deseas eliminar al usuario "${username}"? Esta acción no se puede deshacer.`)) return;
-    const success = await window.AuthManager.removeUser(username);
-    if (success) {
+    const result = await window.AuthManager.removeUser(username);
+    if (result.success) {
         await renderUserList();
-        alert("Usuario eliminado correctamente.");
+        if (result.mode === "firestore") {
+            alert("Usuario eliminado correctamente de la base de datos en la nube.");
+        } else if (result.mode === "local") {
+            alert("Usuario local eliminado correctamente de este navegador.");
+        } else {
+            alert("Usuario eliminado correctamente.");
+        }
     } else {
-        alert("Error: No se pudo eliminar al usuario. Es posible que sea una cuenta protegida o no tengas permisos.");
+        if (result.reason === "protected") {
+            alert("Error: No se puede eliminar la cuenta de administrador principal.");
+        } else if (result.reason === "self") {
+            alert("Error: No puedes eliminar tu propia cuenta de usuario activa.");
+        } else if (result.reason === "permission") {
+            alert("Error: No tienes permisos de administrador para eliminar usuarios.");
+        } else {
+            alert("Error: No se pudo eliminar al usuario.");
+        }
     }
 }
 window.handleRemoveUser = handleRemoveUser;
