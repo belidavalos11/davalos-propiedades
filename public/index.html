@@ -228,30 +228,37 @@
                     </div>
                 </details>
 
-                <h4 style="margin-bottom: 10px; font-size: 0.9rem;">Crear nuevo usuario</h4>
+                <h4 id="user-form-title" style="margin-bottom: 15px; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 8px;">Crear nuevo usuario</h4>
                 <form id="add-user-form">
                     <div class="form-row"
                         style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                        <input type="text" id="new-firstname" placeholder="Nombre (ej: Juan)" required>
-                        <input type="text" id="new-lastname" placeholder="Apellido (ej: Pérez)" required>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="new-firstname" style="font-size: 0.8rem; margin-bottom: 4px; display: block; color: #555;">Nombre</label>
+                            <input type="text" id="new-firstname" placeholder="Ej: Juan" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="new-lastname" style="font-size: 0.8rem; margin-bottom: 4px; display: block; color: #555;">Apellido</label>
+                            <input type="text" id="new-lastname" placeholder="Ej: Pérez" required>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <input type="text" id="new-displayname" placeholder="Nombre visible (para la web, ej: Juan P.)"
-                            required>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label for="new-displayname" style="font-size: 0.8rem; margin-bottom: 4px; display: block; color: #555;">Nombre visible en la web (Ej: Juan P.)</label>
+                        <input type="text" id="new-displayname" placeholder="Nombre que verán los clientes" required>
                     </div>
-                    <div class="form-group">
-                        <input type="text" id="new-username" placeholder="Usuario para iniciar sesión (ej: juanp)"
-                            required>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label for="new-username" style="font-size: 0.8rem; margin-bottom: 4px; display: block; color: #555;">Nombre de usuario (para iniciar sesión)</label>
+                        <input type="text" id="new-username" placeholder="Ej: juanp" required>
                     </div>
-                    <div class="form-group">
-                        <input type="tel" id="new-phone" placeholder="Teléfono (ej: 11 1234 5678)" required>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label for="new-phone" style="font-size: 0.8rem; margin-bottom: 4px; display: block; color: #555;">Número de teléfono (WhatsApp)</label>
+                        <input type="tel" id="new-phone" placeholder="Ej: 387 505 3884" required>
                     </div>
-                    <div class="form-group">
-                        <input type="password" id="new-user-password" placeholder="Contraseña inicial" required>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label id="lbl-new-user-password" for="new-user-password" style="font-size: 0.8rem; margin-bottom: 4px; display: block; color: #555;">Contraseña de acceso</label>
+                        <input type="password" id="new-user-password" placeholder="Contraseña para iniciar sesión" required>
                     </div>
-                    <div class="form-group">
-                        <label for="new-role" style="font-size: 0.8rem; margin-bottom: 5px; display: block;">Categoría
-                            de usuario</label>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="new-role" style="font-size: 0.8rem; margin-bottom: 5px; display: block; color: #555;">Categoría de usuario (Rol)</label>
                         <select id="new-role" required>
                             <option value="SUPER_ADMIN">Super Admin (Control total)</option>
                             <option value="ADMIN">Admin (Gestión de propiedades)</option>

@@ -914,9 +914,23 @@ async function handleStartEditUser(username) {
     document.getElementById("new-firstname").value = user.firstName || "";
     document.getElementById("new-lastname").value = user.lastName || "";
     document.getElementById("new-phone").value = user.phone || "";
-    document.getElementById("new-user-password").value = ""; // Dejar vacío para indicar "sin cambios"
-    document.getElementById("new-user-password").placeholder = "Ingresa nueva o deja vacío";
+    
+    // Configurar campo contraseña
+    const passwordInput = document.getElementById("new-user-password");
+    passwordInput.value = ""; 
+    passwordInput.required = false; // Permitir guardar cambios sin modificar la contraseña
+    passwordInput.placeholder = "Dejar en blanco para mantener la misma";
+
+    const lblPassword = document.getElementById("lbl-new-user-password");
+    if (lblPassword) {
+        lblPassword.innerHTML = 'Nueva contraseña <span style="font-weight: 300; color: #777;">(opcional)</span>';
+    }
+
     document.getElementById("new-role").value = user.role || "ADMIN";
+
+    // Modificar título del formulario
+    const formTitle = document.getElementById("user-form-title");
+    if (formTitle) formTitle.textContent = `Modificar usuario: ${user.username}`;
 
     // Modificar interfaz del formulario
     const form = document.getElementById("add-user-form");
@@ -943,8 +957,19 @@ function handleCancelEditUser() {
     // Resetear formulario
     const form = document.getElementById("add-user-form");
     form.reset();
+    
+    const passwordInput = document.getElementById("new-user-password");
+    passwordInput.disabled = false;
+    passwordInput.required = true; // Volver a requerir contraseña para nuevos registros
+    passwordInput.placeholder = "Contraseña para iniciar sesión";
+
+    const lblPassword = document.getElementById("lbl-new-user-password");
+    if (lblPassword) lblPassword.textContent = "Contraseña de acceso";
+
+    const formTitle = document.getElementById("user-form-title");
+    if (formTitle) formTitle.textContent = "Crear nuevo usuario";
+
     document.getElementById("new-username").disabled = false;
-    document.getElementById("new-user-password").placeholder = "Contraseña inicial";
 
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.textContent = "Crear Usuario";
