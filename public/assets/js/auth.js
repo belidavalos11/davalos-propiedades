@@ -197,16 +197,120 @@ const AuthManager = {
         localStorage.removeItem("davalos_properties");
     },
 
-    changePassword(newPassword) {
-        if (!this.isLoggedIn()) return false;
-        if (typeof newPassword !== "string" || newPassword.trim().length < 6) return false;
+    async changePassword(newPassword) {
+        if (!this.isLoggedIn()) return { success: false, reason: "not_logged_in" };
+        if (typeof newPassword !== "string" || newPassword.trim().length < 6) {
+            return { success: false, reason: "invalid_password" };
+        }
 
         const username = this.getCurrentUser();
-        if (!username) return false;
+        if (!username) return { success: false, reason: "no_user" };
 
-        this._overrides[username] = newPassword.trim();
+        const normalized = this._normalizeUsername(username);
+        const cleanPassword = newPassword.trim();
+
+        // 1. Guardar en los overrides locales (para asegurar la sesión actual y compatibilidad)
+        this._overrides[normalized] = cleanPassword;
         localStorage.setItem("davalos_user_overrides", JSON.stringify(this._overrides));
-        return true;
+
+        // 2. Persistir en el almacenamiento real
+        // ¿Es un usuario core (estático)?
+        if (this._users.some(u => u.username === normalized)) {
+            try {
+                const coreEdits = JSON.parse(localStorage.getItem("davalos_core_user_edits") || "{}");
+                coreEdits[normalized] = {
+                    ...(coreEdits[normalized] || {}),
+                    password: cleanPassword
+                };
+                localStorage.setItem("davalos_core_user_edits", JSON.stringify(coreEdits));
+
+                // Guardar también en Firestore si está disponible para sincronización global
+                if (window.db) {
+                    const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
+                    const fullCoreUser = {
+                        ...this._users.find(u => u.username === normalized),
+                        ...coreEdits[normalized]
+                    };
+                    delete fullCoreUser.firebaseId;
+                    if (!snapshot.empty) {
+                        await snapshot.docs[0].ref.update({ password: cleanPassword });
+                    } else {
+                        await window.db.collection("users").add(fullCoreUser);
+                    }
+                    await this._loadUsersFromFirestore();
+                    return { success: true, mode: "firestore" };
+                }
+
+                return { success: true, mode: "core" };
+            } catch (err) {
+                console.error("Error al guardar contraseña core localmente o en nube:", err);
+                return { success: false, reason: "local_write_error", error: err.message };
+            }
+        }
+
+        // ¿Es un usuario extra local (creado localmente cuando Firestore falla)?
+        const extraUsers = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
+        const extraIndex = extraUsers.findIndex(u => this._normalizeUsername(u.username) === normalized);
+        if (extraIndex !== -1) {
+            try {
+                extraUsers[extraIndex].password = cleanPassword;
+                localStorage.setItem("davalos_extra_users", JSON.stringify(extraUsers));
+
+                // Si Firestore ahora está disponible, guardarlo en la nube también
+                if (window.db) {
+                    const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
+                    if (!snapshot.empty) {
+                        await snapshot.docs[0].ref.update({ password: cleanPassword });
+                    } else {
+                        await window.db.collection("users").add(extraUsers[extraIndex]);
+                    }
+                    // Y lo quitamos de extraUsers ya que ahora está en la nube
+                    const filteredExtra = extraUsers.filter(u => this._normalizeUsername(u.username) !== normalized);
+                    localStorage.setItem("davalos_extra_users", JSON.stringify(filteredExtra));
+                    await this._loadUsersFromFirestore();
+                    return { success: true, mode: "firestore" };
+                }
+
+                return { success: true, mode: "local" };
+            } catch (err) {
+                console.error("Error al actualizar contraseña en extraUsers:", err);
+                return { success: false, reason: "local_write_error", error: err.message };
+            }
+        }
+
+        // De lo contrario, es un usuario de Firestore (Nube)
+        try {
+            if (!window.db) {
+                throw new Error("Firestore no está inicializado");
+            }
+            const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
+            if (!snapshot.empty) {
+                const docRef = snapshot.docs[0].ref;
+                await docRef.update({ password: cleanPassword });
+                await this._loadUsersFromFirestore();
+                return { success: true, mode: "firestore" };
+            } else {
+                throw new Error("El usuario no se encontró en Firestore");
+            }
+        } catch (e) {
+            console.warn("Fallo al actualizar contraseña en Firestore, usando almacenamiento local como respaldo:", e);
+            try {
+                // Respaldar localmente en extraUsers
+                const cachedUser = this._cachedUsers.find(u => this._normalizeUsername(u.username) === normalized);
+                const baseUser = cachedUser || { username: normalized, createdAt: new Date().toISOString() };
+                const mergedLocal = {
+                    ...baseUser,
+                    password: cleanPassword
+                };
+                const updatedExtra = extraUsers.filter(u => this._normalizeUsername(u.username) !== normalized);
+                updatedExtra.push(mergedLocal);
+                localStorage.setItem("davalos_extra_users", JSON.stringify(updatedExtra));
+                return { success: true, mode: "local_fallback", error: e.message || String(e) };
+            } catch (localErr) {
+                console.error("Error crítico al actualizar localmente la contraseña:", localErr);
+                return { success: false, reason: "fallback_error", error: localErr.message || String(localErr) };
+            }
+        }
     },
 
     resetToDefaults() {
@@ -239,7 +343,7 @@ const AuthManager = {
         const extraUsers = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
         
         // Evitar duplicados si por algún motivo un usuario local ya está en cached o core
-        const allUsers = [...filteredCore, ...this._cachedUsers, ...extraUsers];
+        const allUsers = [...this._cachedUsers, ...filteredCore, ...extraUsers];
         const uniqueUsers = [];
         const seen = new Set();
         for (const u of allUsers) {
@@ -389,9 +493,27 @@ const AuthManager = {
                     ...cleanUserData
                 };
                 localStorage.setItem("davalos_core_user_edits", JSON.stringify(coreEdits));
+
+                // Guardar también en Firestore si está disponible para sincronización global
+                if (window.db) {
+                    const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
+                    const fullCoreUser = {
+                        ...this._users.find(u => u.username === normalized),
+                        ...coreEdits[normalized]
+                    };
+                    delete fullCoreUser.firebaseId;
+                    if (!snapshot.empty) {
+                        await snapshot.docs[0].ref.update(fullCoreUser);
+                    } else {
+                        await window.db.collection("users").add(fullCoreUser);
+                    }
+                    await this._loadUsersFromFirestore();
+                    return { success: true, mode: "firestore" };
+                }
+
                 return { success: true, mode: "core" };
             } catch (err) {
-                console.error("Error al actualizar usuario core localmente:", err);
+                console.error("Error al actualizar usuario core localmente o en nube:", err);
                 return { success: false, reason: "error", error: err.message };
             }
         }
@@ -406,9 +528,24 @@ const AuthManager = {
                     ...cleanUserData
                 };
                 localStorage.setItem("davalos_extra_users", JSON.stringify(extraUsers));
+
+                // Guardar también en Firestore si está disponible para sincronización global
+                if (window.db) {
+                    const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
+                    if (!snapshot.empty) {
+                        await snapshot.docs[0].ref.update(extraUsers[extraIndex]);
+                    } else {
+                        await window.db.collection("users").add(extraUsers[extraIndex]);
+                    }
+                    const filteredExtra = extraUsers.filter(u => this._normalizeUsername(u.username) !== normalized);
+                    localStorage.setItem("davalos_extra_users", JSON.stringify(filteredExtra));
+                    await this._loadUsersFromFirestore();
+                    return { success: true, mode: "firestore" };
+                }
+
                 return { success: true, mode: "local" };
             } catch (err) {
-                console.error("Error al actualizar usuario local:", err);
+                console.error("Error al actualizar usuario local o en nube:", err);
                 return { success: false, reason: "error", error: err.message };
             }
         }

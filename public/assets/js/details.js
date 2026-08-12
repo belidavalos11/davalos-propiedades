@@ -155,7 +155,7 @@ function renderDetails(prop) {
     const safeDescription = escapeHtml(prop.description || "");
 
     container.innerHTML = `
-        <!-- Section 2: Header Row (Title & Price) -->
+        <!-- Section 2: Header Row (Title) -->
         <div class="details-header-row">
             <div class="details-title-block">
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -165,12 +165,6 @@ function renderDetails(prop) {
                 <div class="details-location-breadcrumb">
                     ${escapeHtml(prop.type || "N/D")} en ${safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1)}, ${escapeHtml(prop.location || "Salta")}
                 </div>
-            </div>
-            <div class="details-price-block">
-                <div class="price-main">${formatCurrency(prop.price, prop.currency)}</div>
-                ${prop.expensasAmount ? `
-                    <div class="expensas-sub">+ ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} expensas</div>
-                ` : ""}
             </div>
         </div>
 
@@ -261,6 +255,12 @@ function renderDetails(prop) {
         <!-- Section 4: Main Content Grid -->
         <div class="details-content-columns">
             <div class="column-left-main">
+                <div class="details-price-block" style="text-align: left; margin-bottom: 24px;">
+                    <div class="price-main">${formatCurrency(prop.price, prop.currency)}</div>
+                    ${prop.expensasAmount ? `
+                        <div class="expensas-sub">+ ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} expensas</div>
+                    ` : ""}
+                </div>
                 <section class="description-section">
                     <h2>Descripción</h2>
                     <div style="white-space: pre-line; line-height: 1.8; color: #444; font-size: 1.05rem;">

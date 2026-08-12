@@ -635,13 +635,44 @@ function bindEvents() {
             e.preventDefault();
             const newPasswordInput = document.getElementById("new-password");
             const newPassword = newPasswordInput.value;
-            const success = window.AuthManager.changePassword(newPassword);
-            if (success) {
-                alert("Contraseña actualizada con éxito.");
-                newPasswordInput.value = "";
-                document.getElementById("change-password-form").style.display = "none";
-            } else {
-                alert("Error al cambiar la contraseña. Asegúrate de que tenga al menos 6 caracteres.");
+            
+            const submitBtn = pwForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn ? submitBtn.textContent : "Guardar nueva contraseña";
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Guardando...";
+            }
+
+            try {
+                const result = await window.AuthManager.changePassword(newPassword);
+                if (result && result.success) {
+                    if (result.mode === "firestore") {
+                        alert("Contraseña actualizada con éxito en la base de datos (Nube).");
+                    } else if (result.mode === "core" || result.mode === "local") {
+                        alert("Contraseña actualizada con éxito en el almacenamiento local de este navegador.");
+                    } else if (result.mode === "local_fallback") {
+                        alert("La contraseña se guardó localmente porque no se pudo conectar con la base de datos en la nube.");
+                    } else {
+                        alert("Contraseña actualizada con éxito.");
+                    }
+                    newPasswordInput.value = "";
+                    document.getElementById("change-password-form").style.display = "none";
+                } else {
+                    const reason = result ? result.reason : "";
+                    if (reason === "invalid_password") {
+                        alert("Error: La contraseña debe tener al menos 6 caracteres.");
+                    } else {
+                        alert("Error al cambiar la contraseña: " + (result?.error || "Inténtalo de nuevo."));
+                    }
+                }
+            } catch (err) {
+                console.error("Error al cambiar la contraseña:", err);
+                alert("Ocurrió un error inesperado al intentar cambiar la contraseña.");
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
             }
         };
     }
