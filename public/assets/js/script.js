@@ -848,6 +848,7 @@ function createPropertyCardElement(prop) {
         </div>
     `;
     card.onclick = () => {
+        if (featuredSwipeJustHappened) return;
         if (window.triggerLoader) {
             window.triggerLoader(`details?id=${prop.id}`);
         } else {
@@ -857,10 +858,23 @@ function createPropertyCardElement(prop) {
     return card;
 }
 
+let featuredSwipeBound = false;
+let featuredSwipeJustHappened = false;
+let currentFeaturedTotalItems = 0;
+
 function getFeaturedVisibleCount() {
     if (window.innerWidth <= 640) return 1;
     if (window.innerWidth <= 992) return 2;
     return 3;
+}
+
+function getFeaturedCarouselStepPx() {
+    const track = document.getElementById("featured-carousel-track");
+    if (!track) return 0;
+    const firstCard = track.querySelector(".property-card");
+    if (!firstCard) return 0;
+    const gap = 24;
+    return firstCard.getBoundingClientRect().width + gap;
 }
 
 function updateFeaturedCarouselPosition() {
@@ -877,9 +891,8 @@ function updateFeaturedCarouselPosition() {
     if (featuredCarouselIndex > maxIndex) featuredCarouselIndex = 0;
     if (featuredCarouselIndex < 0) featuredCarouselIndex = maxIndex;
 
-    const firstCard = cards[0];
-    const gap = 24;
-    const stepPx = firstCard ? (firstCard.getBoundingClientRect().width + gap) : 0;
+    const stepPx = getFeaturedCarouselStepPx();
+    track.style.transition = "";
     track.style.transform = `translate3d(-${featuredCarouselIndex * stepPx}px, 0, 0)`;
 
     if (dotsContainer) {
@@ -888,6 +901,93 @@ function updateFeaturedCarouselPosition() {
             dot.classList.toggle("active", idx === featuredCarouselIndex);
         });
     }
+}
+
+function moveFeaturedCarouselBy(direction) {
+    if (currentFeaturedTotalItems <= 0) return;
+    const maxIdx = Math.max(0, currentFeaturedTotalItems - getFeaturedVisibleCount());
+    if (direction > 0) {
+        featuredCarouselIndex = featuredCarouselIndex >= maxIdx ? 0 : featuredCarouselIndex + 1;
+    } else {
+        featuredCarouselIndex = featuredCarouselIndex <= 0 ? maxIdx : featuredCarouselIndex - 1;
+    }
+    updateFeaturedCarouselPosition();
+    startFeaturedAutoSlide(currentFeaturedTotalItems);
+}
+
+function setupFeaturedCarouselSwipe() {
+    if (featuredSwipeBound) return;
+    const viewport = document.getElementById("featured-carousel-viewport");
+    const track = document.getElementById("featured-carousel-track");
+    if (!viewport || !track) return;
+
+    featuredSwipeBound = true;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let deltaX = 0;
+    let deltaY = 0;
+    let isTracking = false;
+    let isHorizontalGesture = null;
+
+    viewport.addEventListener("touchstart", (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        stopFeaturedAutoSlide();
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        deltaX = 0;
+        deltaY = 0;
+        isTracking = true;
+        isHorizontalGesture = null;
+        featuredSwipeJustHappened = false;
+    }, { passive: true });
+
+    viewport.addEventListener("touchmove", (e) => {
+        if (!isTracking || !e.touches || e.touches.length !== 1) return;
+        deltaX = e.touches[0].clientX - touchStartX;
+        deltaY = e.touches[0].clientY - touchStartY;
+
+        if (isHorizontalGesture === null) {
+            if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+                isHorizontalGesture = Math.abs(deltaX) > Math.abs(deltaY);
+            }
+        }
+
+        if (isHorizontalGesture) {
+            const stepPx = getFeaturedCarouselStepPx();
+            const baseOffset = -featuredCarouselIndex * stepPx;
+            track.style.transition = "none";
+            track.style.transform = `translate3d(${baseOffset + deltaX * 0.65}px, 0, 0)`;
+        }
+    }, { passive: true });
+
+    const finishTouch = () => {
+        if (!isTracking) return;
+        isTracking = false;
+        track.style.transition = "";
+
+        if (isHorizontalGesture && Math.abs(deltaX) > 50) {
+            featuredSwipeJustHappened = true;
+            setTimeout(() => {
+                featuredSwipeJustHappened = false;
+            }, 300);
+
+            if (deltaX < -50) {
+                moveFeaturedCarouselBy(1);
+            } else if (deltaX > 50) {
+                moveFeaturedCarouselBy(-1);
+            }
+        } else {
+            updateFeaturedCarouselPosition();
+            startFeaturedAutoSlide(currentFeaturedTotalItems);
+        }
+
+        deltaX = 0;
+        deltaY = 0;
+        isHorizontalGesture = null;
+    };
+
+    viewport.addEventListener("touchend", finishTouch, { passive: true });
+    viewport.addEventListener("touchcancel", finishTouch, { passive: true });
 }
 
 function stopFeaturedAutoSlide() {
@@ -920,9 +1020,12 @@ function renderFeaturedCarousel(featuredProps) {
     if (dotsContainer) dotsContainer.innerHTML = "";
 
     if (!featuredProps || featuredProps.length === 0) {
+        currentFeaturedTotalItems = 0;
         track.innerHTML = `<div class="no-results" style="width: 100%;"><h3>Sin propiedades disponibles</h3></div>`;
         return;
     }
+
+    currentFeaturedTotalItems = featuredProps.length;
 
     featuredProps.forEach(prop => {
         track.appendChild(createPropertyCardElement(prop));
@@ -950,27 +1053,19 @@ function renderFeaturedCarousel(featuredProps) {
     }
 
     if (prevBtn) {
-        prevBtn.onclick = () => {
-            const maxIdx = Math.max(0, featuredProps.length - getFeaturedVisibleCount());
-            featuredCarouselIndex = featuredCarouselIndex <= 0 ? maxIdx : featuredCarouselIndex - 1;
-            updateFeaturedCarouselPosition();
-            startFeaturedAutoSlide(featuredProps.length);
-        };
+        prevBtn.onclick = () => moveFeaturedCarouselBy(-1);
     }
 
     if (nextBtn) {
-        nextBtn.onclick = () => {
-            const maxIdx = Math.max(0, featuredProps.length - getFeaturedVisibleCount());
-            featuredCarouselIndex = featuredCarouselIndex >= maxIdx ? 0 : featuredCarouselIndex + 1;
-            updateFeaturedCarouselPosition();
-            startFeaturedAutoSlide(featuredProps.length);
-        };
+        nextBtn.onclick = () => moveFeaturedCarouselBy(1);
     }
 
     if (wrapper) {
         wrapper.onmouseenter = () => stopFeaturedAutoSlide();
         wrapper.onmouseleave = () => startFeaturedAutoSlide(featuredProps.length);
     }
+
+    setupFeaturedCarouselSwipe();
 
     requestAnimationFrame(() => {
         updateFeaturedCarouselPosition();
