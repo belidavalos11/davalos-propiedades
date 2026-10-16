@@ -1,14 +1,16 @@
-const DATA_URL = "data/properties.json";
-const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
+const DATA_URL = window.SITE_CONFIG?.data?.catalogUrl || "data/properties.json";
+const PLACEHOLDER_IMAGE = window.SITE_CONFIG?.assets?.placeholderImage || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
 
 // DOM Elements - Selection
 const grid = document.getElementById("properties-grid");
 const resultsCount = document.getElementById("results-count");
+const filterPropType = document.getElementById("filter-prop-type");
 const filterType = document.getElementById("filter-type");
 const filterRooms = document.getElementById("filter-rooms");
 const filterPriceMin = document.getElementById("filter-price-min");
 const filterPriceMax = document.getElementById("filter-price-max");
 const searchInput = document.getElementById("search-input");
+const btnHeroSearch = document.getElementById("btn-hero-search");
 const sortBy = document.getElementById("sort-by");
 const clearFiltersBtn = document.getElementById("clear-filters");
 
@@ -19,8 +21,8 @@ function initMap(propsToDisplay) {
     if (!mapContainer) return;
 
     if (!mapInstance) {
-        // Salta, Argentina center
-        const saltaPos = [-24.7859, -65.4117];
+        // Default map center from SITE_CONFIG (Salta, Argentina)
+        const saltaPos = window.SITE_CONFIG?.contact?.mapCenter || [-24.7859, -65.4117];
         mapInstance = L.map('map-view', {
             scrollWheelZoom: false 
         }).setView(saltaPos, 13);
@@ -53,10 +55,10 @@ function initMap(propsToDisplay) {
             if (p.coords && Array.isArray(p.coords) && p.coords.length === 2) {
                 const marker = L.marker(p.coords).addTo(mapInstance);
                 marker.bindPopup(`
-                    <div style="font-family: 'Outfit', sans-serif;">
-                        <h4 style="margin: 0 0 5px 0; color: #001556;">${p.title}</h4>
+                    <div style="font-family: var(--font-main);">
+                        <h4 style="margin: 0 0 5px 0; color: var(--primary);">${p.title}</h4>
                         <p style="margin: 0; font-size: 0.85rem;">${p.currency} ${formatPrice(p.price)}</p>
-                        <a href="details?id=${p.id}" style="display: block; margin-top: 8px; font-size: 0.8rem; color: #1a1a1a; font-weight: 600; text-decoration: none;">Ver detalles →</a>
+                        <a href="details?id=${p.id}" style="display: block; margin-top: 8px; font-size: 0.8rem; color: var(--secondary); font-weight: 600; text-decoration: none;">Ver detalles →</a>
                     </div>
                 `);
                 markers.push(marker);
@@ -92,6 +94,7 @@ let properties = [];
 let localProperties = [];
 let currentEditingId = null;
 let currentEditingUsername = null;
+let selectedPropertyTypes = [];
 
 // Utility
 function escapeHtml(value) {
@@ -213,6 +216,8 @@ async function loadProperties() {
             .filter(p => p && !deletedIds.includes(String(p.id)))
             .sort((a, b) => b.createdAtTs - a.createdAtTs);
 
+        renderPropertyCategories();
+        updateActiveTypeUI();
         applyFilters();
     } catch (error) {
         console.error("Error loading properties:", error);
@@ -224,8 +229,21 @@ function normalizeProperty(prop) {
     if (!prop || typeof prop !== "object") return null;
     const id = prop.id || Date.now();
     const title = String(prop.title || "").trim();
+    const operation = String(prop.operation || prop.category || "venta").trim().toLowerCase();
+    const type = String(prop.type || "").trim().toLowerCase();
     const price = Number(prop.price) || 0;
-    const createdAt = prop.createdAt || new Date().toISOString(); 
+    const currency = String(prop.currency || "USD").trim().toUpperCase();
+    const location = String(prop.location || window.SITE_CONFIG?.contact?.city || "Salta").trim();
+    const description = String(prop.description || "").trim();
+    const createdAt = prop.createdAt || new Date().toISOString();
+
+    const featObj = (prop.features && typeof prop.features === "object" && !Array.isArray(prop.features)) ? prop.features : {};
+    const rooms = Number(featObj.rooms ?? prop.rooms) || null;
+    const baths = Number(featObj.baths ?? prop.baths) || null;
+    const areaTotal = Number(featObj.areaTotal ?? prop.areaTotal ?? prop.area) || null;
+    const areaBuilt = Number(featObj.areaBuilt ?? prop.areaBuilt) || null;
+    const garage = Number(featObj.garage ?? prop.garage) || null;
+
     const images = (Array.isArray(prop.images) ? prop.images : [])
         .map(img => safeImageUrl(img))
         .filter(Boolean);
@@ -234,10 +252,376 @@ function normalizeProperty(prop) {
         ...prop,
         id,
         title,
+        type,
+        operation,
+        category: operation,
         price,
-        createdAtTs: Date.parse(prop.createdAt) || (typeof id === 'number' ? id : Date.now()),
+        currency,
+        location,
+        description,
+        agentId: String(prop.agentId || "").trim(),
+        rooms,
+        baths,
+        areaTotal,
+        areaBuilt,
+        garage,
+        features: {
+            rooms,
+            baths,
+            areaTotal,
+            areaBuilt,
+            garage
+        },
+        createdAt,
+        createdAtTs: Date.parse(createdAt) || (typeof id === 'number' ? id : Date.now()),
         images: images.length ? images : [PLACEHOLDER_IMAGE]
     };
+}
+
+// Render "Explorá por tipo de propiedad" grid from SITE_CONFIG
+// Solo muestra categorías que tengan propiedades cargadas (> 0) y asigna más espacio a las que tienen más inmuebles
+function renderPropertyCategories() {
+    const categoriesSection = document.getElementById("categorias-propiedades");
+    const categoriesGrid = document.getElementById("categories-grid");
+    if (!categoriesGrid) return;
+
+    const cfg = window.SITE_CONFIG;
+    if (cfg?.categoriesSection) {
+        const eyebrowEl = document.getElementById("categories-eyebrow");
+        const titleEl = document.getElementById("categories-title");
+        const subtitleEl = document.getElementById("categories-subtitle");
+        if (eyebrowEl && cfg.categoriesSection.eyebrow) eyebrowEl.textContent = cfg.categoriesSection.eyebrow;
+        if (titleEl && cfg.categoriesSection.title) titleEl.textContent = cfg.categoriesSection.title;
+        if (subtitleEl && cfg.categoriesSection.subtitle) subtitleEl.textContent = cfg.categoriesSection.subtitle;
+    }
+
+    const categories = cfg?.propertyCategories || [];
+
+    // Calcular cuántas propiedades tiene cada categoría y filtrar solo las que tengan > 0
+    const activeCategories = categories
+        .map(cat => {
+            const matchingProps = properties.filter(p => matchesSelectedPropertyType(p, cat.id));
+            return {
+                ...cat,
+                count: matchingProps.length
+            };
+        })
+        .filter(cat => cat.count > 0);
+
+    if (activeCategories.length === 0) {
+        if (categoriesSection) categoriesSection.style.display = "none";
+        categoriesGrid.innerHTML = "";
+        return;
+    }
+
+    if (categoriesSection) categoriesSection.style.display = "block";
+
+    // Ordenar o identificar qué categorías tienen más elementos para asignarles mayor ancho en la grilla Bento (base 12 columnas)
+    const total = activeCategories.length;
+    // Ranking de mayor a menor cantidad de propiedades (desempate por orden original)
+    const rankedIds = [...activeCategories]
+        .sort((a, b) => b.count - a.count)
+        .map(c => c.id);
+
+    const getBentoSpans = (items) => {
+        const n = items.length;
+        if (n === 1) return ["span-12"];
+        if (n === 2) {
+            // La que tiene más elementos ocupa 7 columnas y la otra 5 (si empatan, 6 y 6)
+            if (items[0].count === items[1].count) return ["span-6", "span-6"];
+            return items[0].count > items[1].count ? ["span-7", "span-5"] : ["span-5", "span-7"];
+        }
+
+        // Para 3 o más categorías: dividimos en filas de hasta 3 tarjetas (12 columnas por fila)
+        // En cada fila de 3, la categoría con más propiedades de esa fila ocupa 6 columnas (50% del ancho, igual a la foto)
+        // y las otras dos ocupan 3 columnas cada una (25% + 25%).
+        // Si una fila tiene 2 elementos, el mayor ocupa 7 y el menor 5.
+        // Si una fila tiene 1 elemento, ocupa 12.
+        const spans = new Array(n).fill("span-4");
+        let idx = 0;
+        let rowNum = 0;
+        while (idx < n) {
+            const remaining = n - idx;
+            const rowSize = remaining >= 3 ? 3 : remaining;
+            const rowSlice = items.slice(idx, idx + rowSize);
+
+            if (rowSize === 3) {
+                // Encontrar el índice dentro de la fila con mayor cantidad de propiedades
+                let maxIdxInRow = 0;
+                for (let j = 1; j < 3; j++) {
+                    if (rowSlice[j].count > rowSlice[maxIdxInRow].count) {
+                        maxIdxInRow = j;
+                    }
+                }
+                // Si todas tienen la misma cantidad en la fila, alternamos la posición ancha como en la foto (izq -> der -> izq)
+                const allEqual = rowSlice.every(item => item.count === rowSlice[0].count);
+                const widePos = allEqual ? (rowNum % 2 === 0 ? 0 : 2) : maxIdxInRow;
+
+                for (let j = 0; j < 3; j++) {
+                    spans[idx + j] = (j === widePos) ? "span-6" : "span-3";
+                }
+            } else if (rowSize === 2) {
+                if (rowSlice[0].count >= rowSlice[1].count) {
+                    spans[idx] = "span-7";
+                    spans[idx + 1] = "span-5";
+                } else {
+                    spans[idx] = "span-5";
+                    spans[idx + 1] = "span-7";
+                }
+            } else {
+                spans[idx] = "span-12";
+            }
+
+            idx += rowSize;
+            rowNum++;
+        }
+        return spans;
+    };
+
+    // Ordenamos para que en cada fila la tarjeta con más elementos destaque visualmente
+    const spans = getBentoSpans(activeCategories);
+
+    categoriesGrid.innerHTML = activeCategories.map((cat, idx) => {
+        const isActive = selectedPropertyTypes.includes(cat.id);
+        const spanClass = spans[idx] || "span-4";
+        return `
+            <a href="#propiedades"
+               class="category-card ${spanClass} ${isActive ? 'active' : ''}"
+               data-type="${escapeHtml(cat.id)}"
+               title="${cat.count} ${cat.count === 1 ? 'propiedad disponible' : 'propiedades disponibles'}"
+               onclick="event.preventDefault(); filterByPropertyType('${escapeHtml(cat.id)}', true);">
+                <img src="${escapeHtml(cat.image || PLACEHOLDER_IMAGE)}" alt="${escapeHtml(cat.label)}" class="category-card-bg" loading="lazy">
+                <div class="category-card-overlay"></div>
+                <span class="category-card-title">${escapeHtml(cat.label)}</span>
+            </a>
+        `;
+    }).join("");
+}
+
+function getAvailableCategoriesWithCount() {
+    const categories = window.SITE_CONFIG?.propertyCategories || [];
+    return categories
+        .map(cat => ({
+            ...cat,
+            count: properties.filter(p => matchesSelectedPropertyType(p, cat.id)).length
+        }))
+        .filter(cat => cat.count > 0);
+}
+
+function updateActiveTypeUI() {
+    const cards = document.querySelectorAll(".category-card");
+    cards.forEach(card => {
+        const typeAttr = card.getAttribute("data-type");
+        card.classList.toggle("active", selectedPropertyTypes.includes(typeAttr));
+    });
+
+    if (filterPropType) {
+        filterPropType.value = selectedPropertyTypes.length === 1 ? selectedPropertyTypes[0] : "todos";
+    }
+
+    const banner = document.getElementById("active-type-filter-banner");
+    if (!banner) return;
+
+    if (selectedPropertyTypes.length === 0) {
+        banner.style.display = "none";
+        banner.innerHTML = "";
+        return;
+    }
+
+    const availableCats = getAvailableCategoriesWithCount();
+    const allCats = window.SITE_CONFIG?.propertyCategories || [];
+
+    // 1. Chips de categorías ya seleccionadas (para poder quitarlas individualmente)
+    const activeChipsHtml = selectedPropertyTypes.map(typeId => {
+        const catObj = allCats.find(c => c.id === typeId);
+        const label = catObj ? catObj.label : typeId;
+        return `
+            <button type="button" class="filter-chip active" title="Quitar ${escapeHtml(label)}" onclick="togglePropertyTypeFilter('${escapeHtml(typeId)}')">
+                <span>${escapeHtml(label)}</span>
+                <span class="chip-Action">&times;</span>
+            </button>
+        `;
+    }).join("");
+
+    // 2. Chips de otras categorías con propiedades disponibles (para poder sumarlas a la búsqueda)
+    const unselectedCats = availableCats.filter(c => !selectedPropertyTypes.includes(c.id));
+    const addChipsHtml = unselectedCats.map(cat => `
+        <button type="button" class="filter-chip available" title="Sumar ${escapeHtml(cat.label)} a la búsqueda" onclick="togglePropertyTypeFilter('${escapeHtml(cat.id)}')">
+            <span class="chip-Action">+</span>
+            <span>${escapeHtml(cat.label)}</span>
+        </button>
+    `).join("");
+
+    banner.style.display = "flex";
+    banner.innerHTML = `
+        <div class="filter-chips-row">
+            <span class="filter-chip-label">Viendo:</span>
+            ${activeChipsHtml}
+            ${selectedPropertyTypes.length > 1 ? `<button type="button" class="filter-chip-clear" onclick="clearPropertyTypeFilters()">Limpiar todo</button>` : ""}
+        </div>
+        ${unselectedCats.length > 0 ? `
+            <div class="filter-chips-row">
+                <span class="filter-chip-label">Sumar categoría:</span>
+                ${addChipsHtml}
+            </div>
+        ` : ""}
+    `;
+}
+
+window.togglePropertyTypeFilter = function (typeId) {
+    if (!typeId) return;
+    const idx = selectedPropertyTypes.indexOf(typeId);
+    if (idx !== -1) {
+        selectedPropertyTypes.splice(idx, 1);
+    } else {
+        selectedPropertyTypes.push(typeId);
+    }
+    updateActiveTypeUI();
+    applyFilters();
+};
+
+window.clearPropertyTypeFilters = function () {
+    selectedPropertyTypes = [];
+    updateActiveTypeUI();
+    applyFilters();
+};
+
+window.filterByPropertyType = function (typeId, shouldScroll = true) {
+    if (!typeId) {
+        selectedPropertyTypes = [];
+    } else {
+        const idx = selectedPropertyTypes.indexOf(typeId);
+        if (idx !== -1) {
+            selectedPropertyTypes.splice(idx, 1);
+        } else {
+            selectedPropertyTypes.push(typeId);
+        }
+    }
+
+    updateActiveTypeUI();
+    applyFilters();
+
+    if (shouldScroll && selectedPropertyTypes.length > 0) {
+        const propSection = document.getElementById("propiedades");
+        if (propSection) propSection.scrollIntoView({ behavior: "smooth" });
+    }
+};
+
+function matchesSelectedPropertyType(prop, typeId) {
+    if (!typeId) return true;
+    const catObj = (window.SITE_CONFIG?.propertyCategories || []).find(c => c.id === typeId);
+    const terms = catObj?.matchTypes ? catObj.matchTypes.map(t => t.toLowerCase()) : [typeId.toLowerCase()];
+
+    const propType = String(prop.type || "").trim().toLowerCase();
+    if (propType && terms.some(t => propType === t || propType.includes(t))) {
+        return true;
+    }
+
+    // Fallback para propiedades del catálogo base que no tengan prop.type explícito
+    if (!propType) {
+        const text = `${prop.title || ""} ${prop.description || ""}`.toLowerCase();
+        if (typeId === "casa" && (text.includes("casa") || text.includes("residencia"))) return true;
+        if (typeId === "departamento" && (text.includes("departamento") || text.includes("penthouse"))) return true;
+        return terms.some(t => text.includes(t));
+    }
+
+    return false;
+}
+
+// Featured Properties Carousel State (10 random available properties rotated every 6 hours)
+const FEATURED_STORAGE_KEY = "davalos_featured_rotation_6h_10_v1";
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const FEATURED_MAX_COUNT = 10;
+let featuredCarouselIndex = 0;
+let featuredAutoTimer = null;
+let showAllCatalogMode = false;
+let lastFeaturedSlot = Math.floor(Date.now() / SIX_HOURS_MS);
+
+function isPropertyAvailable(prop) {
+    if (!prop) return false;
+    if (prop.available === false) return false;
+    const status = String(prop.status || "").trim().toLowerCase();
+    if (status === "vendida" || status === "alquilada" || status === "no_disponible" || status === "inactiva") {
+        return false;
+    }
+    return true;
+}
+
+function getFeaturedProperties(allProps) {
+    const available = (allProps || []).filter(isPropertyAvailable);
+    if (available.length === 0) return [];
+
+    const targetCount = Math.min(FEATURED_MAX_COUNT, available.length);
+    const currentSlot = Math.floor(Date.now() / SIX_HOURS_MS);
+    lastFeaturedSlot = currentSlot;
+
+    let selectedIds = [];
+    try {
+        const raw = localStorage.getItem(FEATURED_STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.slot === currentSlot && Array.isArray(parsed.ids)) {
+                selectedIds = parsed.ids.map(String);
+            }
+        }
+    } catch (_) {
+        selectedIds = [];
+    }
+
+    // Mapear los IDs guardados que sigan disponibles actualmente
+    const selectedProps = [];
+    const usedIds = new Set();
+    selectedIds.forEach(savedId => {
+        const found = available.find(p => String(p.id) === savedId);
+        if (found && !usedIds.has(String(found.id))) {
+            selectedProps.push(found);
+            usedIds.add(String(found.id));
+        }
+    });
+
+    // Si el bloque de 6 horas cambió o faltan propiedades para llegar a 5, completar al azar (Fisher-Yates)
+    if (selectedProps.length < targetCount) {
+        const remaining = available.filter(p => !usedIds.has(String(p.id)));
+        for (let i = remaining.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const tmp = remaining[i];
+            remaining[i] = remaining[j];
+            remaining[j] = tmp;
+        }
+        while (selectedProps.length < targetCount && remaining.length > 0) {
+            const nextProp = remaining.shift();
+            selectedProps.push(nextProp);
+            usedIds.add(String(nextProp.id));
+        }
+
+        try {
+            localStorage.setItem(FEATURED_STORAGE_KEY, JSON.stringify({
+                slot: currentSlot,
+                updatedAt: new Date().toISOString(),
+                ids: selectedProps.map(p => String(p.id))
+            }));
+        } catch (_) {
+            // Ignorar si localStorage está bloqueado
+        }
+    }
+
+    return selectedProps.slice(0, targetCount);
+}
+
+function hasActiveFilters() {
+    const type = filterType ? filterType.value : "todos";
+    const rooms = Number(filterRooms ? filterRooms.value : 0);
+    const min = Number(filterPriceMin ? filterPriceMin.value : 0) || 0;
+    const max = Number(filterPriceMax ? filterPriceMax.value : 0) || Infinity;
+    const text = (searchInput ? searchInput.value : "").trim();
+    return (
+        type !== "todos" ||
+        selectedPropertyTypes.length > 0 ||
+        rooms > 0 ||
+        min > 0 ||
+        max !== Infinity ||
+        text.length > 0
+    );
 }
 
 // Filtering Logic
@@ -250,24 +634,73 @@ function applyFilters() {
     const sort = sortBy.value;
 
     let filtered = properties.filter(prop => {
-        const matchesType = type === "todos" || prop.category === type;
+        const matchesOperation = type === "todos" || prop.category === type;
+        const matchesPropType = selectedPropertyTypes.length === 0 || selectedPropertyTypes.some(tId => matchesSelectedPropertyType(prop, tId));
         const propRooms = Number(prop.rooms || 0);
         const matchesRooms = isNaN(propRooms) ? true : propRooms >= rooms;
         const matchesPrice = prop.price >= min && (max === Infinity || prop.price <= max);
         const haystack = `${prop.title} ${prop.description} ${prop.agent} ${prop.owner}`.toLowerCase();
         const matchesText = !text || haystack.includes(text);
-        return matchesType && matchesRooms && matchesPrice && matchesText;
+        return matchesOperation && matchesPropType && matchesRooms && matchesPrice && matchesText;
     });
 
     // Sorting
     switch (sort) {
         case "price-asc": filtered.sort((a, b) => a.price - b.price); break;
         case "price-desc": filtered.sort((a, b) => b.price - a.price); break;
-        case "area-desc": filtered.sort((a, b) => b.area - a.area); break;
+        case "area-desc": filtered.sort((a, b) => (b.areaTotal || b.area || 0) - (a.areaTotal || a.area || 0)); break;
         default: filtered.sort((a, b) => b.createdAtTs - a.createdAtTs); break;
     }
 
-    renderProperties(filtered);
+    const filteringActive = hasActiveFilters();
+    const carouselWrapper = document.getElementById("featured-carousel-wrapper");
+    const carouselControls = document.getElementById("featured-carousel-controls");
+    const btnToggleAll = document.getElementById("btn-toggle-all-props");
+    const sectionTitle = document.getElementById("properties-section-title");
+    const sectionSubtitle = document.getElementById("properties-section-subtitle");
+
+    if (btnToggleAll) {
+        btnToggleAll.style.display = properties.length > 0 ? "inline-flex" : "none";
+        btnToggleAll.onclick = () => {
+            if (filteringActive) {
+                if (clearFiltersBtn) clearFiltersBtn.click();
+                showAllCatalogMode = false;
+            } else {
+                showAllCatalogMode = !showAllCatalogMode;
+                applyFilters();
+            }
+        };
+    }
+
+    const featuredEyebrow = document.getElementById("featured-eyebrow");
+
+    if (!filteringActive && !showAllCatalogMode) {
+        // Modo por defecto: mostrar el carrusel de 10 propiedades destacadas al azar (cada 6h)
+        if (featuredEyebrow) featuredEyebrow.textContent = "● DESTACADAS";
+        if (sectionTitle) sectionTitle.textContent = "Propiedades destacadas.";
+        if (sectionSubtitle) sectionSubtitle.textContent = "Selección de propiedades destacadas";
+        if (resultsCount) resultsCount.textContent = "";
+        if (grid) grid.style.display = "none";
+        if (carouselWrapper) carouselWrapper.style.display = "block";
+        if (carouselControls) carouselControls.style.display = "inline-flex";
+        if (btnToggleAll) btnToggleAll.textContent = `Ver todas (${properties.length})`;
+
+        const featuredList = getFeaturedProperties(properties);
+        renderFeaturedCarousel(featuredList);
+    } else {
+        // Modo filtrado o ver todas las propiedades
+        stopFeaturedAutoSlide();
+        if (featuredEyebrow) featuredEyebrow.textContent = filteringActive ? "● BÚSQUEDA" : "● CATÁLOGO";
+        if (sectionTitle) sectionTitle.textContent = filteringActive ? "Resultados de búsqueda." : "Todas las propiedades.";
+        if (sectionSubtitle) sectionSubtitle.textContent = filteringActive ? "Propiedades que coinciden con tus filtros seleccionados." : "Catálogo completo de propiedades disponibles.";
+        if (carouselWrapper) carouselWrapper.style.display = "none";
+        if (carouselControls) carouselControls.style.display = "none";
+        if (grid) grid.style.display = "grid";
+        if (btnToggleAll) btnToggleAll.textContent = "← Volver a destacadas";
+
+        renderProperties(filtered);
+    }
+
     if (window.hideLoader) window.hideLoader();
 }
 
@@ -292,6 +725,277 @@ window.filterByOperation = function (type) {
     }
 };
 
+function createPropertyCardElement(prop) {
+    const manager = window.AuthManager;
+    const canManage = manager && manager.hasPermission(manager.Permissions.EDIT_PROPERTY);
+
+    const getFeatureVal = (namePattern) => {
+        const feat = prop.customFeatures?.find(f =>
+            (typeof f === 'string' && f.toLowerCase().includes(namePattern)) ||
+            (f.name && f.name.toLowerCase().includes(namePattern))
+        );
+        if (!feat) return null;
+        if (typeof feat === 'string') {
+            const match = feat.match(/\d+/);
+            if (match && Number(match[0]) > 0) return match[0];
+            const lower = feat.toLowerCase();
+            if (lower.includes('doble')) return '2';
+            if (lower.includes('triple')) return '3';
+            return '1';
+        }
+        const qty = String(feat.qty || '').trim();
+        if (!qty || qty === '0' || qty === '-') return '1';
+        return qty;
+    };
+
+    const isValidVal = (v) => {
+        if (v === null || v === undefined) return false;
+        const s = String(v).trim();
+        if (!s || s === '-' || s === '0') return false;
+        const n = Number(s.replace(/\./g, '').replace(/,/g, '.'));
+        return isNaN(n) ? true : n > 0;
+    };
+
+    const rawRooms = (prop.rooms && Number(prop.rooms) > 0) ? prop.rooms : (getFeatureVal('dormitorio') || getFeatureVal('habitacio'));
+    const rooms = isValidVal(rawRooms) ? rawRooms : null;
+
+    const rawBaths = (prop.baths && Number(prop.baths) > 0) ? prop.baths : (getFeatureVal('baño') || getFeatureVal('toilette'));
+    const baths = isValidVal(rawBaths) ? rawBaths : null;
+
+    const rawAreaTotal = prop.areaTotal || prop.area;
+    const areaTotal = isValidVal(rawAreaTotal) ? formatNumber(rawAreaTotal) : null;
+
+    const rawAreaBuilt = prop.areaBuilt;
+    const areaBuilt = isValidVal(rawAreaBuilt) ? formatNumber(rawAreaBuilt) : null;
+
+    const rawGarage = (prop.garage && Number(prop.garage) > 0) ? prop.garage : (getFeatureVal('cochera') || getFeatureVal('garage'));
+    const garage = isValidVal(rawGarage) ? rawGarage : null;
+
+    const featureItemsHtml = [
+        rooms ? `
+            <div class="feat-item" title="Habitaciones">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
+                <span>${escapeHtml(rooms)}</span>
+            </div>` : '',
+        baths ? `
+            <div class="feat-item" title="Baños">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18l-2 6H6a3 3 0 0 1-3-3V5c0-2 2-3 4-3s4 1 5 3"></path><path d="M11 5l3 3"></path></svg>
+                <span>${escapeHtml(baths)}</span>
+            </div>` : '',
+        areaTotal ? `
+            <div class="feat-item" title="m² Totales / Terreno">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+                <span>${areaTotal}m²</span>
+            </div>` : '',
+        areaBuilt ? `
+            <div class="feat-item" title="m² Construidos">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
+                <span>${areaBuilt}m²</span>
+            </div>` : '',
+        garage ? `
+            <div class="feat-item" title="Cochera / Garage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
+                <span>${escapeHtml(garage)}</span>
+            </div>` : ''
+    ].filter(Boolean).join('');
+
+    const descText = String(prop.description || "").trim();
+    const shortDesc = descText.length > 70 ? `${escapeHtml(descText.substring(0, 70))}...` : escapeHtml(descText);
+    const currencyLabel = prop.currency === "ARS" ? "AR$" : "U$D";
+    const whatsappUrl = window.buildPropertyWhatsappUrl
+        ? window.buildPropertyWhatsappUrl(prop)
+        : `https://wa.me/${(window.SITE_CONFIG?.contact?.whatsapp || "5493874155902").replace(/\D/g, "")}?text=${encodeURIComponent(`Hola, quiero consultar por la propiedad: ${prop.title} (ID: ${prop.id})`)}`;
+
+    const card = document.createElement("article");
+    card.className = "property-card";
+    card.innerHTML = `
+        <div class="property-image-container">
+            <div class="operation-badge badge-${(prop.operation || prop.category || 'venta').toLowerCase()}">${escapeHtml(prop.operation || prop.category || 'Venta')}</div>
+            <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : PLACEHOLDER_IMAGE}" alt="${escapeHtml(prop.title)}" class="property-image">
+            <img src="${window.SITE_CONFIG?.assets?.logoSeal || 'assets/images/logo-seal.svg'}" class="property-seal" alt="Seal">
+        </div>
+        ${canManage ? `
+            <button class="property-settings-btn" title="Opciones" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">
+                ⚙️
+            </button>
+            <div class="property-settings-menu" onclick="event.stopPropagation()">
+                <button class="property-settings-item" onclick="openEditModal(${prop.id})">
+                    Editar publicación
+                </button>
+                <button class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
+                    Eliminar publicación
+                </button>
+            </div>
+        ` : ""}
+        <div class="property-info">
+            <div class="property-price">${currencyLabel} ${formatPrice(prop.price)}</div>
+            <h3 class="property-title">${escapeHtml(prop.title)}</h3>
+            ${shortDesc ? `<p class="property-description">${shortDesc}</p>` : ""}
+            <div class="property-card-footer">
+                ${featureItemsHtml ? `<div class="property-features-new">${featureItemsHtml}</div>` : ""}
+                <a href="${whatsappUrl}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="btn-card-whatsapp"
+                   onclick="event.stopPropagation();"
+                   title="Consultar por WhatsApp">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.625.846 5.059 2.284 7.033l-1.494 5.462 5.602-1.469c1.908 1.132 4.132 1.787 6.516 1.787 6.627 0 12-5.373 12-12s-5.373-12-12.908-12.813z"/>
+                    </svg>
+                    <span>Consultar por WhatsApp</span>
+                </a>
+            </div>
+        </div>
+    `;
+    card.onclick = () => {
+        if (window.triggerLoader) {
+            window.triggerLoader(`details?id=${prop.id}`);
+        } else {
+            window.location.href = `details?id=${prop.id}`;
+        }
+    };
+    return card;
+}
+
+function getFeaturedVisibleCount() {
+    if (window.innerWidth <= 640) return 1;
+    if (window.innerWidth <= 992) return 2;
+    return 3;
+}
+
+function updateFeaturedCarouselPosition() {
+    const track = document.getElementById("featured-carousel-track");
+    const dotsContainer = document.getElementById("featured-carousel-dots");
+    if (!track) return;
+
+    const cards = track.querySelectorAll(".property-card");
+    const total = cards.length;
+    if (total === 0) return;
+
+    const visible = getFeaturedVisibleCount();
+    const maxIndex = Math.max(0, total - visible);
+    if (featuredCarouselIndex > maxIndex) featuredCarouselIndex = 0;
+    if (featuredCarouselIndex < 0) featuredCarouselIndex = maxIndex;
+
+    const firstCard = cards[0];
+    const gap = 24;
+    const stepPx = firstCard ? (firstCard.getBoundingClientRect().width + gap) : 0;
+    track.style.transform = `translate3d(-${featuredCarouselIndex * stepPx}px, 0, 0)`;
+
+    if (dotsContainer) {
+        const dots = dotsContainer.querySelectorAll(".featured-dot");
+        dots.forEach((dot, idx) => {
+            dot.classList.toggle("active", idx === featuredCarouselIndex);
+        });
+    }
+}
+
+function stopFeaturedAutoSlide() {
+    if (featuredAutoTimer) {
+        clearInterval(featuredAutoTimer);
+        featuredAutoTimer = null;
+    }
+}
+
+function startFeaturedAutoSlide(totalItems) {
+    stopFeaturedAutoSlide();
+    const visible = getFeaturedVisibleCount();
+    if (totalItems <= visible) return;
+    featuredAutoTimer = setInterval(() => {
+        const maxIndex = Math.max(0, totalItems - getFeaturedVisibleCount());
+        featuredCarouselIndex = featuredCarouselIndex >= maxIndex ? 0 : featuredCarouselIndex + 1;
+        updateFeaturedCarouselPosition();
+    }, 5000);
+}
+
+function renderFeaturedCarousel(featuredProps) {
+    const track = document.getElementById("featured-carousel-track");
+    const dotsContainer = document.getElementById("featured-carousel-dots");
+    const prevBtn = document.getElementById("featured-prev");
+    const nextBtn = document.getElementById("featured-next");
+    const wrapper = document.getElementById("featured-carousel-wrapper");
+    if (!track) return;
+
+    track.innerHTML = "";
+    if (dotsContainer) dotsContainer.innerHTML = "";
+
+    if (!featuredProps || featuredProps.length === 0) {
+        track.innerHTML = `<div class="no-results" style="width: 100%;"><h3>Sin propiedades disponibles</h3></div>`;
+        return;
+    }
+
+    featuredProps.forEach(prop => {
+        track.appendChild(createPropertyCardElement(prop));
+    });
+
+    const visible = getFeaturedVisibleCount();
+    const maxIndex = Math.max(0, featuredProps.length - visible);
+    if (featuredCarouselIndex > maxIndex) featuredCarouselIndex = 0;
+
+    // Renderizar dots de paginación
+    const pagesCount = maxIndex + 1;
+    if (dotsContainer && pagesCount > 1) {
+        for (let i = 0; i < pagesCount; i++) {
+            const dot = document.createElement("button");
+            dot.type = "button";
+            dot.className = `featured-dot ${i === featuredCarouselIndex ? "active" : ""}`;
+            dot.setAttribute("aria-label", `Ir a slide ${i + 1}`);
+            dot.onclick = () => {
+                featuredCarouselIndex = i;
+                updateFeaturedCarouselPosition();
+                startFeaturedAutoSlide(featuredProps.length);
+            };
+            dotsContainer.appendChild(dot);
+        }
+    }
+
+    if (prevBtn) {
+        prevBtn.onclick = () => {
+            const maxIdx = Math.max(0, featuredProps.length - getFeaturedVisibleCount());
+            featuredCarouselIndex = featuredCarouselIndex <= 0 ? maxIdx : featuredCarouselIndex - 1;
+            updateFeaturedCarouselPosition();
+            startFeaturedAutoSlide(featuredProps.length);
+        };
+    }
+
+    if (nextBtn) {
+        nextBtn.onclick = () => {
+            const maxIdx = Math.max(0, featuredProps.length - getFeaturedVisibleCount());
+            featuredCarouselIndex = featuredCarouselIndex >= maxIdx ? 0 : featuredCarouselIndex + 1;
+            updateFeaturedCarouselPosition();
+            startFeaturedAutoSlide(featuredProps.length);
+        };
+    }
+
+    if (wrapper) {
+        wrapper.onmouseenter = () => stopFeaturedAutoSlide();
+        wrapper.onmouseleave = () => startFeaturedAutoSlide(featuredProps.length);
+    }
+
+    requestAnimationFrame(() => {
+        updateFeaturedCarouselPosition();
+    });
+    startFeaturedAutoSlide(featuredProps.length);
+}
+
+window.addEventListener("resize", () => {
+    if (!hasActiveFilters() && !showAllCatalogMode) {
+        updateFeaturedCarouselPosition();
+    }
+});
+
+// Verificar cada minuto si se cumplió el ciclo de 6 horas para renovar automáticamente las 5 propiedades destacadas
+setInterval(() => {
+    const nowSlot = Math.floor(Date.now() / SIX_HOURS_MS);
+    if (nowSlot !== lastFeaturedSlot && properties.length > 0) {
+        lastFeaturedSlot = nowSlot;
+        if (!hasActiveFilters() && !showAllCatalogMode) {
+            featuredCarouselIndex = 0;
+            renderFeaturedCarousel(getFeaturedProperties(properties));
+        }
+    }
+}, 60 * 1000);
+
 function renderProperties(filtered) {
     grid.innerHTML = "";
     if (resultsCount) resultsCount.textContent = `${filtered.length} resultado${filtered.length === 1 ? "" : "s"}`;
@@ -302,82 +1006,7 @@ function renderProperties(filtered) {
     }
 
     filtered.forEach(prop => {
-        const manager = window.AuthManager;
-        const canManage = manager && manager.hasPermission(manager.Permissions.EDIT_PROPERTY);
-
-        // Helper to extract numeric values from customFeatures (Rooms/Baths)
-        const getFeatureVal = (namePattern) => {
-            const feat = prop.customFeatures?.find(f =>
-                (typeof f === 'string' && f.toLowerCase().includes(namePattern)) ||
-                (f.name && f.name.toLowerCase().includes(namePattern))
-            );
-            if (!feat) return null;
-            return typeof feat === 'string' ? feat.match(/\d+/) : feat.qty;
-        };
-
-        const rooms = prop.rooms || getFeatureVal('dormitorio') || getFeatureVal('habitacio') || '-';
-        const baths = getFeatureVal('baño') || '-';
-
-        const card = document.createElement("article");
-        card.className = "property-card";
-        card.innerHTML = `
-            <div class="property-image-container">
-                <div class="operation-badge badge-${(prop.category || 'venta').toLowerCase()}">${prop.category || 'Venta'}</div>
-                <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : 'assets/images/placeholder.jpg'}" alt="${prop.title}" class="property-image">
-                <img src="assets/images/logo-seal.svg" class="property-seal" alt="Seal">
-                <div class="property-badge">${prop.type}</div>
-                <div class="property-price-badge">${prop.currency} ${formatPrice(prop.price)}</div>
-            </div>
-            ${canManage ? `
-                <button class="property-settings-btn" title="Opciones" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">
-                    ⚙️
-                </button>
-                <div class="property-settings-menu" onclick="event.stopPropagation()">
-                    <button class="property-settings-item" onclick="openEditModal(${prop.id})">
-                        Editar publicación
-                    </button>
-                    <button class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
-                        Eliminar publicación
-                    </button>
-                </div>
-            ` : ""}
-            <div class="property-info">
-                <div class="property-price">${(prop.currency === "ARS" ? "AR$" : "U$D")} ${formatPrice(prop.price)}</div>
-                <h3 class="property-title">${escapeHtml(prop.title)}</h3>
-                <p class="property-description">${escapeHtml(prop.description || "").substring(0, 70)}...</p>
-                
-                <div class="property-features-new">
-                    <div class="feat-item" title="Habitaciones">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
-                        <span>${rooms}</span>
-                    </div>
-                    <div class="feat-item" title="Baños">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18l-2 6H6a3 3 0 0 1-3-3V5c0-2 2-3 4-3s4 1 5 3"></path><path d="M11 5l3 3"></path></svg>
-                        <span>${baths}</span>
-                    </div>
-                    <div class="feat-item" title="m² Totales / Terreno">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
-                        <span>${prop.areaTotal ? `${formatNumber(prop.areaTotal)}m²` : '-'}</span>
-                    </div>
-                    <div class="feat-item" title="m² Construidos">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
-                        <span>${prop.areaBuilt ? `${formatNumber(prop.areaBuilt)}m²` : '-'}</span>
-                    </div>
-                    <div class="feat-item" title="Garage">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
-                        <span>${getFeatureVal('cochera') || getFeatureVal('garage') || '-'}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-        card.onclick = () => {
-            if (window.triggerLoader) {
-                window.triggerLoader(`details?id=${prop.id}`);
-            } else {
-                window.location.href = `details?id=${prop.id}`;
-            }
-        };
-        grid.appendChild(card);
+        grid.appendChild(createPropertyCardElement(prop));
     });
 }
 
@@ -493,12 +1122,36 @@ function populateAgentDropdown() {
     // Save current selection to restore it if possible
     const currentVal = agentSelect.value;
 
-    const users = window.AuthManager.getAllUsersSync() || [];
+    const configAgents = Array.isArray(window.SITE_CONFIG?.agents) ? window.SITE_CONFIG.agents : [];
+    const users = (window.AuthManager && typeof window.AuthManager.getAllUsersSync === "function")
+        ? (window.AuthManager.getAllUsersSync() || [])
+        : [];
+
     agentSelect.innerHTML = '<option value="">Seleccionar agente...</option>';
 
-    users.forEach(user => {
+    const addedIds = new Set();
+
+    // 1. Listar agentes centralizados en config.js
+    configAgents.forEach(agent => {
+        if (!agent || !agent.id) return;
         const opt = document.createElement("option");
-        opt.value = user.displayName || user.username;
+        opt.value = agent.id;
+        opt.textContent = agent.name;
+        agentSelect.appendChild(opt);
+        addedIds.add(String(agent.id).toLowerCase());
+        addedIds.add(String(agent.name || "").toLowerCase());
+        if (Array.isArray(agent.aliases)) {
+            agent.aliases.forEach(al => addedIds.add(String(al).toLowerCase()));
+        }
+    });
+
+    // 2. Agregar usuarios adicionales de AuthManager que no estén en SITE_CONFIG.agents
+    users.forEach(user => {
+        const uKey = String(user.username || "").toLowerCase();
+        const dKey = String(user.displayName || "").toLowerCase();
+        if (addedIds.has(uKey) || addedIds.has(dKey)) return;
+        const opt = document.createElement("option");
+        opt.value = user.username || user.displayName;
         opt.textContent = user.displayName || user.username;
         agentSelect.appendChild(opt);
     });
@@ -536,7 +1189,12 @@ function openEditModal(id) {
     document.getElementById("prop-owner-phone").value = prop.ownerPhone || "";
     document.getElementById("prop-owner-address").value = prop.ownerAddress || "";
 
-    document.getElementById("prop-agent").value = prop.agent || "";
+    const resolvedAgent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
+    const agentSelect = document.getElementById("prop-agent");
+    if (agentSelect) {
+        const candidateId = prop.agentId || (resolvedAgent && resolvedAgent.id !== "agente-default" ? resolvedAgent.id : "") || prop.agent || "";
+        agentSelect.value = candidateId;
+    }
     document.getElementById("prop-credit").checked = !!prop.creditEligible;
     document.getElementById("prop-map-link").value = prop.mapLink || "";
 
@@ -588,13 +1246,33 @@ function openEditModal(id) {
 
 // Event Bindings
 function bindEvents() {
-    [filterType, filterRooms, sortBy].forEach(el => el.addEventListener("change", applyFilters));
-    [filterPriceMin, filterPriceMax, searchInput].forEach(el => el.addEventListener("input", applyFilters));
+    [filterType, filterRooms, sortBy].forEach(el => el && el.addEventListener("change", applyFilters));
+    [filterPriceMin, filterPriceMax, searchInput].forEach(el => el && el.addEventListener("input", applyFilters));
+
+    if (filterPropType) {
+        filterPropType.addEventListener("change", () => {
+            const val = filterPropType.value;
+            selectedPropertyTypes = (val && val !== "todos") ? [val] : [];
+            updateActiveTypeUI();
+            applyFilters();
+        });
+    }
+
+    if (btnHeroSearch) {
+        btnHeroSearch.onclick = () => {
+            applyFilters();
+            const propSection = document.getElementById("propiedades");
+            if (propSection) propSection.scrollIntoView({ behavior: "smooth" });
+        };
+    }
 
     if (clearFiltersBtn) clearFiltersBtn.onclick = () => {
+        if (filterPropType) filterPropType.value = "todos";
         filterType.value = "todos"; filterRooms.value = "0";
         filterPriceMin.value = ""; filterPriceMax.value = "";
         searchInput.value = "";
+        selectedPropertyTypes = [];
+        updateActiveTypeUI();
 
         // Reset nav active state
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
@@ -720,13 +1398,6 @@ function bindEvents() {
     if (btnLogout) btnLogout.onclick = () => { window.AuthManager.logout(); updateAuthUI(); applyFilters(); };
     closeBtns.forEach(btn => btn.onclick = closeModal);
 
-    if (searchPill) {
-        searchPill.onclick = (e) => {
-            if (e.target.closest("#btn-toggle-filters")) return;
-            advancedFilters.classList.toggle("show");
-        };
-    }
-
     if (btnToggleFilters) {
         btnToggleFilters.onclick = (e) => {
             e.stopPropagation();
@@ -842,7 +1513,12 @@ function bindEvents() {
                 const type = document.getElementById("prop-type").value;
                 const price = unformatNumber(document.getElementById("prop-price").value);
                 const currency = document.getElementById("prop-currency").value;
-                const agent = document.getElementById("prop-agent").value;
+                const selectedAgentVal = document.getElementById("prop-agent").value;
+                const resolvedAgent = window.getPropertyAgent
+                    ? window.getPropertyAgent({ agentId: selectedAgentVal, agent: selectedAgentVal })
+                    : null;
+                const agentId = selectedAgentVal || "";
+                const agentName = (resolvedAgent && selectedAgentVal) ? resolvedAgent.name : selectedAgentVal;
 
                 const areaTotal = unformatNumber(document.getElementById("prop-area-total").value);
                 const areaBuilt = unformatNumber(document.getElementById("prop-area-built").value);
@@ -874,7 +1550,8 @@ function bindEvents() {
                     ownerName: document.getElementById("prop-owner-name").value,
                     ownerPhone: document.getElementById("prop-owner-phone").value,
                     ownerAddress: document.getElementById("prop-owner-address").value,
-                    agent: agent,
+                    agentId: agentId,
+                    agent: agentName,
                     creditEligible: (category === "venta") ? document.getElementById("prop-credit").checked : false,
                     mapLink: document.getElementById("prop-map-link").value,
                     createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
@@ -1128,6 +1805,22 @@ async function handleRemoveUser(username) {
 window.handleRemoveUser = handleRemoveUser;
 
 async function init() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const typeParam = urlParams.get('type');
+    if (typeParam) {
+        selectedPropertyTypes = typeParam
+            .split(',')
+            .map(t => t.trim().toLowerCase())
+            .filter(Boolean);
+        // Limpiar el parámetro de la URL para que al refrescar (F5) la página inicie limpia sin filtros pegados
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('type');
+        window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search);
+    }
+
+    renderPropertyCategories();
+    updateActiveTypeUI();
+
     if (window.AuthManager && window.AuthManager._readyPromise) {
         await window.AuthManager._readyPromise;
     }
@@ -1139,8 +1832,12 @@ async function init() {
 
     document.getElementById("add-user-form")?.addEventListener("submit", handleAddUser);
 
+    if (selectedPropertyTypes.length > 0) {
+        const propSection = document.getElementById("propiedades");
+        if (propSection) propSection.scrollIntoView({ behavior: "smooth" });
+    }
+
     // Check for edit parameter to auto-open modal from details page
-    const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('edit');
     if (editId) {
         const numId = Number(editId);

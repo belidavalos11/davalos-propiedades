@@ -1,4 +1,4 @@
-﻿backend:
+backend:
   name: github
   repo: YOUR_GITHUB_USER/YOUR_REPO
   branch: main
@@ -38,8 +38,16 @@ collections:
                   - { label: "Alquiler", value: "alquiler" }
               - { label: "Ambientes", name: "rooms", widget: "number", value_type: "int" }
               - { label: "Superficie (m2)", name: "area", widget: "number", value_type: "int" }
-              - { label: "Propietario", name: "owner", widget: "string", required: false }
-              - { label: "Agente", name: "agent", widget: "string", required: false }
+              - { label: "Propietario", name: "ownerName", widget: "string", required: false }
+              - label: "Agente a cargo"
+                name: "agentId"
+                widget: "select"
+                required: false
+                default: "agente-1"
+                options:
+                  - { label: "Beli Dávalos (agente-1)", value: "agente-1" }
+                  - { label: "Florencia Pfister (agente-2)", value: "agente-2" }
+                  - { label: "Irene García (agente-3)", value: "agente-3" }
               - { label: "Fecha de alta", name: "createdAt", widget: "datetime", format: "YYYY-MM-DDTHH:mm:ss.SSSZ", date_format: "YYYY-MM-DD", time_format: "HH:mm" }
               - label: "Imagenes"
                 name: "images"

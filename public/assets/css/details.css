@@ -201,40 +201,77 @@
 
 .agent-compact-info {
     margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #eef2f6;
+    border-radius: 12px;
 }
 
 .agent-label {
     display: block;
     font-size: 0.7rem;
-    color: #999;
+    color: var(--text-light);
     text-transform: uppercase;
+    letter-spacing: 0.06em;
     font-weight: 700;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
 .agent-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
+}
+
+.agent-photo {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary);
+    background: #fff;
+    flex-shrink: 0;
 }
 
 .agent-avatar {
-    width: 36px;
-    height: 36px;
-    background: #f0f4ff;
+    width: 48px;
+    height: 48px;
+    background: var(--primary);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    color: var(--primary);
+    font-size: 1rem;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.agent-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 
 .agent-name {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 0.98rem;
     color: var(--text-dark);
+}
+
+.agent-role {
+    font-size: 0.8rem;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.agent-email {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .admin-data-box {
@@ -458,7 +495,7 @@
     font-size: 1.25rem;
     margin-bottom: 20px;
     color: var(--text-dark);
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-main);
 }
 
 .features-grid {

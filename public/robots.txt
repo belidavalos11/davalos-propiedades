@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /public/admin/
 
 Sitemap: https://davalospropiedades.com.ar/sitemap.xml

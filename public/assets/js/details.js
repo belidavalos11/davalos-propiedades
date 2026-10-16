@@ -1,7 +1,7 @@
-const DATA_URL = "data/properties.json";
-const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
-const WHATSAPP_NUMBER = "5493874155902";
-const PHONE_NUMBER = "+543874155902";
+const DATA_URL = window.SITE_CONFIG?.data?.catalogUrl || "data/properties.json";
+const PLACEHOLDER_IMAGE = window.SITE_CONFIG?.assets?.placeholderImage || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
+const WHATSAPP_NUMBER = window.SITE_CONFIG?.contact?.whatsapp || "5493874155902";
+const PHONE_NUMBER = window.SITE_CONFIG?.contact?.phone || "+543874155902";
 
 // DOM Elements
 const container = document.getElementById("details-container");
@@ -41,10 +41,19 @@ function normalizeProperty(prop) {
     if (!prop || typeof prop !== "object") return null;
     const id = prop.id;
     const title = String(prop.title || "").trim();
-    const category = String(prop.category || "venta").toLowerCase();
+    const operation = String(prop.operation || prop.category || "venta").trim().toLowerCase();
+    const type = String(prop.type || "").trim().toLowerCase();
     const price = Number(prop.price) || 0;
-    const rooms = Number(prop.rooms) || 0;
-    const area = Number(prop.area) || 0;
+    const currency = String(prop.currency || "USD").trim().toUpperCase();
+    const location = String(prop.location || window.SITE_CONFIG?.contact?.city || "Salta").trim();
+
+    const featObj = (prop.features && typeof prop.features === "object" && !Array.isArray(prop.features)) ? prop.features : {};
+    const rooms = Number(featObj.rooms ?? prop.rooms) || null;
+    const baths = Number(featObj.baths ?? prop.baths) || null;
+    const areaTotal = Number(featObj.areaTotal ?? prop.areaTotal ?? prop.area) || null;
+    const areaBuilt = Number(featObj.areaBuilt ?? prop.areaBuilt) || null;
+    const garage = Number(featObj.garage ?? prop.garage) || null;
+
     const images = (Array.isArray(prop.images) ? prop.images : [])
         .map((img) => safeImageUrl(img))
         .filter(Boolean);
@@ -53,10 +62,24 @@ function normalizeProperty(prop) {
         ...prop,
         id,
         title,
-        category,
+        type,
+        operation,
+        category: operation,
         price,
+        currency,
+        location,
         rooms,
-        area,
+        baths,
+        areaTotal,
+        areaBuilt,
+        garage,
+        features: {
+            rooms,
+            baths,
+            areaTotal,
+            areaBuilt,
+            garage
+        },
         images: images.length ? images : [PLACEHOLDER_IMAGE]
     };
 }
@@ -80,50 +103,22 @@ function formatNumber(val) {
 }
 
 function getAgentPhone(prop) {
-    if (!prop || !prop.agent) return WHATSAPP_NUMBER;
-    if (window.AuthManager) {
-        const users = window.AuthManager.getAllUsersSync();
-        const agentUser = users.find(u => u.displayName === prop.agent || u.username === prop.agent);
-        if (agentUser && agentUser.phone) {
-            let phone = agentUser.phone.replace(/\D/g, '');
-            if (!phone) return WHATSAPP_NUMBER;
-
-            // Remove leading zero if present (e.g., 0387 -> 387)
-            if (phone.startsWith('0')) {
-                phone = phone.substring(1);
-            }
-
-            // Remove Argentine local mobile prefix "15" if present
-            // e.g., 387 15 4155902 -> 387154155902 -> 3874155902
-            if (phone.startsWith('38715') && phone.length === 12) {
-                phone = '387' + phone.substring(5);
-            } else if (phone.length === 12 && phone.substring(2, 4) === '15') {
-                // e.g. 11 15 12345678
-                phone = phone.substring(0, 2) + phone.substring(4);
-            } else if (phone.length === 11 && phone.startsWith('15')) {
-                phone = phone.substring(2);
-            }
-
-            // Ensure the number is formatted with the international country code "549" for Argentina mobiles
-            if (phone.startsWith('549')) {
-                return phone;
-            } else if (phone.startsWith('54')) {
-                // If it has country code but lacks mobile '9', insert it
-                const remaining = phone.substring(2);
-                return '549' + remaining;
-            } else {
-                // Local number (e.g. 3874155902), prepend 549
-                return '549' + phone;
-            }
-        }
+    const agent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
+    if (window.normalizeWhatsappPhone) {
+        return window.normalizeWhatsappPhone(agent?.whatsapp || agent?.phone || WHATSAPP_NUMBER);
     }
-    return WHATSAPP_NUMBER;
+    const configuredWhatsapp = String(agent?.whatsapp || agent?.phone || window.SITE_CONFIG?.contact?.whatsapp || WHATSAPP_NUMBER).replace(/\D/g, "");
+    return configuredWhatsapp || WHATSAPP_NUMBER;
 }
 
 function buildWhatsappUrl(prop) {
-    const propertyUrl = window.location.href;
-    const text = encodeURIComponent(`Hola, quiero consultar por "${prop.title}" (ID ${prop.id}). Link: ${propertyUrl}`);
+    if (window.buildPropertyWhatsappUrl) {
+        return window.buildPropertyWhatsappUrl(prop);
+    }
+    const agent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
     const phone = getAgentPhone(prop);
+    const sellerName = agent?.name || window.SITE_CONFIG?.brand?.name || "Asesor";
+    const text = encodeURIComponent(`Hola ${sellerName}, quiero consultar por la propiedad: ${prop.title} (ID: ${prop.id})`);
     return `https://wa.me/${phone}?text=${text}`;
 }
 
@@ -145,7 +140,25 @@ function getFeatureVal(namePattern, prop) {
         (f.name && f.name.toLowerCase().includes(namePattern))
     );
     if (!feat) return null;
-    return typeof feat === 'string' ? feat.match(/\d+/) : feat.qty;
+    if (typeof feat === 'string') {
+        const match = feat.match(/\d+/);
+        if (match && Number(match[0]) > 0) return match[0];
+        const lower = feat.toLowerCase();
+        if (lower.includes('doble')) return '2';
+        if (lower.includes('triple')) return '3';
+        return '1';
+    }
+    const qty = String(feat.qty || '').trim();
+    if (!qty || qty === '0' || qty === '-') return '1';
+    return qty;
+}
+
+function isValidVal(v) {
+    if (v === null || v === undefined) return false;
+    const s = String(v).trim();
+    if (!s || s === '-' || s === '0') return false;
+    const n = Number(s.replace(/\./g, '').replace(/,/g, '.'));
+    return isNaN(n) ? true : n > 0;
 }
 
 function renderDetails(prop) {
@@ -153,6 +166,104 @@ function renderDetails(prop) {
     const safeTitle = escapeHtml(prop.title);
     const safeCategory = escapeHtml(prop.category);
     const safeDescription = escapeHtml(prop.description || "");
+    const assignedAgent = window.getPropertyAgent ? window.getPropertyAgent(prop) : {
+        name: prop.agent || window.SITE_CONFIG?.brand?.name || "Dávalos Propiedades",
+        role: "Asesor Inmobiliario",
+        email: window.SITE_CONFIG?.contact?.email || "",
+        photoUrl: ""
+    };
+    const safeAgentName = escapeHtml(assignedAgent.name || "Dávalos Propiedades");
+    const safeAgentRole = escapeHtml(assignedAgent.role || "Asesor a cargo");
+    const safeAgentEmail = escapeHtml(assignedAgent.email || "");
+    const safeAgentPhoto = safeImageUrl(assignedAgent.photoUrl) || (assignedAgent.photoUrl && !assignedAgent.photoUrl.startsWith("http") ? escapeHtml(assignedAgent.photoUrl) : "");
+    const agentInitials = safeAgentName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part.charAt(0).toUpperCase())
+        .join("") || "D";
+
+    const typeLabel = prop.type ? `${escapeHtml(prop.type.charAt(0).toUpperCase() + prop.type.slice(1))} en ` : "";
+    const categoryLabel = safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1);
+    const locationLabel = escapeHtml(prop.location || window.SITE_CONFIG?.contact?.city || "Salta");
+
+    const rawAreaTotal = prop.areaTotal || prop.area;
+    const areaTotal = isValidVal(rawAreaTotal) ? formatNumber(rawAreaTotal) : null;
+
+    const rawAreaBuilt = prop.areaBuilt;
+    const areaBuilt = isValidVal(rawAreaBuilt) ? formatNumber(rawAreaBuilt) : null;
+
+    const rawRooms = (prop.rooms && Number(prop.rooms) > 0) ? prop.rooms : (getFeatureVal('dormitorio', prop) || getFeatureVal('habitacio', prop));
+    const rooms = isValidVal(rawRooms) ? rawRooms : null;
+
+    const rawBaths = (prop.baths && Number(prop.baths) > 0) ? prop.baths : (getFeatureVal('baño', prop) || getFeatureVal('toilette', prop));
+    const baths = isValidVal(rawBaths) ? rawBaths : null;
+
+    const rawGarage = (prop.garage && Number(prop.garage) > 0) ? prop.garage : (getFeatureVal('cochera', prop) || getFeatureVal('garage', prop));
+    const garage = isValidVal(rawGarage) ? rawGarage : null;
+
+    const horizontalFeaturesHtml = [
+        areaTotal ? `
+            <div class="feat-bar-item">
+                <div class="feat-icon-svg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+                </div>
+                <div class="feat-content">
+                    <span class="feat-bar-label">Sup. total:</span>
+                    <span class="feat-bar-value">${areaTotal} m²</span>
+                </div>
+            </div>` : "",
+        areaBuilt ? `
+            <div class="feat-bar-item">
+                <div class="feat-icon-svg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
+                </div>
+                <div class="feat-content">
+                    <span class="feat-bar-label">Sup. cubierta:</span>
+                    <span class="feat-bar-value">${areaBuilt} m²</span>
+                </div>
+            </div>` : "",
+        rooms ? `
+            <div class="feat-bar-item">
+                <div class="feat-icon-svg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
+                </div>
+                <div class="feat-content">
+                    <span class="feat-bar-label">Dormitorio/s:</span>
+                    <span class="feat-bar-value">${escapeHtml(rooms)}</span>
+                </div>
+            </div>` : "",
+        baths ? `
+            <div class="feat-bar-item">
+                <div class="feat-icon-svg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18l-2 6H6a3 3 0 0 1-3-3V5c0-2 2-3 4-3s4 1 5 3"></path><path d="M11 5l3 3"></path></svg>
+                </div>
+                <div class="feat-content">
+                    <span class="feat-bar-label">Baño/s:</span>
+                    <span class="feat-bar-value">${escapeHtml(baths)}</span>
+                </div>
+            </div>` : "",
+        garage ? `
+            <div class="feat-bar-item">
+                <div class="feat-icon-svg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
+                </div>
+                <div class="feat-content">
+                    <span class="feat-bar-label">Cochera/s:</span>
+                    <span class="feat-bar-value">${escapeHtml(garage)}</span>
+                </div>
+            </div>` : "",
+        prop.creditEligible ? `
+            <div class="feat-bar-item">
+                <div class="feat-icon-svg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5 5 2 7-7-4-7 4 2-7-5-5h7z"></path></svg>
+                </div>
+                <div class="feat-content">
+                    <span class="feat-bar-label">Crédito:</span>
+                    <span class="feat-bar-value" style="color: #2e7d32;">Apto ✅</span>
+                </div>
+            </div>` : ""
+    ].filter(Boolean).join("");
 
     container.innerHTML = `
         <!-- Section 2: Header Row (Title) -->
@@ -163,7 +274,7 @@ function renderDetails(prop) {
                     ${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); font-weight: 600; font-size: 0.9rem; text-decoration: none; display: flex; align-items: center; gap: 4px;"><span style="font-size: 1.1rem;">🗺️</span> Ver mapa</a>` : ""}
                 </div>
                 <div class="details-location-breadcrumb">
-                    ${escapeHtml(prop.type || "N/D")} en ${safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1)}, ${escapeHtml(prop.location || "Salta")}
+                    ${typeLabel}${categoryLabel}, ${locationLabel}
                 </div>
             </div>
         </div>
@@ -198,59 +309,11 @@ function renderDetails(prop) {
         </div>
 
         <!-- Section 3: Horizontal Features Bar -->
-        <div class="features-horizontal-bar">
-            ${prop.areaTotal ? `
-                <div class="feat-bar-item">
-                    <div class="feat-icon-svg">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
-                    </div>
-                    <div class="feat-content">
-                        <span class="feat-bar-label">Sup. total:</span>
-                        <span class="feat-bar-value">${formatNumber(prop.areaTotal)} m²</span>
-                    </div>
-                </div>
-            ` : ""}
-            ${prop.areaBuilt ? `
-                <div class="feat-bar-item">
-                    <div class="feat-icon-svg">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
-                    </div>
-                    <div class="feat-content">
-                        <span class="feat-bar-label">Sup. cubierta:</span>
-                        <span class="feat-bar-value">${formatNumber(prop.areaBuilt)} m²</span>
-                    </div>
-                </div>
-            ` : ""}
-            <div class="feat-bar-item">
-                <div class="feat-icon-svg">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
-                </div>
-                <div class="feat-content">
-                    <span class="feat-bar-label">Dormitorio/s:</span>
-                    <span class="feat-bar-value">${prop.rooms || getFeatureVal('dormitorio', prop) || getFeatureVal('habitacio', prop) || "-"}</span>
-                </div>
+        ${horizontalFeaturesHtml ? `
+            <div class="features-horizontal-bar">
+                ${horizontalFeaturesHtml}
             </div>
-            <div class="feat-bar-item">
-                <div class="feat-icon-svg">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18l-2 6H6a3 3 0 0 1-3-3V5c0-2 2-3 4-3s4 1 5 3"></path><path d="M11 5l3 3"></path></svg>
-                </div>
-                <div class="feat-content">
-                    <span class="feat-bar-label">Baño/s:</span>
-                    <span class="feat-bar-value">${getFeatureVal('baño', prop) || "-"}</span>
-                </div>
-            </div>
-            ${prop.creditEligible ? `
-                <div class="feat-bar-item">
-                    <div class="feat-icon-svg">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5 5 2 7-7-4-7 4 2-7-5-5h7z"></path></svg>
-                    </div>
-                    <div class="feat-content">
-                        <span class="feat-bar-label">Crédito:</span>
-                        <span class="feat-bar-value" style="color: #2e7d32;">Apto ✅</span>
-                    </div>
-                </div>
-            ` : ""}
-        </div>
+        ` : ""}
 
         <!-- Section 4: Main Content Grid -->
         <div class="details-content-columns">
@@ -331,19 +394,28 @@ function renderDetails(prop) {
                             <input type="email" id="contact-email" placeholder="Email *" required>
                         </div>
                         <div class="form-group-sidebar">
-                            <textarea id="contact-msg" rows="4">Hola, vi esta propiedad en el sitio web de la inmobiliaria y me gustaría que me contacten. Cód. aviso: ${prop.id}. Gracias.</textarea>
+                            <textarea id="contact-msg" rows="4">Hola ${safeAgentName}, vi esta propiedad en el sitio web de la inmobiliaria y me gustaría que me contacten. Cód. aviso: ${prop.id}. Gracias.</textarea>
                         </div>
                         <button type="submit" class="btn btn-full btn-dark-sidebar">Contactar</button>
                         <a class="btn btn-full btn-whatsapp-v2" target="_blank" rel="noopener noreferrer" href="${buildWhatsappUrl(prop)}">
-                            <span>Contactar por WhatsApp</span>
+                            <span>Contactar a ${safeAgentName} por WhatsApp</span>
                         </a>
                     </form>
 
                     <div class="agent-compact-info">
-                        <span class="agent-label">Agente a cargo</span>
+                        <span class="agent-label">Asesor a cargo</span>
                         <div class="agent-row">
-                            <div class="agent-avatar">${escapeHtml(prop.agent || "D").charAt(0)}</div>
-                            <span class="agent-name">${escapeHtml(prop.agent || "Dávalos Propiedades")}</span>
+                            ${safeAgentPhoto ? `
+                                <img src="${safeAgentPhoto}" alt="${safeAgentName}" class="agent-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="agent-avatar" style="display: none;">${agentInitials}</div>
+                            ` : `
+                                <div class="agent-avatar">${agentInitials}</div>
+                            `}
+                            <div class="agent-meta">
+                                <span class="agent-name">${safeAgentName}</span>
+                                <span class="agent-role">${safeAgentRole}</span>
+                                ${safeAgentEmail ? `<span class="agent-email">${safeAgentEmail}</span>` : ""}
+                            </div>
                         </div>
                     </div>
 
@@ -371,14 +443,77 @@ function renderDetails(prop) {
         </section>
     `;
 
+    // Actualizar dinámicamente metadatos SEO, Open Graph y Twitter Cards para esta propiedad
+    const brandName = window.SITE_CONFIG?.brand?.name || "Dávalos Propiedades";
+    const formattedPrice = formatCurrency(prop.price, prop.currency);
+    const rawTypeText = prop.type ? `${prop.type.charAt(0).toUpperCase() + prop.type.slice(1)} en ` : "";
+    const rawCategoryText = prop.category ? (prop.category.charAt(0).toUpperCase() + prop.category.slice(1)) : "Propiedad";
+    const rawLocationText = prop.location || window.SITE_CONFIG?.contact?.city || "Salta";
+    const seoTitle = `${prop.title} · ${formattedPrice} | ${brandName}`;
+    const rawSummary = `${rawTypeText}${rawCategoryText} en ${rawLocationText} · Precio: ${formattedPrice}. ${prop.description || ""}`.replace(/\s+/g, " ").trim();
+    const seoDescription = rawSummary.length > 160 ? `${rawSummary.slice(0, 157)}...` : rawSummary;
+    const seoImage = (Array.isArray(prop.images) && prop.images.length > 0 && prop.images[0])
+        ? prop.images[0]
+        : (window.SITE_CONFIG?.seo?.defaultImage || "assets/img/logo-seal.svg");
+    const seoKeywords = [
+        prop.title,
+        prop.type,
+        prop.category,
+        rawLocationText,
+        brandName,
+        "inmobiliaria en Salta"
+    ].filter(Boolean).join(", ");
+
+    if (typeof window.updatePageSeoMeta === "function") {
+        window.updatePageSeoMeta({
+            title: seoTitle,
+            description: seoDescription,
+            keywords: seoKeywords,
+            image: seoImage,
+            url: window.location.href,
+            type: "website"
+        });
+    } else {
+        document.title = seoTitle;
+    }
+
+    // Inyectar datos estructurados JSON-LD para motores de búsqueda
+    let jsonLdScript = document.getElementById("property-jsonld");
+    if (!jsonLdScript) {
+        jsonLdScript = document.createElement("script");
+        jsonLdScript.id = "property-jsonld";
+        jsonLdScript.type = "application/ld+json";
+        document.head.appendChild(jsonLdScript);
+    }
+    jsonLdScript.textContent = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "RealEstateListing",
+        "name": prop.title,
+        "description": seoDescription,
+        "url": window.location.href,
+        "image": Array.isArray(prop.images) ? prop.images : [seoImage],
+        "offers": {
+            "@type": "Offer",
+            "price": prop.price || 0,
+            "priceCurrency": prop.currency || "USD",
+            "availability": "https://schema.org/InStock"
+        }
+    });
+
     bindLightbox(prop.images);
     setupFloating(prop);
 }
 
 function shareProperty() {
+    const brandName = window.SITE_CONFIG?.brand?.name || 'Dávalos Propiedades';
+    const propTitle = currentProperty?.title || document.title;
+    const propPrice = currentProperty ? formatCurrency(currentProperty.price, currentProperty.currency) : '';
+    const shareText = propPrice
+        ? `${propTitle} (${propPrice}) - ${brandName}`
+        : `Mira esta propiedad en ${brandName}`;
     const shareData = {
         title: document.title,
-        text: 'Mira esta propiedad en Dávalos Propiedades',
+        text: shareText,
         url: window.location.href
     };
     if (navigator.share) {

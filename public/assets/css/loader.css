@@ -1,6 +1,6 @@
 :root {
     --loader-bg: #ffffff;
-    --loader-color: #0b1c63;
+    --loader-color: var(--primary, #050e36);
 }
 
 .page-loader {
