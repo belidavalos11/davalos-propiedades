@@ -48,6 +48,8 @@ const AuthManager = {
     },
 
     async _loadUsersFromFirestore() {
+        // Legado: los usuarios usuario/contrasena fueron reemplazados por perfiles de Google (ver watchTeam).
+        return;
         if (!window.db) {
             console.warn("Firestore (window.db) no está inicializado. No se pueden cargar usuarios externos.");
             return;
@@ -64,19 +66,29 @@ const AuthManager = {
     async _syncWithFirebase() {
         if (!window.auth) return;
 
-        // Esperar a que Firebase restaure la sesion persistida (ej. Google) antes de decidir nada.
+        // Esperar a que Firebase restaure la sesion persistida (ej. Google).
         const restored = await new Promise(resolve => {
             const unsubscribe = window.auth.onAuthStateChanged(u => { unsubscribe(); resolve(u); });
         });
 
         if (restored && !restored.isAnonymous) {
-            if (!restored.emailVerified || !this.isAdminEmail(restored.email)) {
-                await window.auth.signOut().catch(() => {});
-                this._clearGoogleSession();
-            } else {
-                if (!localStorage.getItem(this._sessionKey())) this._saveGoogleSession(restored);
+            // Revalidar contra Firestore: la cuenta debe seguir activa y con su rol vigente.
+            let profile;
+            try {
+                profile = await this._fetchUserProfile(restored);
+            } catch (e) {
+                console.warn("[Auth] No se pudo revalidar el perfil:", e);
+                profile = undefined; // error de red/permisos: no se puede confirmar
+            }
+            if (profile === undefined && localStorage.getItem(this._sessionKey())) {
+                return; // sin conexion: mantener la sesion local hasta poder revalidar
+            }
+            if (restored.emailVerified && profile && profile.status === "active") {
+                this._saveGoogleSession(restored, profile, true);
                 return;
             }
+            await window.auth.signOut().catch(() => {});
+            this._clearGoogleSession();
         }
 
         if (!window.auth.currentUser) {
@@ -89,18 +101,69 @@ const AuthManager = {
         }
     },
 
-    // ---- Google Sign-In (administradores autorizados en SITE_CONFIG.adminEmails) ----
-    isAdminEmail(email) {
-        const list = (window.SITE_CONFIG && window.SITE_CONFIG.adminEmails) || [];
+    // ---- Google Sign-In + perfiles en Firestore (coleccion `users`, id = uid) ----
+    // status: 'pending' | 'active' | 'inactive'  -  role: 'AGENT' | 'ADMIN' | 'SUPER_ADMIN'
+    isSuperAdminEmail(email) {
+        const list = (window.SITE_CONFIG && window.SITE_CONFIG.superAdminEmails) || [];
         const target = String(email || "").trim().toLowerCase();
         return Boolean(target) && list.some(e => String(e).trim().toLowerCase() === target);
     },
 
-    _saveGoogleSession(user) {
+    async _fetchUserProfile(user) {
+        const snap = await window.db.collection("users").doc(user.uid).get();
+        return snap.exists ? snap.data() : null;
+    },
+
+    // Crea el perfil si no existe (pending, o SUPER_ADMIN activo para el super admin de arranque).
+    async _ensureUserProfile(user) {
+        const ref = window.db.collection("users").doc(user.uid);
+        const ts = firebase.firestore.FieldValue.serverTimestamp();
         const email = String(user.email || "").trim().toLowerCase();
-        localStorage.setItem(this._sessionKey(), JSON.stringify({ logged: true, timestamp: Date.now(), provider: "google" }));
+        const base = { email, displayName: user.displayName || email, photoURL: user.photoURL || "" };
+        const isOwner = this.isSuperAdminEmail(email);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            const profile = {
+                ...base,
+                role: isOwner ? this.Roles.SUPER_ADMIN : this.Roles.AGENT,
+                status: isOwner ? "active" : "pending",
+                createdAt: ts,
+                updatedAt: ts
+            };
+            await ref.set(profile);
+            return { profile, created: true };
+        }
+
+        const data = snap.data();
+        if (isOwner && (data.role !== this.Roles.SUPER_ADMIN || data.status !== "active")) {
+            await ref.update({ role: this.Roles.SUPER_ADMIN, status: "active", updatedAt: ts });
+            return { profile: { ...data, role: this.Roles.SUPER_ADMIN, status: "active" }, created: false };
+        }
+        if (data.displayName !== base.displayName || data.photoURL !== base.photoURL) {
+            ref.update({ displayName: base.displayName, photoURL: base.photoURL, updatedAt: ts }).catch(() => {});
+        }
+        return { profile: data, created: false };
+    },
+
+    _saveGoogleSession(user, profile, keepTimestamp) {
+        const email = String(user.email || "").trim().toLowerCase();
+        let timestamp = Date.now();
+        if (keepTimestamp) {
+            try {
+                const prev = JSON.parse(localStorage.getItem(this._sessionKey()) || "null");
+                if (prev && prev.timestamp) timestamp = prev.timestamp;
+            } catch (e) { /* noop */ }
+        }
+        localStorage.setItem(this._sessionKey(), JSON.stringify({ logged: true, timestamp, provider: "google" }));
         localStorage.setItem("davalos_current_user", email);
-        localStorage.setItem("davalos_google_user", JSON.stringify({ email, displayName: user.displayName || email }));
+        localStorage.setItem("davalos_google_user", JSON.stringify({
+            uid: user.uid,
+            email,
+            displayName: profile.displayName || user.displayName || email,
+            photoURL: profile.photoURL || user.photoURL || "",
+            role: profile.role
+        }));
     },
 
     _clearGoogleSession() {
@@ -112,36 +175,108 @@ const AuthManager = {
     _getGoogleSession() {
         try {
             const g = JSON.parse(localStorage.getItem("davalos_google_user") || "null");
-            return g && this.isAdminEmail(g.email) ? g : null;
+            return g && g.email && Object.values(this.Roles).includes(g.role) ? g : null;
         } catch (e) {
             return null;
         }
     },
 
     async loginWithGoogle() {
-        if (!window.auth || typeof firebase === "undefined") return { success: false, reason: "no_firebase" };
+        if (!window.auth || !window.db || typeof firebase === "undefined") return { success: false, reason: "no_firebase" };
         try {
             const provider = new firebase.auth.GoogleAuthProvider();
             provider.setCustomParameters({ prompt: "select_account" });
             const result = await window.auth.signInWithPopup(provider);
             const user = result.user;
-            if (!user || !user.emailVerified || !this.isAdminEmail(user.email)) {
+            if (!user || !user.emailVerified) {
                 const email = user && user.email;
                 await window.auth.signOut().catch(() => {});
                 this._clearGoogleSession();
                 return { success: false, reason: "unauthorized", email };
             }
-            this._saveGoogleSession(user);
-            return { success: true, email: user.email };
+
+            const { profile, created } = await this._ensureUserProfile(user);
+            if (profile.status === "active") {
+                this._saveGoogleSession(user, profile);
+                return { success: true, email: user.email, role: profile.role };
+            }
+
+            // pending / inactive: sin acceso. Se cierra la sesion de Firebase.
+            await window.auth.signOut().catch(() => {});
+            this._clearGoogleSession();
+            return {
+                success: false,
+                reason: profile.status === "inactive" ? "inactive" : "pending",
+                created,
+                email: user.email
+            };
         } catch (e) {
             if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") {
                 return { success: false, reason: "cancelled" };
             }
             console.error("[Auth] Error en login con Google:", e);
+            await window.auth.signOut().catch(() => {});
+            this._clearGoogleSession();
             return { success: false, reason: e.code || "error", error: e.message };
         }
     },
 
+    // Mensaje para mostrar al usuario segun el resultado de loginWithGoogle (null = no mostrar nada).
+    describeLoginFailure(res) {
+        switch (res && res.reason) {
+            case "cancelled":
+                return null;
+            case "pending":
+                return res.created
+                    ? "Tu solicitud de acceso fue enviada. El administrador revisará tu cuenta a la brevedad."
+                    : "Tu solicitud de acceso sigue pendiente de aprobación. El administrador revisará tu cuenta a la brevedad.";
+            case "inactive":
+                return "Tu cuenta está suspendida. Contactá al administrador para reactivarla.";
+            case "unauthorized":
+                return "No se pudo verificar tu cuenta de Google. Usá una cuenta con el correo verificado.";
+            case "permission-denied":
+                return "No se pudo registrar tu solicitud por falta de permisos. Contactá al administrador.";
+            default:
+                return "No se pudo iniciar sesión con Google. Intentá nuevamente.";
+        }
+    },
+
+    // ---- Gestion de equipo (solo SUPER_ADMIN) ----
+    // Escucha en tiempo real la coleccion `users` (ignora documentos legados sin email).
+    watchTeam(onData, onError) {
+        if (!this.hasPermission(this.Permissions.MANAGE_USERS) || !window.db) return () => {};
+        return window.db.collection("users").onSnapshot(
+            snap => onData(snap.docs.map(d => ({ uid: d.id, ...d.data() })).filter(u => u.email)),
+            err => {
+                console.error("[Auth] Error al escuchar usuarios:", err);
+                if (onError) onError(err);
+            }
+        );
+    },
+
+    // Cambia rol y/o estado de un miembro. Rol permitido: AGENT | ADMIN. Estado: active | inactive.
+    async setUserAccess(uid, { role, status }) {
+        if (!this.hasPermission(this.Permissions.MANAGE_USERS)) return { success: false, reason: "permission" };
+        if (window.auth && window.auth.currentUser && window.auth.currentUser.uid === uid) {
+            return { success: false, reason: "self" };
+        }
+        const patch = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (role !== undefined) {
+            if (![this.Roles.AGENT, this.Roles.ADMIN].includes(role)) return { success: false, reason: "invalid_role" };
+            patch.role = role;
+        }
+        if (status !== undefined) {
+            if (!["active", "inactive"].includes(status)) return { success: false, reason: "invalid_status" };
+            patch.status = status;
+        }
+        try {
+            await window.db.collection("users").doc(uid).update(patch);
+            return { success: true };
+        } catch (e) {
+            console.error("[Auth] Error al actualizar usuario:", e);
+            return { success: false, reason: "error", error: e.message || String(e) };
+        }
+    },
     _normalizeUsername(value) {
         return String(value || "").trim().toLowerCase();
     },
@@ -187,7 +322,7 @@ const AuthManager = {
     getUserData() {
         const google = this._getGoogleSession();
         if (google) {
-            return { username: google.email, email: google.email, displayName: google.displayName, role: this.Roles.SUPER_ADMIN, provider: "google" };
+            return { username: google.email, email: google.email, displayName: google.displayName, role: google.role, provider: "google" };
         }
         const username = this.getCurrentUser();
         if (!username) return null;

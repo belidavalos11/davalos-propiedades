@@ -1,35 +1,97 @@
 rules_version = '2';
 
 // Reglas de Firestore - DAVALOS PROPIEDADES
-// Lectura publica del catalogo; escritura SOLO para administradores que inician sesion con Google.
-// Para sumar colaboradores, agregar su Gmail en `adminEmails()` (y en storage.rules / config.js).
+//
+// Modelo: coleccion `users` (id = uid de Firebase Auth) con { email, displayName, photoURL,
+//   role: 'AGENT' | 'ADMIN' | 'SUPER_ADMIN', status: 'pending' | 'active' | 'inactive', createdAt, updatedAt }.
+// - Catalogo (`properties`): lectura publica; crear/editar solo miembros con status == 'active'.
+//   Borrar (y `deleted_properties`) solo ADMIN / SUPER_ADMIN activos.
+// - `users`: cada persona puede leer su propio perfil y crear SU solicitud (pending / AGENT);
+//   solo el SUPER_ADMIN lee, aprueba, cambia roles y suspende.
+// - `bootstrapSuperAdmins`: correos que pueden auto-crearse como SUPER_ADMIN activo (y nunca quedan bloqueados).
+//   Mantener sincronizado con SITE_CONFIG.superAdminEmails en config.js y con storage.rules.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function adminEmails() {
+    function bootstrapSuperAdmins() {
       return ['belidavalos.bd@gmail.com'];
     }
 
-    function isAdmin() {
+    function signedInWithGoogle() {
       return request.auth != null
         && request.auth.token.firebase.sign_in_provider == 'google.com'
-        && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() in adminEmails();
+        && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrapSuperAdmin() {
+      return signedInWithGoogle()
+        && request.auth.token.email.lower() in bootstrapSuperAdmins();
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasProfile() {
+      return exists(profilePath());
+    }
+
+    function isActiveMember() {
+      return signedInWithGoogle()
+        && (isBootstrapSuperAdmin()
+            || (hasProfile() && get(profilePath()).data.status == 'active'));
+    }
+
+    function isSuperAdmin() {
+      return isBootstrapSuperAdmin()
+        || (isActiveMember()
+            && hasProfile()
+            && get(profilePath()).data.role == 'SUPER_ADMIN');
+    }
+
+    function canDelete() {
+      return isSuperAdmin()
+        || (isActiveMember()
+            && hasProfile()
+            && get(profilePath()).data.role in ['ADMIN', 'SUPER_ADMIN']);
+    }
+
+    // Solicitud propia: pending/AGENT. El super admin de arranque puede crearse activo.
+    function validSelfCreate() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'displayName', 'photoURL', 'role', 'status', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['email', 'role', 'status', 'createdAt', 'updatedAt'])
+        && d.email == request.auth.token.email.lower()
+        && d.createdAt == request.time
+        && d.updatedAt == request.time
+        && ((d.role == 'AGENT' && d.status == 'pending')
+            || (isBootstrapSuperAdmin() && d.role == 'SUPER_ADMIN' && d.status == 'active'));
+    }
+
+    // Una persona solo puede refrescar su nombre/foto; nunca su rol ni su estado.
+    function onlyProfileFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['displayName', 'photoURL', 'updatedAt']);
     }
 
     match /properties/{docId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, update: if isActiveMember();
+      allow delete: if canDelete();
     }
 
     match /deleted_properties/{docId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if canDelete();
     }
 
-    // Coleccion legada de usuarios: solo administradores.
-    match /users/{docId} {
-      allow read, write: if isAdmin();
+    match /users/{userId} {
+      allow get: if signedInWithGoogle() && (request.auth.uid == userId || isSuperAdmin());
+      allow list: if isSuperAdmin();
+      allow create: if signedInWithGoogle() && request.auth.uid == userId && validSelfCreate();
+      allow update: if isSuperAdmin()
+        || (signedInWithGoogle() && request.auth.uid == userId && onlyProfileFieldsChanged());
+      allow delete: if isSuperAdmin();
     }
 
     match /{document=**} {

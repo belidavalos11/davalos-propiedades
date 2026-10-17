@@ -192,16 +192,13 @@ const SITE_CONFIG = {
         }
     ],
 
-    // 9. Administradores autorizados (inicio de sesion con Google).
-    // El primer correo es el administrador principal. Para sumar colaboradores:
-    //   1) agregar su Gmail a este array,
-    //   2) agregarlo tambien en firestore.rules y storage.rules (lista `adminEmails`),
-    //   3) y en la variable de entorno ADMIN_EMAILS de Vercel (separados por coma).
-    // IMPORTANTE: este array solo controla la interfaz; la seguridad real la imponen las reglas de Firebase.
-    adminEmails: [
+    // 9. Super administradores (se auto-inicializan como SUPER_ADMIN activos al iniciar sesion con Google).
+    // El resto del equipo (Asesores / Admins) se gestiona desde la web: "Gestionar Equipo".
+    // Para sumar otro super admin "de arranque", agregar su Gmail aqui Y en firestore.rules / storage.rules
+    // (lista `bootstrapSuperAdmins`). La seguridad real la imponen las reglas de Firebase, no este array.
+    superAdminEmails: [
         "belidavalos.bd@gmail.com"
-    ]
-};
+    ]};
 
 window.SITE_CONFIG = SITE_CONFIG;
 

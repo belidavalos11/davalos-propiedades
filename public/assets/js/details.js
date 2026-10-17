@@ -732,10 +732,9 @@ if (btnGoogleLogin) {
             loginModal.style.display = "none";
             document.body.style.overflow = "auto";
             window.location.reload(); // Reload to show admin features
-        } else if (res.reason === "unauthorized") {
-            alert(`La cuenta ${res.email || ""} no está autorizada para administrar este sitio.`);
-        } else if (res.reason !== "cancelled") {
-            alert("No se pudo iniciar sesión con Google. Intentá nuevamente.");
+        } else {
+            const msg = window.AuthManager.describeLoginFailure(res);
+            if (msg) alert(msg);
         }
     };
 }

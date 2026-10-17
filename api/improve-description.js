@@ -2,18 +2,20 @@
 // Variables de entorno (Vercel > Settings > Environment Variables):
 //   GEMINI_API_KEY  (obligatoria)  -> https://aistudio.google.com/apikey
 //   GEMINI_MODEL    (opcional)     -> por defecto "gemini-2.5-flash"
-//   ADMIN_EMAILS    (opcional)     -> correos separados por coma; por defecto el admin principal
+//   SUPER_ADMIN_EMAILS (opcional)  -> correos separados por coma que siempre tienen acceso; por defecto el super admin principal
 //   FIREBASE_API_KEY(opcional)     -> apiKey web de Firebase (ya publica en firebase-config.js)
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "belidavalos.bd@gmail.com")
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "belidavalos.bd@gmail.com")
     .split(",")
     .map(s => s.trim().toLowerCase())
     .filter(Boolean);
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || "AIzaSyDPGbevUGWbV37d88OcNjZpIhA2nOJggaA";
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "davalos-propiedades";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-// Valida el ID token de Firebase y exige que sea un admin autorizado (evita uso abusivo de la API key).
-async function verifyAdmin(idToken) {
+// Valida el ID token de Firebase y exige un miembro activo (users/{uid}.status == 'active').
+// El perfil se lee con el propio token del usuario, asi que tambien lo validan las reglas de Firestore.
+async function verifyActiveMember(idToken) {
     const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -23,9 +25,16 @@ async function verifyAdmin(idToken) {
     const data = await res.json();
     const user = data.users && data.users[0];
     if (!user || !user.emailVerified) return false;
-    return ADMIN_EMAILS.includes(String(user.email || "").toLowerCase());
-}
+    if (SUPER_ADMIN_EMAILS.includes(String(user.email || "").toLowerCase())) return true;
 
+    const docRes = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${user.localId}`,
+        { headers: { Authorization: `Bearer ${idToken}` } }
+    );
+    if (!docRes.ok) return false;
+    const doc = await docRes.json();
+    return Boolean(doc.fields && doc.fields.status && doc.fields.status.stringValue === "active");
+}
 const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
 
 function buildPrompt(d) {
@@ -71,7 +80,7 @@ module.exports = async function handler(req, res) {
 
     const authHeader = String(req.headers.authorization || "");
     const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-    if (!idToken || !(await verifyAdmin(idToken).catch(() => false))) {
+    if (!idToken || !(await verifyActiveMember(idToken).catch(() => false))) {
         return res.status(401).json({ error: "No autorizado" });
     }
 

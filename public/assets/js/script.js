@@ -95,6 +95,8 @@ let localProperties = [];
 let currentEditingId = null;
 let currentEditingUsername = null;
 let selectedPropertyTypes = [];
+// Gestion de equipo (solo SUPER_ADMIN)
+const teamState = { users: [], tab: "pending", unsub: null, error: false };
 
 // Utility
 function escapeHtml(value) {
@@ -149,13 +151,19 @@ function updateAuthUI() {
         // Also handle the user mgmt toggle button inside settings
         const btnToggleUserMgmt = document.getElementById("btn-toggle-user-mgmt");
         if (btnToggleUserMgmt) {
-            btnToggleUserMgmt.style.display = (logged && manager.hasPermission(manager.Permissions.MANAGE_USERS)) ? "block" : "none";
+            // Legado (usuarios usuario/contrasena): reemplazado por "Gestionar Equipo".
+            btnToggleUserMgmt.style.display = "none";
         }
     }
 
     if (btnAddProperty) {
         btnAddProperty.style.display = (logged && manager.hasPermission(manager.Permissions.UPLOAD_PROPERTY)) ? "block" : "none";
     }
+
+    const btnTeam = document.getElementById("btn-team");
+    const isSuperAdmin = Boolean(logged && manager.hasPermission(manager.Permissions.MANAGE_USERS));
+    if (btnTeam) btnTeam.style.display = isSuperAdmin ? "inline-flex" : "none";
+    if (isSuperAdmin) startTeamWatch(); else stopTeamWatch();
 
     const greeting = document.getElementById("user-greeting");
     if (greeting) {
@@ -175,7 +183,7 @@ function openModal(modal) {
 }
 
 function closeModal() {
-    [loginModal, settingsModal, propertyModal].forEach(m => {
+    [loginModal, settingsModal, propertyModal, document.getElementById("team-modal")].forEach(m => {
         if (m) m.style.display = "none";
     });
     document.body.style.overflow = "auto";
@@ -1214,6 +1222,202 @@ window.togglePropertyAvailability = async function (id) {
     }
 };
 
+// ---- Gestion de Equipo (solo SUPER_ADMIN) ----
+const TEAM_ROLE_LABELS = { AGENT: "Asesor", ADMIN: "Admin", SUPER_ADMIN: "Super Admin" };
+
+function startTeamWatch() {
+    if (teamState.unsub) return;
+    const manager = window.AuthManager;
+    if (!manager) return;
+    teamState.error = false;
+    teamState.unsub = manager.watchTeam(
+        users => { teamState.users = users; teamState.error = false; renderTeam(); },
+        () => { teamState.error = true; renderTeam(); }
+    );
+}
+
+function stopTeamWatch() {
+    if (!teamState.unsub && teamState.users.length === 0) return;
+    if (teamState.unsub) teamState.unsub();
+    teamState.unsub = null;
+    teamState.users = [];
+    renderTeam();
+}
+
+function formatTeamDate(ts) {
+    const d = ts && typeof ts.toDate === "function" ? ts.toDate() : (ts ? new Date(ts) : null);
+    return d && !isNaN(d) ? d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+}
+
+function teamUserHtml(u) {
+    const name = u.displayName || u.email;
+    const initial = escapeHtml(String(name).trim().charAt(0).toUpperCase() || "?");
+    const photo = safeImageUrl(u.photoURL || "");
+    const img = photo
+        ? `<img class="team-avatar-img" src="${escapeHtml(photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+        : "";
+    return `
+        <div class="team-user">
+            <span class="team-avatar"><span class="team-avatar-fallback">${initial}</span>${img}</span>
+            <div class="team-user-text">
+                <strong>${escapeHtml(name)}</strong>
+                <span>${escapeHtml(u.email)}</span>
+            </div>
+        </div>`;
+}
+
+function teamSortByDate(a, b) {
+    const t = x => (x.createdAt && typeof x.createdAt.toMillis === "function") ? x.createdAt.toMillis() : 0;
+    return t(b) - t(a);
+}
+
+function renderTeam() {
+    const modal = document.getElementById("team-modal");
+    const btnTeam = document.getElementById("btn-team");
+    const me = window.auth && window.auth.currentUser ? window.auth.currentUser.uid : null;
+
+    const pending = teamState.users.filter(u => u.status === "pending").sort(teamSortByDate);
+    const active = teamState.users.filter(u => u.status === "active").sort(teamSortByDate);
+    const inactive = teamState.users.filter(u => u.status === "inactive").sort(teamSortByDate);
+
+    if (btnTeam) {
+        let badge = btnTeam.querySelector(".team-badge");
+        if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "team-badge";
+            btnTeam.appendChild(badge);
+        }
+        badge.textContent = String(pending.length);
+        badge.style.display = pending.length ? "inline-block" : "none";
+    }
+
+    if (!modal) return;
+    const counts = { pending: pending.length, active: active.length, inactive: inactive.length };
+    modal.querySelectorAll("[data-team-tab]").forEach(btn => {
+        const key = btn.dataset.teamTab;
+        btn.classList.toggle("active", key === teamState.tab);
+        const c = btn.querySelector(".team-tab-count");
+        if (c) c.textContent = String(counts[key] ?? 0);
+    });
+    ["pending", "active", "inactive"].forEach(key => {
+        const panel = document.getElementById(`team-panel-${key}`);
+        if (panel) panel.hidden = key !== teamState.tab;
+    });
+
+    const setPanel = (key, html) => {
+        const panel = document.getElementById(`team-panel-${key}`);
+        if (panel) panel.innerHTML = html;
+    };
+    const empty = text => `<p class="team-empty">${text}</p>`;
+
+    if (teamState.error) {
+        const msg = empty("No se pudo cargar el equipo. Verificá que las reglas de Firestore estén publicadas y que tu cuenta sea Super Admin.");
+        setPanel("pending", msg); setPanel("active", msg); setPanel("inactive", msg);
+        return;
+    }
+
+    setPanel("pending", pending.length ? `<div class="team-cards">${pending.map(u => `
+        <div class="team-card">
+            ${teamUserHtml(u)}
+            <div class="team-meta">Solicitó acceso el ${formatTeamDate(u.createdAt)}</div>
+            <div class="team-actions">
+                <button type="button" class="btn btn-primary btn-small" data-team-action="approve-agent" data-uid="${escapeHtml(u.uid)}">Aprobar como Asesor</button>
+                <button type="button" class="btn btn-outline btn-small" data-team-action="approve-admin" data-uid="${escapeHtml(u.uid)}">Aprobar como Admin</button>
+                <button type="button" class="btn-team-danger" data-team-action="reject" data-uid="${escapeHtml(u.uid)}">Rechazar</button>
+            </div>
+        </div>`).join("")}</div>` : empty("No hay solicitudes pendientes."));
+
+    setPanel("active", active.length ? `<div class="team-table-wrap"><table class="team-table">
+        <thead><tr><th>Miembro</th><th>Rol</th><th>Desde</th><th></th></tr></thead>
+        <tbody>${active.map(u => {
+            const locked = u.role === "SUPER_ADMIN" || u.uid === me;
+            const roleCell = locked
+                ? `<span class="team-role-tag">${TEAM_ROLE_LABELS[u.role] || escapeHtml(u.role || "")}</span>`
+                : `<select class="team-role-select" data-team-role data-uid="${escapeHtml(u.uid)}" aria-label="Rol">
+                        <option value="AGENT"${u.role === "AGENT" ? " selected" : ""}>Asesor</option>
+                        <option value="ADMIN"${u.role === "ADMIN" ? " selected" : ""}>Admin</option>
+                   </select>`;
+            const action = locked
+                ? ""
+                : `<button type="button" class="btn-team-danger" data-team-action="suspend" data-uid="${escapeHtml(u.uid)}">Suspender</button>`;
+            return `<tr><td>${teamUserHtml(u)}</td><td>${roleCell}</td><td>${formatTeamDate(u.createdAt)}</td><td class="team-actions-cell">${action}</td></tr>`;
+        }).join("")}</tbody></table></div>` : empty("Todavía no hay miembros activos."));
+
+    setPanel("inactive", inactive.length ? `<div class="team-table-wrap"><table class="team-table">
+        <thead><tr><th>Miembro</th><th>Rol</th><th>Desde</th><th></th></tr></thead>
+        <tbody>${inactive.map(u => `
+            <tr><td>${teamUserHtml(u)}</td>
+            <td><span class="team-role-tag">${TEAM_ROLE_LABELS[u.role] || escapeHtml(u.role || "")}</span></td>
+            <td>${formatTeamDate(u.createdAt)}</td>
+            <td class="team-actions-cell"><button type="button" class="btn btn-outline btn-small" data-team-action="reactivate" data-uid="${escapeHtml(u.uid)}">Reactivar</button></td></tr>`).join("")}
+        </tbody></table></div>` : empty("No hay usuarios inactivos."));
+}
+
+function teamErrorMessage(res) {
+    if (res.reason === "self") return "No podés modificar tu propia cuenta.";
+    if (res.reason === "permission") return "No tenés permisos para gestionar el equipo.";
+    return "No se pudo guardar el cambio. Verificá tu conexión y las reglas de Firestore.";
+}
+
+async function handleTeamAction(action, uid, btn) {
+    const user = teamState.users.find(u => u.uid === uid);
+    if (!user) return;
+    const name = user.displayName || user.email;
+    let patch;
+    let confirmMsg = "";
+    switch (action) {
+        case "approve-agent": patch = { role: "AGENT", status: "active" }; break;
+        case "approve-admin": patch = { role: "ADMIN", status: "active" }; break;
+        case "reject": patch = { status: "inactive" }; confirmMsg = `¿Rechazar la solicitud de ${name}?`; break;
+        case "suspend": patch = { status: "inactive" }; confirmMsg = `¿Suspender el acceso de ${name}?`; break;
+        case "reactivate": patch = { role: ["AGENT", "ADMIN"].includes(user.role) ? user.role : "AGENT", status: "active" }; break;
+        default: return;
+    }
+    if (confirmMsg && !confirm(confirmMsg)) return;
+    btn.disabled = true;
+    const res = await window.AuthManager.setUserAccess(uid, patch);
+    if (!res.success) {
+        btn.disabled = false;
+        alert(teamErrorMessage(res));
+    }
+}
+
+async function handleTeamRoleChange(uid, role, select) {
+    select.disabled = true;
+    const res = await window.AuthManager.setUserAccess(uid, { role });
+    select.disabled = false;
+    if (!res.success) {
+        alert(teamErrorMessage(res));
+        renderTeam(); // revertir el desplegable al valor real
+    }
+}
+
+function initTeamModule() {
+    const btnTeam = document.getElementById("btn-team");
+    const modal = document.getElementById("team-modal");
+    if (!btnTeam || !modal) return;
+    btnTeam.onclick = () => { renderTeam(); openModal(modal); };
+    modal.addEventListener("click", async e => {
+        if (e.target === modal) { closeModal(); return; }
+        const tabBtn = e.target.closest("[data-team-tab]");
+        if (tabBtn) { teamState.tab = tabBtn.dataset.teamTab; renderTeam(); return; }
+        const actionBtn = e.target.closest("[data-team-action]");
+        if (actionBtn) await handleTeamAction(actionBtn.dataset.teamAction, actionBtn.dataset.uid, actionBtn);
+    });
+    modal.addEventListener("change", async e => {
+        const select = e.target.closest("select[data-team-role]");
+        if (select) await handleTeamRoleChange(select.dataset.uid, select.value, select);
+    });
+}
+
+function showLoginMessage(text, type) {
+    const el = document.getElementById("login-message");
+    if (!el) { if (text) alert(text); return; }
+    el.textContent = text || "";
+    el.className = `login-message ${type || "error"}`;
+    el.hidden = !text;
+}
+
 // ---- Mejorar descripcion con IA ----
 function collectDescriptionContext() {
     const val = id => (document.getElementById(id)?.value || "").trim();
@@ -1671,14 +1875,17 @@ function bindEvents() {
     const btnGoogleLogin = document.getElementById("btn-google-login");
     if (btnGoogleLogin) {
         btnGoogleLogin.onclick = async () => {
+            showLoginMessage("");
             btnGoogleLogin.disabled = true;
             const res = await window.AuthManager.loginWithGoogle();
             btnGoogleLogin.disabled = false;
-            if (res.success) { closeModal(); updateAuthUI(); applyFilters(); }
-            else if (res.reason === "unauthorized") { alert(`La cuenta ${res.email || ""} no está autorizada para administrar este sitio.`); }
-            else if (res.reason !== "cancelled") { alert("No se pudo iniciar sesión con Google. Intentá nuevamente."); }
+            if (res.success) { closeModal(); updateAuthUI(); applyFilters(); return; }
+            const msg = window.AuthManager.describeLoginFailure(res);
+            if (msg) showLoginMessage(msg, res.reason === "pending" ? "info" : "error");
         };
     }
+
+    initTeamModule();
 
     const btnImproveAi = document.getElementById("btn-improve-ai");
     if (btnImproveAi) {
