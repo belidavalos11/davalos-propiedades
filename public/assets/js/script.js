@@ -181,56 +181,99 @@ function closeModal() {
     document.body.style.overflow = "auto";
 }
 
-// Logic - Data Loading
-async function loadProperties() {
-    if (window.showLoader) window.showLoader();
+// Skeleton de carga mientras se obtienen los documentos
+function renderPropertySkeletons() {
+    const skeletonCard = `
+        <article class="property-card property-skeleton" aria-hidden="true">
+            <div class="skeleton-block skeleton-image"></div>
+            <div class="property-info">
+                <div class="skeleton-block skeleton-line skeleton-price"></div>
+                <div class="skeleton-block skeleton-line"></div>
+                <div class="skeleton-block skeleton-line skeleton-short"></div>
+            </div>
+        </article>`;
+    if (grid) grid.innerHTML = skeletonCard.repeat(6);
+    const track = document.getElementById("featured-carousel-track");
+    if (track) track.innerHTML = skeletonCard.repeat(3);
+}
+
+// Lee la colección de Firestore (Compat). Rechaza si no hay conexión, excede el tiempo o viene vacía.
+async function fetchPropertiesFromFirestore(timeoutMs = 8000) {
+    if (!window.db) throw new Error("Firestore no está inicializado");
+    const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout al consultar Firestore")), timeoutMs)
+    );
+    const snapshot = await Promise.race([window.db.collection("properties").get(), timeout]);
+    const list = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
+    if (list.length === 0) throw new Error("La colección 'properties' está vacía");
+    return list;
+}
+
+// Respaldo local: data/properties.json (+ ocultamiento de propiedades base eliminadas, si Firestore responde)
+async function fetchPropertiesFromJson() {
+    const response = await fetch(DATA_URL, { cache: "no-store" });
+    if (!response.ok) throw new Error(`No se pudo leer ${DATA_URL} (${response.status})`);
+    const payload = await response.json();
+    const jsonList = Array.isArray(payload?.properties) ? payload.properties : [];
+
+    let deletedIds = [];
     try {
-        // 1. Fetch from JSON (Base Catalog)
-        const response = await fetch(DATA_URL, { cache: "no-store" });
-        let jsonList = [];
-        if (response.ok) {
-            const payload = await response.json();
-            jsonList = Array.isArray(payload?.properties) ? payload.properties : [];
-        }
-
-        // 2. Load from Firestore (User's additions)
-        let firebaseList = [];
-        if (window.db) {
-            const snapshot = await window.db.collection("properties").get();
-            firebaseList = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
-        }
-
-        // 3. Load Deleted IDs from Firestore
-        let deletedIds = [];
         if (window.db) {
             const delSnapshot = await window.db.collection("deleted_properties").get();
             deletedIds = delSnapshot.docs.map(doc => doc.id);
         }
-
-        // 4. Merge and Normalize
-        // We use firebaseId as the primary key if available, otherwise numeric id
-        const allRaw = [...firebaseList, ...jsonList];
-
-        properties = allRaw
-            .map(p => normalizeProperty(p))
-            .filter(p => p && !deletedIds.includes(String(p.id)))
-            .sort((a, b) => b.createdAtTs - a.createdAtTs);
-
-        renderPropertyCategories();
-        updateActiveTypeUI();
-        applyFilters();
-    } catch (error) {
-        console.error("Error loading properties:", error);
-        grid.innerHTML = `<div class="no-results"><h3>Error de carga</h3><p>No se pudieron sincronizar las propiedades.</p></div>`;
+    } catch (_) {
+        // Sin conexión: se muestra el JSON completo
     }
+    return jsonList.filter(p => !deletedIds.includes(String(p?.id)));
+}
+
+// Logic - Data Loading
+async function loadProperties() {
+    if (window.showLoader) window.showLoader();
+    renderPropertySkeletons();
+
+    let rawList = [];
+    try {
+        // 1. Fuente principal: Firestore
+        rawList = await fetchPropertiesFromFirestore();
+    } catch (firestoreError) {
+        console.warn("Firestore no disponible, usando respaldo local:", firestoreError);
+        try {
+            // 2. Fallback: JSON local (nunca se mezcla con Firestore)
+            rawList = await fetchPropertiesFromJson();
+        } catch (jsonError) {
+            console.error("Error loading properties:", jsonError);
+            grid.innerHTML = `<div class="no-results"><h3>Error de carga</h3><p>No se pudieron sincronizar las propiedades.</p></div>`;
+            const track = document.getElementById("featured-carousel-track");
+            if (track) track.innerHTML = "";
+            return;
+        }
+    }
+
+    properties = rawList
+        .map(p => normalizeProperty(p))
+        .filter(Boolean)
+        .sort((a, b) => b.createdAtTs - a.createdAtTs);
+
+    renderPropertyCategories();
+    updateActiveTypeUI();
+    applyFilters();
 }
 
 function normalizeProperty(prop) {
     if (!prop || typeof prop !== "object") return null;
     const id = prop.id || Date.now();
     const title = String(prop.title || "").trim();
-    const operation = String(prop.operation || prop.category || "venta").trim().toLowerCase();
-    const type = String(prop.type || "").trim().toLowerCase();
+
+    // En Firestore `type` puede ser la operación (venta/alquiler) y `propertyType` el tipo de inmueble.
+    // En el JSON legado `type` es el tipo de inmueble y `operation`/`category` la operación.
+    const OPERATIONS = ["venta", "alquiler", "alquiler temporal", "temporal"];
+    const rawType = String(prop.type || "").trim().toLowerCase();
+    const typeIsOperation = OPERATIONS.includes(rawType);
+    const operation = String(prop.operation || prop.category || (typeIsOperation ? rawType : "") || "venta").trim().toLowerCase();
+    const type = String(prop.propertyType || (typeIsOperation ? "" : rawType)).trim().toLowerCase();
+
     const price = Number(prop.price) || 0;
     const currency = String(prop.currency || "USD").trim().toUpperCase();
     const location = String(prop.location || window.SITE_CONFIG?.contact?.city || "Salta").trim();
@@ -239,14 +282,20 @@ function normalizeProperty(prop) {
 
     const featObj = (prop.features && typeof prop.features === "object" && !Array.isArray(prop.features)) ? prop.features : {};
     const rooms = Number(featObj.rooms ?? prop.rooms) || null;
-    const baths = Number(featObj.baths ?? prop.baths) || null;
+    const baths = Number(featObj.baths ?? featObj.bathrooms ?? prop.baths ?? prop.bathrooms) || null;
     const areaTotal = Number(featObj.areaTotal ?? prop.areaTotal ?? prop.area) || null;
-    const areaBuilt = Number(featObj.areaBuilt ?? prop.areaBuilt) || null;
+    const areaBuilt = Number(featObj.areaBuilt ?? featObj.areaCovered ?? prop.areaBuilt ?? prop.areaCovered) || null;
     const garage = Number(featObj.garage ?? prop.garage) || null;
 
     const images = (Array.isArray(prop.images) ? prop.images : [])
         .map(img => safeImageUrl(img))
         .filter(Boolean);
+
+    // Contacto del asesor: agentWhatsapp/agentPhone del documento tienen prioridad;
+    // si no vienen, getPropertyAgent (config.js) resuelve por agentId con fallback al número general.
+    const agentWhatsapp = String(prop.agentWhatsapp || prop.agentPhone || "").replace(/\D/g, "");
+
+    const featured = prop.featured === true || String(prop.featured).toLowerCase() === "true";
 
     return {
         ...prop,
@@ -259,7 +308,9 @@ function normalizeProperty(prop) {
         currency,
         location,
         description,
+        featured,
         agentId: String(prop.agentId || "").trim(),
+        agentWhatsapp,
         rooms,
         baths,
         areaTotal,
@@ -551,61 +602,13 @@ function getFeaturedProperties(allProps) {
     const available = (allProps || []).filter(isPropertyAvailable);
     if (available.length === 0) return [];
 
-    const targetCount = Math.min(FEATURED_MAX_COUNT, available.length);
-    const currentSlot = Math.floor(Date.now() / SIX_HOURS_MS);
-    lastFeaturedSlot = currentSlot;
+    lastFeaturedSlot = Math.floor(Date.now() / SIX_HOURS_MS);
 
-    let selectedIds = [];
-    try {
-        const raw = localStorage.getItem(FEATURED_STORAGE_KEY);
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && parsed.slot === currentSlot && Array.isArray(parsed.ids)) {
-                selectedIds = parsed.ids.map(String);
-            }
-        }
-    } catch (_) {
-        selectedIds = [];
-    }
-
-    // Mapear los IDs guardados que sigan disponibles actualmente
-    const selectedProps = [];
-    const usedIds = new Set();
-    selectedIds.forEach(savedId => {
-        const found = available.find(p => String(p.id) === savedId);
-        if (found && !usedIds.has(String(found.id))) {
-            selectedProps.push(found);
-            usedIds.add(String(found.id));
-        }
-    });
-
-    // Si el bloque de 6 horas cambió o faltan propiedades para llegar a 5, completar al azar (Fisher-Yates)
-    if (selectedProps.length < targetCount) {
-        const remaining = available.filter(p => !usedIds.has(String(p.id)));
-        for (let i = remaining.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            const tmp = remaining[i];
-            remaining[i] = remaining[j];
-            remaining[j] = tmp;
-        }
-        while (selectedProps.length < targetCount && remaining.length > 0) {
-            const nextProp = remaining.shift();
-            selectedProps.push(nextProp);
-            usedIds.add(String(nextProp.id));
-        }
-
-        try {
-            localStorage.setItem(FEATURED_STORAGE_KEY, JSON.stringify({
-                slot: currentSlot,
-                updatedAt: new Date().toISOString(),
-                ids: selectedProps.map(p => String(p.id))
-            }));
-        } catch (_) {
-            // Ignorar si localStorage está bloqueado
-        }
-    }
-
-    return selectedProps.slice(0, targetCount);
+    // Prioridad: propiedades marcadas con featured: true en Firestore.
+    // Si no hay ninguna, se muestran las primeras del catálogo.
+    const flagged = available.filter(p => p.featured === true);
+    const source = flagged.length > 0 ? flagged : available;
+    return source.slice(0, FEATURED_MAX_COUNT);
 }
 
 function hasActiveFilters() {

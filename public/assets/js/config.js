@@ -215,7 +215,7 @@ window.normalizeWhatsappPhone = function (raw) {
 };
 
 // Obtiene el agente asignado a una propiedad (por agentId, por nombre legacy o usuarios dinámicos) con fallback a defaultAgent
-window.getPropertyAgent = function (prop) {
+const resolvePropertyAgentByConfig = function (prop) {
     const cfg = window.SITE_CONFIG || {};
     const agents = Array.isArray(cfg.agents) ? cfg.agents : [];
     const fallback = cfg.defaultAgent || {
@@ -273,6 +273,15 @@ window.getPropertyAgent = function (prop) {
     }
 
     return fallback;
+};
+
+// Wrapper público: si el documento trae agentWhatsapp/agentPhone, ese número tiene prioridad;
+// el nombre, rol, etc. se resuelven por agentId (o por defaultAgent si no coincide).
+window.getPropertyAgent = function (prop) {
+    const agent = resolvePropertyAgentByConfig(prop);
+    const directPhone = String(prop?.agentWhatsapp || prop?.agentPhone || "").replace(/\D/g, "");
+    if (!directPhone) return agent;
+    return { ...agent, whatsapp: window.normalizeWhatsappPhone(directPhone), phone: prop.agentPhone || agent.phone };
 };
 
 // Helper centralizado para generar el enlace de WhatsApp apuntando al vendedor de la propiedad
