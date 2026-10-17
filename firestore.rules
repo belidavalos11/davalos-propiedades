@@ -1,97 +1,112 @@
 rules_version = '2';
 
-// Reglas de Firestore - DAVALOS PROPIEDADES
-//
-// Modelo: coleccion `users` (id = uid de Firebase Auth) con { email, displayName, photoURL,
-//   role: 'AGENT' | 'ADMIN' | 'SUPER_ADMIN', status: 'pending' | 'active' | 'inactive', createdAt, updatedAt }.
-// - Catalogo (`properties`): lectura publica; crear/editar solo miembros con status == 'active'.
-//   Borrar (y `deleted_properties`) solo ADMIN / SUPER_ADMIN activos.
-// - `users`: cada persona puede leer su propio perfil y crear SU solicitud (pending / AGENT);
-//   solo el SUPER_ADMIN lee, aprueba, cambia roles y suspende.
-// - `bootstrapSuperAdmins`: correos que pueden auto-crearse como SUPER_ADMIN activo (y nunca quedan bloqueados).
-//   Mantener sincronizado con SITE_CONFIG.superAdminEmails en config.js y con storage.rules.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function bootstrapSuperAdmins() {
-      return ['belidavalos.bd@gmail.com'];
-    }
-
+    // ---------- Helpers (sin correos fijos: todo sale de users/{uid}) ----------
     function signedInWithGoogle() {
       return request.auth != null
         && request.auth.token.firebase.sign_in_provider == 'google.com'
         && request.auth.token.email_verified == true;
     }
 
-    function isBootstrapSuperAdmin() {
-      return signedInWithGoogle()
-        && request.auth.token.email.lower() in bootstrapSuperAdmins();
-    }
-
     function profilePath() {
       return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function bootstrapPath() {
+      return /databases/$(database)/documents/meta/bootstrap;
     }
 
     function hasProfile() {
       return exists(profilePath());
     }
 
+    function myProfile() {
+      return get(profilePath()).data;
+    }
+
     function isActiveMember() {
-      return signedInWithGoogle()
-        && (isBootstrapSuperAdmin()
-            || (hasProfile() && get(profilePath()).data.status == 'active'));
+      return signedInWithGoogle() && hasProfile() && myProfile().status == 'active';
     }
 
     function isSuperAdmin() {
-      return isBootstrapSuperAdmin()
-        || (isActiveMember()
-            && hasProfile()
-            && get(profilePath()).data.role == 'SUPER_ADMIN');
+      return isActiveMember() && myProfile().role == 'SUPER_ADMIN';
     }
 
-    function canDelete() {
-      return isSuperAdmin()
-        || (isActiveMember()
-            && hasProfile()
-            && get(profilePath()).data.role in ['ADMIN', 'SUPER_ADMIN']);
+    function canManageProperties() {
+      return isActiveMember() && myProfile().role in ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
     }
 
-    // Solicitud propia: pending/AGENT. El super admin de arranque puede crearse activo.
-    function validSelfCreate() {
+    function canDeleteProperties() {
+      return isActiveMember() && myProfile().role in ['SUPER_ADMIN', 'ADMIN'];
+    }
+
+    // Perfil nuevo propio, con el rol/estado indicados.
+    function validNewProfile(role, status) {
       let d = request.resource.data;
       return d.keys().hasOnly(['email', 'displayName', 'photoURL', 'role', 'status', 'createdAt', 'updatedAt'])
         && d.keys().hasAll(['email', 'role', 'status', 'createdAt', 'updatedAt'])
         && d.email == request.auth.token.email.lower()
+        && d.role == role
+        && d.status == status
         && d.createdAt == request.time
-        && d.updatedAt == request.time
-        && ((d.role == 'AGENT' && d.status == 'pending')
-            || (isBootstrapSuperAdmin() && d.role == 'SUPER_ADMIN' && d.status == 'active'));
+        && d.updatedAt == request.time;
     }
 
-    // Una persona solo puede refrescar su nombre/foto; nunca su rol ni su estado.
+    // Cada persona solo puede refrescar su nombre/foto; nunca su rol ni su estado.
     function onlyProfileFieldsChanged() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['displayName', 'photoURL', 'updatedAt']);
     }
 
+    function validRoleAndStatus() {
+      return request.resource.data.role in ['AGENT', 'ADMIN', 'SUPER_ADMIN']
+        && request.resource.data.status in ['pending', 'active', 'inactive'];
+    }
+
+    // ---------- Catalogo ----------
     match /properties/{docId} {
       allow read: if true;
-      allow create, update: if isActiveMember();
-      allow delete: if canDelete();
+      allow create, update: if canManageProperties();
+      allow delete: if canDeleteProperties();
     }
 
     match /deleted_properties/{docId} {
       allow read: if true;
-      allow write: if canDelete();
+      allow write: if canDeleteProperties();
     }
 
+    // ---------- Usuarios y roles ----------
     match /users/{userId} {
+      // Cada persona lee su propio perfil; el SUPER_ADMIN activo lee y lista todos.
       allow get: if signedInWithGoogle() && (request.auth.uid == userId || isSuperAdmin());
       allow list: if isSuperAdmin();
-      allow create: if signedInWithGoogle() && request.auth.uid == userId && validSelfCreate();
-      allow update: if isSuperAdmin()
+
+      // Solicitud propia (AGENT / pending) o reclamo de arranque (SUPER_ADMIN / active) si nadie lo reclamo aun.
+      // El reclamo exige crear meta/bootstrap en el mismo lote (existsAfter), lo que sella el arranque.
+      allow create: if signedInWithGoogle()
+        && request.auth.uid == userId
+        && (validNewProfile('AGENT', 'pending')
+            || (validNewProfile('SUPER_ADMIN', 'active')
+                && !exists(bootstrapPath())
+                && existsAfter(bootstrapPath())));
+
+      // Solo un SUPER_ADMIN activo asigna roles/estados (a otras cuentas, nunca a la propia).
+      allow update: if (isSuperAdmin() && request.auth.uid != userId && validRoleAndStatus())
         || (signedInWithGoogle() && request.auth.uid == userId && onlyProfileFieldsChanged());
-      allow delete: if isSuperAdmin();
+
+      allow delete: if isSuperAdmin() && request.auth.uid != userId;
+    }
+
+    // Marcador de arranque: se crea una sola vez (por el primer usuario o por un SUPER_ADMIN existente).
+    match /meta/bootstrap {
+      allow get: if signedInWithGoogle();
+      allow create: if signedInWithGoogle()
+        && getAfter(profilePath()).data.role == 'SUPER_ADMIN'
+        && getAfter(profilePath()).data.status == 'active'
+        && (isSuperAdmin() || !hasProfile());
+      allow update, delete: if false;
     }
 
     match /{document=**} {

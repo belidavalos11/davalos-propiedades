@@ -32,6 +32,9 @@ const AuthManager = {
     ],
 
     _sessionHours: 12,
+    // Perfil del usuario logueado (users/{uid}): unica fuente de rol y estado. { uid, email, displayName, photoURL, role, status }
+    currentUserProfile: null,
+    _profileUnsub: null,
     _readyPromise: null,
 
     _init() {
@@ -103,51 +106,74 @@ const AuthManager = {
 
     // ---- Google Sign-In + perfiles en Firestore (coleccion `users`, id = uid) ----
     // status: 'pending' | 'active' | 'inactive'  -  role: 'AGENT' | 'ADMIN' | 'SUPER_ADMIN'
-    isSuperAdminEmail(email) {
-        const list = (window.SITE_CONFIG && window.SITE_CONFIG.superAdminEmails) || [];
-        const target = String(email || "").trim().toLowerCase();
-        return Boolean(target) && list.some(e => String(e).trim().toLowerCase() === target);
-    },
-
+    // No hay correos fijos: los permisos salen siempre del perfil en Firestore (ver firestore.rules).
     async _fetchUserProfile(user) {
         const snap = await window.db.collection("users").doc(user.uid).get();
         return snap.exists ? snap.data() : null;
     },
 
-    // Crea el perfil si no existe (pending, o SUPER_ADMIN activo para el super admin de arranque).
+    // Crea el perfil si no existe.
+    //  - Arranque: si nadie reclamo todavia SUPER_ADMIN (no existe meta/bootstrap), el primer usuario lo obtiene
+    //    (lote atomico perfil + marcador) y el arranque queda sellado.
+    //  - Resto: solicitud 'pending' con rol AGENT, a la espera de aprobacion del Super Admin.
     async _ensureUserProfile(user) {
-        const ref = window.db.collection("users").doc(user.uid);
+        const db = window.db;
+        const ref = db.collection("users").doc(user.uid);
+        const markerRef = db.collection("meta").doc("bootstrap");
         const ts = firebase.firestore.FieldValue.serverTimestamp();
         const email = String(user.email || "").trim().toLowerCase();
         const base = { email, displayName: user.displayName || email, photoURL: user.photoURL || "" };
-        const isOwner = this.isSuperAdminEmail(email);
         const snap = await ref.get();
 
-        if (!snap.exists) {
-            const profile = {
-                ...base,
-                role: isOwner ? this.Roles.SUPER_ADMIN : this.Roles.AGENT,
-                status: isOwner ? "active" : "pending",
-                createdAt: ts,
-                updatedAt: ts
-            };
-            await ref.set(profile);
-            return { profile, created: true };
+        if (snap.exists) {
+            const data = snap.data();
+            if (data.status === "active" && data.role === this.Roles.SUPER_ADMIN) {
+                // Sellar el arranque si todavia no estaba (idempotente; solo un SUPER_ADMIN activo puede escribirlo).
+                markerRef.get()
+                    .then(m => (m.exists ? null : markerRef.set({ claimedBy: user.uid, createdAt: ts })))
+                    .catch(() => {});
+            }
+            if (data.displayName !== base.displayName || data.photoURL !== base.photoURL) {
+                ref.update({ displayName: base.displayName, photoURL: base.photoURL, updatedAt: ts }).catch(() => {});
+            }
+            return { profile: data, created: false };
         }
 
-        const data = snap.data();
-        if (isOwner && (data.role !== this.Roles.SUPER_ADMIN || data.status !== "active")) {
-            await ref.update({ role: this.Roles.SUPER_ADMIN, status: "active", updatedAt: ts });
-            return { profile: { ...data, role: this.Roles.SUPER_ADMIN, status: "active" }, created: false };
+        let marker = null;
+        try { marker = await markerRef.get(); } catch (e) { marker = null; }
+        if (marker && !marker.exists) {
+            const profile = { ...base, role: this.Roles.SUPER_ADMIN, status: "active", createdAt: ts, updatedAt: ts };
+            try {
+                const batch = db.batch();
+                batch.set(ref, profile);
+                batch.set(markerRef, { claimedBy: user.uid, createdAt: ts });
+                await batch.commit();
+                return { profile, created: true };
+            } catch (e) {
+                console.warn("[Auth] No se pudo reclamar el arranque; se registra como solicitud:", e);
+            }
         }
-        if (data.displayName !== base.displayName || data.photoURL !== base.photoURL) {
-            ref.update({ displayName: base.displayName, photoURL: base.photoURL, updatedAt: ts }).catch(() => {});
-        }
-        return { profile: data, created: false };
+
+        const profile = { ...base, role: this.Roles.AGENT, status: "pending", createdAt: ts, updatedAt: ts };
+        await ref.set(profile);
+        return { profile, created: true };
+    },
+
+    _applyProfile(uid, profile) {
+        const email = String(profile.email || (this.currentUserProfile && this.currentUserProfile.email) || "").trim().toLowerCase();
+        this.currentUserProfile = {
+            uid,
+            email,
+            displayName: profile.displayName || email,
+            photoURL: profile.photoURL || "",
+            role: profile.role,
+            status: profile.status
+        };
+        localStorage.setItem("davalos_current_user", email);
+        localStorage.setItem("davalos_google_user", JSON.stringify(this.currentUserProfile));
     },
 
     _saveGoogleSession(user, profile, keepTimestamp) {
-        const email = String(user.email || "").trim().toLowerCase();
         let timestamp = Date.now();
         if (keepTimestamp) {
             try {
@@ -156,26 +182,53 @@ const AuthManager = {
             } catch (e) { /* noop */ }
         }
         localStorage.setItem(this._sessionKey(), JSON.stringify({ logged: true, timestamp, provider: "google" }));
-        localStorage.setItem("davalos_current_user", email);
-        localStorage.setItem("davalos_google_user", JSON.stringify({
-            uid: user.uid,
-            email,
-            displayName: profile.displayName || user.displayName || email,
-            photoURL: profile.photoURL || user.photoURL || "",
-            role: profile.role
-        }));
+        this._applyProfile(user.uid, { ...profile, email: profile.email || user.email });
+        this._startProfileWatch(user.uid);
+    },
+
+    // Escucha en vivo el propio perfil: si cambia el rol se actualiza la UI; si se suspende, se cierra la sesion.
+    _startProfileWatch(uid) {
+        this._stopProfileWatch();
+        if (!window.db) return;
+        this._profileUnsub = window.db.collection("users").doc(uid).onSnapshot(
+            snap => {
+                const data = snap.exists ? snap.data() : null;
+                if (!data || data.status !== "active") {
+                    this.logout();
+                    window.location.reload();
+                    return;
+                }
+                const prev = this.currentUserProfile;
+                this._applyProfile(uid, data);
+                if (prev && prev.role !== data.role && typeof window.updateAuthUI === "function") {
+                    window.updateAuthUI();
+                }
+            },
+            err => console.warn("[Auth] No se pudo escuchar el perfil:", err)
+        );
+    },
+
+    _stopProfileWatch() {
+        if (this._profileUnsub) {
+            this._profileUnsub();
+            this._profileUnsub = null;
+        }
     },
 
     _clearGoogleSession() {
+        this._stopProfileWatch();
+        this.currentUserProfile = null;
         localStorage.removeItem(this._sessionKey());
         localStorage.removeItem("davalos_current_user");
         localStorage.removeItem("davalos_google_user");
     },
 
+    // Perfil persistido (para lecturas sincronas antes de que Firebase restaure la sesion).
     _getGoogleSession() {
         try {
             const g = JSON.parse(localStorage.getItem("davalos_google_user") || "null");
-            return g && g.email && Object.values(this.Roles).includes(g.role) ? g : null;
+            const validRole = g && ["AGENT", "ADMIN", "SUPER_ADMIN"].includes(g.role);
+            return g && g.email && validRole && g.status === "active" ? g : null;
         } catch (e) {
             return null;
         }
@@ -220,7 +273,6 @@ const AuthManager = {
             return { success: false, reason: e.code || "error", error: e.message };
         }
     },
-
     // Mensaje para mostrar al usuario segun el resultado de loginWithGoogle (null = no mostrar nada).
     describeLoginFailure(res) {
         switch (res && res.reason) {
@@ -254,7 +306,7 @@ const AuthManager = {
         );
     },
 
-    // Cambia rol y/o estado de un miembro. Rol permitido: AGENT | ADMIN. Estado: active | inactive.
+    // Cambia rol y/o estado de un miembro. Rol: AGENT | ADMIN | SUPER_ADMIN. Estado: active | inactive.
     async setUserAccess(uid, { role, status }) {
         if (!this.hasPermission(this.Permissions.MANAGE_USERS)) return { success: false, reason: "permission" };
         if (window.auth && window.auth.currentUser && window.auth.currentUser.uid === uid) {
@@ -262,7 +314,7 @@ const AuthManager = {
         }
         const patch = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
         if (role !== undefined) {
-            if (![this.Roles.AGENT, this.Roles.ADMIN].includes(role)) return { success: false, reason: "invalid_role" };
+            if (![this.Roles.AGENT, this.Roles.ADMIN, this.Roles.SUPER_ADMIN].includes(role)) return { success: false, reason: "invalid_role" };
             patch.role = role;
         }
         if (status !== undefined) {
@@ -320,7 +372,8 @@ const AuthManager = {
     },
 
     getUserData() {
-        const google = this._getGoogleSession();
+        const live = this.currentUserProfile && this.currentUserProfile.status === "active" ? this.currentUserProfile : null;
+        const google = live || this._getGoogleSession();
         if (google) {
             return { username: google.email, email: google.email, displayName: google.displayName, role: google.role, provider: "google" };
         }
@@ -400,6 +453,8 @@ const AuthManager = {
     },
 
     logout() {
+        this._stopProfileWatch();
+        this.currentUserProfile = null;
         localStorage.removeItem(this._sessionKey());
         localStorage.removeItem("davalos_current_user");
         localStorage.removeItem("davalos_google_user");

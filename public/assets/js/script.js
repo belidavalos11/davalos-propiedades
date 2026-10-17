@@ -1330,12 +1330,13 @@ function renderTeam() {
     setPanel("active", active.length ? `<div class="team-table-wrap"><table class="team-table">
         <thead><tr><th>Miembro</th><th>Rol</th><th>Desde</th><th></th></tr></thead>
         <tbody>${active.map(u => {
-            const locked = u.role === "SUPER_ADMIN" || u.uid === me;
+            const locked = u.uid === me;
             const roleCell = locked
                 ? `<span class="team-role-tag">${TEAM_ROLE_LABELS[u.role] || escapeHtml(u.role || "")}</span>`
                 : `<select class="team-role-select" data-team-role data-uid="${escapeHtml(u.uid)}" aria-label="Rol">
                         <option value="AGENT"${u.role === "AGENT" ? " selected" : ""}>Asesor</option>
                         <option value="ADMIN"${u.role === "ADMIN" ? " selected" : ""}>Admin</option>
+                        <option value="SUPER_ADMIN"${u.role === "SUPER_ADMIN" ? " selected" : ""}>Super Admin</option>
                    </select>`;
             const action = locked
                 ? ""
@@ -1383,6 +1384,14 @@ async function handleTeamAction(action, uid, btn) {
 }
 
 async function handleTeamRoleChange(uid, role, select) {
+    if (role === "SUPER_ADMIN") {
+        const target = teamState.users.find(u => u.uid === uid);
+        const name = target ? (target.displayName || target.email) : "este usuario";
+        if (!confirm(`¿Promover a ${name} a Super Admin? Podrá gestionar el equipo y todos los roles.`)) {
+            renderTeam(); // revertir el desplegable
+            return;
+        }
+    }
     select.disabled = true;
     const res = await window.AuthManager.setUserAccess(uid, { role });
     select.disabled = false;
