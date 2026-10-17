@@ -722,16 +722,20 @@ if (loginClose && loginModal) {
         document.body.style.overflow = "auto";
     };
 }
-if (loginForm) {
-    loginForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const success = await window.AuthManager.login(document.getElementById("username").value, document.getElementById("password").value);
-        if (success) {
+const btnGoogleLogin = document.getElementById("btn-google-login");
+if (btnGoogleLogin) {
+    btnGoogleLogin.onclick = async () => {
+        btnGoogleLogin.disabled = true;
+        const res = await window.AuthManager.loginWithGoogle();
+        btnGoogleLogin.disabled = false;
+        if (res.success) {
             loginModal.style.display = "none";
             document.body.style.overflow = "auto";
             window.location.reload(); // Reload to show admin features
-        } else {
-            alert("Credenciales incorrectas");
+        } else if (res.reason === "unauthorized") {
+            alert(`La cuenta ${res.email || ""} no está autorizada para administrar este sitio.`);
+        } else if (res.reason !== "cancelled") {
+            alert("No se pudo iniciar sesión con Google. Intentá nuevamente.");
         }
     };
 }

@@ -190,6 +190,16 @@ const SITE_CONFIG = {
             email: "irene@davalospropiedades.com.ar",
             photoUrl: ""
         }
+    ],
+
+    // 9. Administradores autorizados (inicio de sesion con Google).
+    // El primer correo es el administrador principal. Para sumar colaboradores:
+    //   1) agregar su Gmail a este array,
+    //   2) agregarlo tambien en firestore.rules y storage.rules (lista `adminEmails`),
+    //   3) y en la variable de entorno ADMIN_EMAILS de Vercel (separados por coma).
+    // IMPORTANTE: este array solo controla la interfaz; la seguridad real la imponen las reglas de Firebase.
+    adminEmails: [
+        "belidavalos.bd@gmail.com"
     ]
 };
 

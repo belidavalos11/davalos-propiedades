@@ -455,7 +455,7 @@ function getAvailableCategoriesWithCount() {
     return categories
         .map(cat => ({
             ...cat,
-            count: properties.filter(p => matchesSelectedPropertyType(p, cat.id)).length
+            count: properties.filter(p => isPropertyAvailable(p) && matchesSelectedPropertyType(p, cat.id)).length
         }))
         .filter(cat => cat.count > 0);
 }
@@ -591,14 +591,26 @@ let featuredAutoTimer = null;
 let showAllCatalogMode = false;
 let lastFeaturedSlot = Math.floor(Date.now() / SIX_HOURS_MS);
 
+function isFalseFlag(value) {
+    return value === false || String(value).trim().toLowerCase() === "false";
+}
+
+// Una propiedad se considera disponible salvo que available/disponible sea false
+// o que su status sea uno de los estados "fuera de catalogo". Si el campo no existe, esta disponible.
 function isPropertyAvailable(prop) {
     if (!prop) return false;
-    if (prop.available === false) return false;
+    if (isFalseFlag(prop.available) || isFalseFlag(prop.disponible)) return false;
     const status = String(prop.status || "").trim().toLowerCase();
-    if (status === "vendida" || status === "alquilada" || status === "no_disponible" || status === "inactiva") {
+    if (["vendida", "alquilada", "no_disponible", "inactiva", "pausada"].includes(status)) {
         return false;
     }
     return true;
+}
+
+// Los usuarios con permiso de edicion siguen viendo las propiedades no disponibles (para poder reactivarlas).
+function canViewUnavailable() {
+    const manager = window.AuthManager;
+    return Boolean(manager && manager.hasPermission(manager.Permissions.EDIT_PROPERTY));
 }
 
 function getFeaturedProperties(allProps) {
@@ -663,7 +675,8 @@ function renderOpportunities() {
         const badge = document.createElement("span");
         badge.className = "opportunity-badge";
         badge.textContent = label;
-        card.prepend(badge);
+        const info = card.querySelector(".property-info");
+        (info || card).prepend(badge);
         oppGrid.appendChild(card);
     });
     section.style.display = "";
@@ -744,7 +757,7 @@ function applyFilters() {
         if (grid) grid.style.display = "none";
         if (carouselWrapper) carouselWrapper.style.display = "block";
         if (carouselControls) carouselControls.style.display = "inline-flex";
-        if (btnToggleAll) btnToggleAll.textContent = `Ver todas (${properties.length})`;
+        if (btnToggleAll) btnToggleAll.textContent = `Ver todas (${properties.filter(isPropertyAvailable).length})`;
 
         const featuredList = getFeaturedProperties(properties);
         renderFeaturedCarousel(featuredList);
@@ -869,9 +882,12 @@ function createPropertyCardElement(prop) {
 
     const card = document.createElement("article");
     card.className = "property-card";
+    const isUnavailable = !isPropertyAvailable(prop);
+    if (isUnavailable) card.classList.add("is-unavailable");
     card.innerHTML = `
         <div class="property-image-container">
             <div class="operation-badge badge-${(prop.operation || prop.category || 'venta').toLowerCase()}">${escapeHtml(prop.operation || prop.category || 'Venta')}</div>
+            ${isUnavailable ? '<div class="unavailable-ribbon">No disponible</div>' : ''}
             <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : PLACEHOLDER_IMAGE}" alt="${escapeHtml(prop.title)}" class="property-image">
             <img src="${window.SITE_CONFIG?.assets?.logoSeal || 'assets/images/logo-seal.svg'}" class="property-seal" alt="Seal">
         </div>
@@ -880,6 +896,9 @@ function createPropertyCardElement(prop) {
                 ⚙️
             </button>
             <div class="property-settings-menu" onclick="event.stopPropagation()">
+                <button class="property-settings-item" onclick="togglePropertyAvailability(${prop.id})">
+                    ${isUnavailable ? "Marcar como disponible" : "Marcar como no disponible"}
+                </button>
                 <button class="property-settings-item" onclick="openEditModal(${prop.id})">
                     Editar publicación
                 </button>
@@ -1155,6 +1174,7 @@ setInterval(() => {
 
 function renderProperties(filtered) {
     grid.innerHTML = "";
+    if (!canViewUnavailable()) filtered = filtered.filter(isPropertyAvailable);
     if (resultsCount) resultsCount.textContent = `${filtered.length} resultado${filtered.length === 1 ? "" : "s"}`;
 
     if (!filtered.length) {
@@ -1165,6 +1185,92 @@ function renderProperties(filtered) {
     filtered.forEach(prop => {
         grid.appendChild(createPropertyCardElement(prop));
     });
+}
+
+// Alterna Disponible / No disponible con un solo clic y lo persiste en Firestore.
+window.togglePropertyAvailability = async function (id) {
+    if (!canViewUnavailable()) return;
+    const prop = properties.find(p => String(p.id) === String(id));
+    if (!prop) return;
+    if (!prop.firebaseId) {
+        alert("Esta propiedad proviene del respaldo local y no se puede modificar desde acá.");
+        return;
+    }
+    const makeAvailable = !isPropertyAvailable(prop);
+    const patch = {
+        available: makeAvailable,
+        disponible: makeAvailable,
+        status: makeAvailable ? "disponible" : "no_disponible"
+    };
+    try {
+        await window.db.collection("properties").doc(prop.firebaseId).update(patch);
+        Object.assign(prop, patch);
+        renderPropertyCategories();
+        applyFilters();
+        renderOpportunities();
+    } catch (e) {
+        console.error("Error al cambiar disponibilidad:", e);
+        alert("No se pudo actualizar la disponibilidad. Verificá que hayas iniciado sesión con Google como administrador.");
+    }
+};
+
+// ---- Mejorar descripcion con IA ----
+function collectDescriptionContext() {
+    const val = id => (document.getElementById(id)?.value || "").trim();
+    const typeSelect = document.getElementById("prop-type");
+    const features = Array.from(document.querySelectorAll("#custom-features-container .feature-data"))
+        .map(i => {
+            try {
+                const f = JSON.parse(i.value);
+                const qty = String(f.qty || "").trim();
+                return qty && qty !== "0" && qty !== "-" ? `${f.name}: ${qty}` : f.name;
+            } catch (e) { return null; }
+        })
+        .filter(Boolean);
+    return {
+        title: val("prop-title"),
+        operation: val("prop-category"),
+        propertyType: typeSelect && typeSelect.selectedIndex >= 0 ? typeSelect.options[typeSelect.selectedIndex].text : "",
+        areaTotal: val("prop-area-total"),
+        areaBuilt: val("prop-area-built"),
+        price: val("prop-price"),
+        currency: val("prop-currency"),
+        features,
+        city: window.SITE_CONFIG?.contact?.city || "Salta",
+        draft: val("prop-desc")
+    };
+}
+
+async function requestImprovedDescription(ctx) {
+    const user = window.auth && window.auth.currentUser;
+    if (!user || user.isAnonymous) throw new Error("Se requiere sesión de Google");
+    const idToken = await user.getIdToken();
+    const res = await fetch("/api/improve-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify(ctx)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.text) throw new Error("Respuesta vacía");
+    return json.text;
+}
+
+// Plantilla de respaldo (sin IA) cuando la API no esta disponible, p. ej. en desarrollo local.
+function buildLocalDescription(ctx) {
+    const ops = { venta: "en venta", alquiler: "en alquiler" };
+    const tipo = ctx.propertyType || "Propiedad";
+    const parts = [];
+    parts.push(`${tipo} ${ops[ctx.operation] || ""} en ${ctx.city}${ctx.title ? ": " + ctx.title.replace(/[.\s]+$/, "") : ""}.`.replace(/\s+/g, " "));
+    if (ctx.areaTotal) {
+        parts.push(`Cuenta con ${ctx.areaTotal} m² de superficie total${ctx.areaBuilt ? ` y ${ctx.areaBuilt} m² cubiertos` : ""}.`);
+    }
+    if (ctx.features.length) {
+        parts.push(`Entre sus ambientes y comodidades se destacan: ${ctx.features.join(", ")}.`);
+    }
+    if (ctx.draft) parts.push(ctx.draft);
+    parts.push(`Una excelente oportunidad en ${ctx.city}. Consultanos y coordiná una visita con nuestro equipo de asesores.`);
+    return parts.join("\n\n");
 }
 
 async function deleteProperty(id) {
@@ -1562,12 +1668,40 @@ function bindEvents() {
         };
     }
 
-    if (loginForm) {
-        loginForm.onsubmit = async (e) => {
-            e.preventDefault();
-            const success = await window.AuthManager.login(document.getElementById("username").value, document.getElementById("password").value);
-            if (success) { closeModal(); updateAuthUI(); applyFilters(); }
-            else { alert("Credenciales incorrectas"); }
+    const btnGoogleLogin = document.getElementById("btn-google-login");
+    if (btnGoogleLogin) {
+        btnGoogleLogin.onclick = async () => {
+            btnGoogleLogin.disabled = true;
+            const res = await window.AuthManager.loginWithGoogle();
+            btnGoogleLogin.disabled = false;
+            if (res.success) { closeModal(); updateAuthUI(); applyFilters(); }
+            else if (res.reason === "unauthorized") { alert(`La cuenta ${res.email || ""} no está autorizada para administrar este sitio.`); }
+            else if (res.reason !== "cancelled") { alert("No se pudo iniciar sesión con Google. Intentá nuevamente."); }
+        };
+    }
+
+    const btnImproveAi = document.getElementById("btn-improve-ai");
+    if (btnImproveAi) {
+        btnImproveAi.onclick = async () => {
+            const descField = document.getElementById("prop-desc");
+            const ctx = collectDescriptionContext();
+            if (!ctx.title && !ctx.draft) {
+                alert("Completá al menos el título o un borrador de la descripción.");
+                return;
+            }
+            const label = btnImproveAi.textContent;
+            btnImproveAi.disabled = true;
+            btnImproveAi.textContent = "Generando...";
+            try {
+                descField.value = await requestImprovedDescription(ctx);
+            } catch (err) {
+                console.warn("IA no disponible, usando plantilla base:", err);
+                descField.value = buildLocalDescription(ctx);
+                alert("No se pudo contactar a la IA; se armó una redacción base con los datos cargados. Revisala antes de guardar.");
+            } finally {
+                btnImproveAi.disabled = false;
+                btnImproveAi.textContent = label;
+            }
         };
     }
 

@@ -62,16 +62,83 @@ const AuthManager = {
     },
 
     async _syncWithFirebase() {
-        if (window.auth) {
-            const user = window.auth.currentUser;
-            if (!user) {
-                try {
-                    await window.auth.signInAnonymously();
-                    console.log("Firebase session synced (Anonymous)");
-                } catch (e) {
-                    console.error("Firebase sync error:", e);
-                }
+        if (!window.auth) return;
+
+        // Esperar a que Firebase restaure la sesion persistida (ej. Google) antes de decidir nada.
+        const restored = await new Promise(resolve => {
+            const unsubscribe = window.auth.onAuthStateChanged(u => { unsubscribe(); resolve(u); });
+        });
+
+        if (restored && !restored.isAnonymous) {
+            if (!restored.emailVerified || !this.isAdminEmail(restored.email)) {
+                await window.auth.signOut().catch(() => {});
+                this._clearGoogleSession();
+            } else {
+                if (!localStorage.getItem(this._sessionKey())) this._saveGoogleSession(restored);
+                return;
             }
+        }
+
+        if (!window.auth.currentUser) {
+            try {
+                await window.auth.signInAnonymously();
+                console.log("Firebase session synced (Anonymous)");
+            } catch (e) {
+                console.error("Firebase sync error:", e);
+            }
+        }
+    },
+
+    // ---- Google Sign-In (administradores autorizados en SITE_CONFIG.adminEmails) ----
+    isAdminEmail(email) {
+        const list = (window.SITE_CONFIG && window.SITE_CONFIG.adminEmails) || [];
+        const target = String(email || "").trim().toLowerCase();
+        return Boolean(target) && list.some(e => String(e).trim().toLowerCase() === target);
+    },
+
+    _saveGoogleSession(user) {
+        const email = String(user.email || "").trim().toLowerCase();
+        localStorage.setItem(this._sessionKey(), JSON.stringify({ logged: true, timestamp: Date.now(), provider: "google" }));
+        localStorage.setItem("davalos_current_user", email);
+        localStorage.setItem("davalos_google_user", JSON.stringify({ email, displayName: user.displayName || email }));
+    },
+
+    _clearGoogleSession() {
+        localStorage.removeItem(this._sessionKey());
+        localStorage.removeItem("davalos_current_user");
+        localStorage.removeItem("davalos_google_user");
+    },
+
+    _getGoogleSession() {
+        try {
+            const g = JSON.parse(localStorage.getItem("davalos_google_user") || "null");
+            return g && this.isAdminEmail(g.email) ? g : null;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    async loginWithGoogle() {
+        if (!window.auth || typeof firebase === "undefined") return { success: false, reason: "no_firebase" };
+        try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.setCustomParameters({ prompt: "select_account" });
+            const result = await window.auth.signInWithPopup(provider);
+            const user = result.user;
+            if (!user || !user.emailVerified || !this.isAdminEmail(user.email)) {
+                const email = user && user.email;
+                await window.auth.signOut().catch(() => {});
+                this._clearGoogleSession();
+                return { success: false, reason: "unauthorized", email };
+            }
+            this._saveGoogleSession(user);
+            return { success: true, email: user.email };
+        } catch (e) {
+            if (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request") {
+                return { success: false, reason: "cancelled" };
+            }
+            console.error("[Auth] Error en login con Google:", e);
+            return { success: false, reason: e.code || "error", error: e.message };
         }
     },
 
@@ -87,6 +154,12 @@ const AuthManager = {
         const auth = JSON.parse(localStorage.getItem(this._sessionKey()) || "null");
         if (!auth || auth.logged !== true) {
             localStorage.removeItem(this._sessionKey());
+            return;
+        }
+
+        // Solo se aceptan sesiones iniciadas con Google (el login usuario/contrasena quedo deshabilitado).
+        if (auth.provider !== "google") {
+            this.logout();
             return;
         }
 
@@ -112,6 +185,10 @@ const AuthManager = {
     },
 
     getUserData() {
+        const google = this._getGoogleSession();
+        if (google) {
+            return { username: google.email, email: google.email, displayName: google.displayName, role: this.Roles.SUPER_ADMIN, provider: "google" };
+        }
         const username = this.getCurrentUser();
         if (!username) return null;
         const users = this.getAllUsersSync();
@@ -132,6 +209,9 @@ const AuthManager = {
     },
 
     async login(username, password) {
+        // Deshabilitado: el acceso admin es solo con Google (ver loginWithGoogle).
+        console.warn("[Auth] El login con usuario/contrasena esta deshabilitado. Usar 'Continuar con Google'.");
+        return false;
         const normalized = this._normalizeUsername(username);
         const cleanPassword = String(password || "").trim();
         
@@ -187,6 +267,7 @@ const AuthManager = {
     logout() {
         localStorage.removeItem(this._sessionKey());
         localStorage.removeItem("davalos_current_user");
+        localStorage.removeItem("davalos_google_user");
         if (window.auth) {
             window.auth.signOut().catch(e => console.error("Firebase SignOut Error:", e));
         }

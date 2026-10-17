@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// Reglas de Firestore - DAVALOS PROPIEDADES
+// Lectura publica del catalogo; escritura SOLO para administradores que inician sesion con Google.
+// Para sumar colaboradores, agregar su Gmail en `adminEmails()` (y en storage.rules / config.js).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function adminEmails() {
+      return ['belidavalos.bd@gmail.com'];
+    }
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in adminEmails();
+    }
+
+    match /properties/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /deleted_properties/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Coleccion legada de usuarios: solo administradores.
+    match /users/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
