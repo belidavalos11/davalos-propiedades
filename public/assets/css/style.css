@@ -1543,18 +1543,77 @@ textarea {
     max-width: 480px;
 }
 
+.close-modal {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--text-light);
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    user-select: none;
+    padding: 0;
+}
+
+.close-modal:hover {
+    color: var(--text-dark);
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+.close-modal:active {
+    transform: scale(0.94);
+}
+
+.modal-header {
+    margin-top: 0;
+    margin-bottom: 20px;
+    padding-top: 0;
+    padding-right: 48px;
+}
+
+.modal-header h2 {
+    margin-top: 0;
+    margin-bottom: 6px;
+    font-size: 1.6rem;
+    color: var(--text-dark);
+    line-height: 1.25;
+}
+
+.modal-header p {
+    margin: 0;
+    color: var(--text-light);
+    font-size: 0.95rem;
+}
+
 .modal-header-clean {
+    margin-top: 0;
     margin-bottom: 30px;
+    padding-top: 0;
+    padding-right: 48px;
     text-align: left;
 }
 
 .modal-header-clean h2 {
+    margin-top: 0;
     font-size: 1.8rem;
     color: var(--text-dark);
     margin-bottom: 8px;
+    line-height: 1.25;
 }
 
 .modal-header-clean p {
+    margin: 0;
     color: var(--text-light);
     font-size: 0.95rem;
 }
@@ -2271,6 +2330,7 @@ textarea {
 
 .team-modal-content {
     max-width: 900px;
+    padding: 22px 28px 28px;
 }
 
 .team-tabs {
