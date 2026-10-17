@@ -24,9 +24,11 @@
 
 html,
 body {
-    overflow-x: hidden;
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
+    overflow-x: hidden; /* fallback para navegadores sin soporte de clip */
+    overflow-x: clip; /* clip es más estricto que hidden en navegadores modernos */
+    position: relative;
 }
 
 body {
@@ -893,6 +895,7 @@ textarea {
     overflow-x: hidden;
     width: 100%;
     max-width: 100%;
+    box-sizing: border-box;
 }
 
 .featured-carousel-wrapper {

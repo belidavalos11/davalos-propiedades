@@ -953,27 +953,28 @@ function setupFeaturedCarouselSwipe() {
         }
 
         if (isHorizontalGesture) {
+            if (e.cancelable) e.preventDefault();
             const stepPx = getFeaturedCarouselStepPx();
             const baseOffset = -featuredCarouselIndex * stepPx;
             track.style.transition = "none";
             track.style.transform = `translate3d(${baseOffset + deltaX * 0.65}px, 0, 0)`;
         }
-    }, { passive: true });
+    }, { passive: false });
 
     const finishTouch = () => {
         if (!isTracking) return;
         isTracking = false;
         track.style.transition = "";
 
-        if (isHorizontalGesture && Math.abs(deltaX) > 40) {
+        if (isHorizontalGesture && Math.abs(deltaX) > 45) {
             featuredSwipeJustHappened = true;
             setTimeout(() => {
                 featuredSwipeJustHappened = false;
             }, 300);
 
-            if (deltaX < -40) {
+            if (deltaX < -45) {
                 moveFeaturedCarouselBy(1);
-            } else if (deltaX > 40) {
+            } else if (deltaX > 45) {
                 moveFeaturedCarouselBy(-1);
             }
         } else {
