@@ -889,10 +889,17 @@ textarea {
     border-color: var(--primary);
 }
 
+.properties {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+}
+
 .featured-carousel-wrapper {
     position: relative;
     width: 100%;
     max-width: 100%;
+    touch-action: pan-y;
 }
 
 .featured-carousel-viewport {

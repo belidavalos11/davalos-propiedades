@@ -965,15 +965,15 @@ function setupFeaturedCarouselSwipe() {
         isTracking = false;
         track.style.transition = "";
 
-        if (isHorizontalGesture && Math.abs(deltaX) > 50) {
+        if (isHorizontalGesture && Math.abs(deltaX) > 40) {
             featuredSwipeJustHappened = true;
             setTimeout(() => {
                 featuredSwipeJustHappened = false;
             }, 300);
 
-            if (deltaX < -50) {
+            if (deltaX < -40) {
                 moveFeaturedCarouselBy(1);
-            } else if (deltaX > 50) {
+            } else if (deltaX > 40) {
                 moveFeaturedCarouselBy(-1);
             }
         } else {
