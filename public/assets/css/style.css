@@ -127,15 +127,19 @@ textarea {
     position: absolute;
     bottom: 0;
     left: 0;
-    width: 0;
+    width: 100%;
     height: 2px;
+    border-radius: 2px;
     background: var(--primary);
-    transition: var(--transition);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
 }
 
 .nav-link:hover::after,
 .nav-link.active::after {
-    width: 100%;
+    transform: scaleX(1);
 }
 
 .nav-link:hover,
@@ -958,6 +962,61 @@ textarea {
     background: var(--primary);
 }
 
+.opportunities-section {
+    padding: 70px 0 20px;
+    background: var(--background);
+}
+
+.opportunities-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-top: 28px;
+}
+
+.opportunities-grid .property-card {
+    position: relative;
+    border: 1px solid rgba(5, 14, 54, 0.12);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.opportunities-grid .property-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-4px);
+}
+
+.opportunity-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 5;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--white);
+    font-family: var(--font-main);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 12px rgba(5, 14, 54, 0.3);
+    pointer-events: none;
+}
+
+@media (min-width: 640px) {
+    .opportunities-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 992px) {
+    .opportunities-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 .about-section {
     padding: 80px 0 100px;
     background: var(--background);
@@ -976,6 +1035,69 @@ textarea {
     color: var(--text-light);
     line-height: 1.8;
     margin: 0;
+}
+.about-card-content {
+    font-family: var(--font-main);
+}
+
+.about-pillars {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-top: 32px;
+}
+
+.about-pillar {
+    background: var(--white);
+    padding: 32px 28px;
+    border-radius: 18px;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-shadow: var(--shadow);
+    text-align: center;
+    transition: var(--transition);
+}
+
+.about-pillar:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(5, 14, 54, 0.14);
+}
+
+.about-pillar-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    background: rgba(5, 14, 54, 0.07);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.about-pillar-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.about-pillar h3 {
+    font-family: var(--font-main);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0 0 10px;
+}
+
+.about-pillar p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-light);
+    margin: 0;
+}
+
+@media (min-width: 900px) {
+    .about-pillars {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 @media (max-width: 992px) {
@@ -1844,14 +1966,19 @@ textarea {
 
     .nav-link {
         font-size: 1.1rem;
-        width: 100%;
-        padding: 15px 0;
-        border-bottom: 1px solid rgba(0,0,0,0.05);
+        width: fit-content;
+        max-width: 100%;
+        padding: 12px 0;
+        margin-bottom: 6px;
         color: var(--text-dark);
         display: flex;
         align-items: center;
         justify-content: flex-start;
         text-align: left;
+    }
+
+    .nav-link::after {
+        bottom: 6px;
     }
 
     .user-greeting {

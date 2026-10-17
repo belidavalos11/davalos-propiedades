@@ -259,6 +259,7 @@ async function loadProperties() {
     renderPropertyCategories();
     updateActiveTypeUI();
     applyFilters();
+    renderOpportunities();
 }
 
 function normalizeProperty(prop) {
@@ -529,12 +530,14 @@ window.togglePropertyTypeFilter = function (typeId) {
     }
     updateActiveTypeUI();
     applyFilters();
+    renderOpportunities();
 };
 
 window.clearPropertyTypeFilters = function () {
     selectedPropertyTypes = [];
     updateActiveTypeUI();
     applyFilters();
+    renderOpportunities();
 };
 
 window.filterByPropertyType = function (typeId, shouldScroll = true) {
@@ -609,6 +612,61 @@ function getFeaturedProperties(allProps) {
     const flagged = available.filter(p => p.featured === true);
     const source = flagged.length > 0 ? flagged : available;
     return source.slice(0, FEATURED_MAX_COUNT);
+}
+
+function isFlagTrue(value) {
+    return value === true || String(value).trim().toLowerCase() === "true";
+}
+
+// Oportunidades: 1) documentos con opportunity/oferta = true;
+// 2) fallback: featured = true; 3) completa con las de precio más competitivo
+// (comparando solo dentro del grupo operación+moneda más numeroso para no mezclar USD/ARS ni venta/alquiler).
+function getOpportunityProperties(allProps) {
+    const available = (allProps || []).filter(isPropertyAvailable);
+
+    const flagged = available.filter(p => isFlagTrue(p.opportunity) || isFlagTrue(p.oferta));
+    if (flagged.length > 0) {
+        return flagged.slice(0, 6).map(prop => ({ prop, label: "Oportunidad" }));
+    }
+
+    const max = 3;
+    const picks = available.filter(p => p.featured === true).slice(0, max);
+    if (picks.length < max) {
+        const groups = {};
+        available
+            .filter(p => p.price > 0 && !picks.includes(p))
+            .forEach(p => {
+                const key = p.operation + "|" + p.currency;
+                (groups[key] = groups[key] || []).push(p);
+            });
+        const best = Object.values(groups).sort((a, b) => b.length - a.length)[0] || [];
+        best.sort((a, b) => a.price - b.price);
+        picks.push(...best.slice(0, max - picks.length));
+    }
+    return picks.map(prop => ({ prop, label: "Oportunidad destacada" }));
+}
+
+function renderOpportunities() {
+    const section = document.getElementById("oportunidades");
+    const oppGrid = document.getElementById("opportunities-grid");
+    if (!section || !oppGrid) return;
+
+    const items = getOpportunityProperties(properties);
+    oppGrid.innerHTML = "";
+    if (items.length === 0) {
+        section.style.display = "none";
+        return;
+    }
+
+    items.forEach(({ prop, label }) => {
+        const card = createPropertyCardElement(prop);
+        const badge = document.createElement("span");
+        badge.className = "opportunity-badge";
+        badge.textContent = label;
+        card.prepend(badge);
+        oppGrid.appendChild(card);
+    });
+    section.style.display = "";
 }
 
 function hasActiveFilters() {
