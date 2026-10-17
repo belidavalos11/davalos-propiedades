@@ -1,4 +1,4 @@
-﻿# DAVALOS Propiedades
+# DAVALOS Propiedades
 
 Sitio estatico con catalogo publico y panel admin visual.
 
@@ -72,3 +72,17 @@ Gracias a la integración con Vercel, cada vez que subes cambios a GitHub, la p�
    git push origin main
    ```
 4. ¡Listo! Vercel detectará el "Push" y pondrá los cambios en vivo automáticamente.
+## Variables de Entorno en Vercel
+Para habilitar las funciones serverless (`api/improve-description` y `api/notify-pending-request`), configura las siguientes variables en **Vercel > Project Settings > Environment Variables**:
+
+| Variable | Requerida | Descripción |
+|---|---|---|
+| `RESEND_API_KEY` | Para emails | API Key de [Resend](https://resend.com) para enviar notificaciones automáticas cuando un nuevo usuario solicita acceso. |
+| `RESEND_FROM_EMAIL` | No | Correo remitente (ej. `Dávalos Propiedades <notificaciones@tudominio.com.ar>`). Por defecto usa `onboarding@resend.dev`. |
+| `SITE_URL` | No | Dominio de producción (ej. `https://davalospropiedades.com.ar`). Se usa para el botón "Ingresar a Gestionar" en el email. |
+| `NOTIFY_EMAILS` | No | Correos adicionales separados por coma que recibirán alertas de solicitudes pendientes. |
+| `GEMINI_API_KEY` | Para IA | API Key gratuita de [Google AI Studio](https://aistudio.google.com/apikey) para el botón "✨ Mejorar con IA". |
+| `FIREBASE_SERVICE_ACCOUNT` | Opcional | JSON de cuenta de servicio de Firebase para consultas directas en el backend. |
+
+Consulta el archivo `.env.example` para más detalles.
+

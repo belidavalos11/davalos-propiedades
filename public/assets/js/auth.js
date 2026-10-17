@@ -255,6 +255,15 @@ const AuthManager = {
             }
 
             // pending / inactive: sin acceso. Se cierra la sesion de Firebase.
+            if (created && profile.status === "pending") {
+                this._sendPendingNotification({
+                    email: user.email,
+                    displayName: user.displayName || user.email,
+                    photoURL: user.photoURL || "",
+                    createdAt: new Date().toISOString()
+                }, user);
+            }
+
             await window.auth.signOut().catch(() => {});
             this._clearGoogleSession();
             return {
@@ -273,6 +282,35 @@ const AuthManager = {
             return { success: false, reason: e.code || "error", error: e.message };
         }
     },
+
+    // Notifica en segundo plano a los Super Admins cuando un nuevo usuario solicita acceso.
+    // Es completamente silencioso y tolerante a fallos para no interrumpir el flujo de login del usuario.
+    async _sendPendingNotification(data, user) {
+        try {
+            let idToken = "";
+            if (user && typeof user.getIdToken === "function") {
+                idToken = await user.getIdToken().catch(() => "");
+            }
+            fetch("/api/notify-pending-request", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(idToken ? { Authorization: `Bearer ${idToken}` } : {})
+                },
+                body: JSON.stringify(data)
+            }).then(async res => {
+                if (!res.ok) {
+                    const err = await res.text().catch(() => "");
+                    console.warn("[Auth] /api/notify-pending-request respondió con error:", res.status, err);
+                }
+            }).catch(err => {
+                console.warn("[Auth] No se pudo enviar notificación de solicitud pendiente:", err.message);
+            });
+        } catch (e) {
+            console.warn("[Auth] Excepción al notificar solicitud pendiente:", e);
+        }
+    },
+
     // Mensaje para mostrar al usuario segun el resultado de loginWithGoogle (null = no mostrar nada).
     describeLoginFailure(res) {
         switch (res && res.reason) {
