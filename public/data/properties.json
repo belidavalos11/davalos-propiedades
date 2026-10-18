@@ -28,6 +28,8 @@
       "agentId": "agente-1",
       "agent": "Beli Dávalos",
       "ownerName": "Juan Perez",
+      "lat": -24.7550,
+      "lng": -65.4120,
       "createdAt": "2026-01-10T10:00:00.000Z"
     },
     {
@@ -56,6 +58,8 @@
       "agentId": "agente-2",
       "agent": "Florencia Pfister",
       "ownerName": "Maria Garcia",
+      "lat": -24.7880,
+      "lng": -65.4110,
       "createdAt": "2026-01-15T10:00:00.000Z"
     },
     {
@@ -84,6 +88,8 @@
       "agentId": "agente-1",
       "agent": "Beli Dávalos",
       "ownerName": "Roberto Sanchez",
+      "lat": -24.7680,
+      "lng": -65.4450,
       "createdAt": "2026-01-20T10:00:00.000Z"
     }
   ]

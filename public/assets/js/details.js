@@ -111,15 +111,18 @@ function getAgentPhone(prop) {
     return configuredWhatsapp || WHATSAPP_NUMBER;
 }
 
-function buildWhatsappUrl(prop) {
+function buildWhatsappUrl(prop, consultantName = "") {
     if (window.buildPropertyWhatsappUrl) {
-        return window.buildPropertyWhatsappUrl(prop);
+        return window.buildPropertyWhatsappUrl(prop, consultantName);
     }
-    const agent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
     const phone = getAgentPhone(prop);
-    const sellerName = agent?.name || window.SITE_CONFIG?.brand?.name || "Asesor";
-    const text = encodeURIComponent(`Hola ${sellerName}, quiero consultar por la propiedad: ${prop.title} (ID: ${prop.id})`);
-    return `https://wa.me/${phone}?text=${text}`;
+    const rawName = String(consultantName || "").trim();
+    const title = String(prop?.title || "la propiedad").trim();
+    const directUrl = window.getPropertyDirectUrl ? window.getPropertyDirectUrl(prop) : window.location.href;
+    const message = rawName
+        ? `¡Hola me llamo ${rawName}, vi esta propiedad en la página '${title}' (${directUrl}) y me gustaría que me pasen más información. ¡Muchas gracias!`
+        : `¡Hola, vi esta propiedad en la página '${title}' (${directUrl}) y me gustaría que me pasen más información. ¡Muchas gracias!`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
 function showNotFound() {
@@ -161,7 +164,48 @@ function isValidVal(v) {
     return isNaN(n) ? true : n > 0;
 }
 
+function extractCoordsFromGoogleMaps(input) {
+    if (!input || typeof input !== "string") return null;
+    const s = input.trim();
+
+    // 1. Coordenadas con @lat,lng en URLs estándar de Google Maps
+    const atMatch = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+
+    // 2. Parámetros de lugar embebidos (!3dlat!4dlng)
+    const dMatch = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    if (dMatch) return { lat: parseFloat(dMatch[1]), lng: parseFloat(dMatch[2]) };
+
+    // 3. Query string q=lat,lng / query=lat,lng / ll=lat,lng
+    const qMatch = s.match(/[?&](?:q|query|ll|center)=(-?\d+\.\d+)(?:%2C|,)(-?\d+\.\d+)/i);
+    if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+
+    // 4. Par de coordenadas decimales directas: "lat, lng" o "lat lng"
+    const rawMatch = s.match(/(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)/);
+    if (rawMatch) return { lat: parseFloat(rawMatch[1]), lng: parseFloat(rawMatch[2]) };
+
+    return null;
+}
+
 function renderDetails(prop) {
+    // 4. Manejo de Coordenadas: convertir a Float numéricos con parseFloat
+    let rawLat = prop.lat;
+    let rawLng = prop.lng;
+
+    if ((rawLat === undefined || rawLat === null || rawLat === "") && prop.mapLink) {
+        const extracted = extractCoordsFromGoogleMaps(prop.mapLink);
+        if (extracted) {
+            rawLat = extracted.lat;
+            rawLng = extracted.lng;
+            prop.lat = rawLat;
+            prop.lng = rawLng;
+        }
+    }
+
+    const lat = parseFloat(rawLat);
+    const lng = parseFloat(rawLng);
+    const hasCoords = !isNaN(lat) && !isNaN(lng) && isFinite(lat) && isFinite(lng) && (lat !== 0 || lng !== 0);
+
     const logged = window.AuthManager && window.AuthManager.isLoggedIn();
     const safeTitle = escapeHtml(prop.title);
     const safeCategory = escapeHtml(prop.category);
@@ -172,6 +216,8 @@ function renderDetails(prop) {
         email: window.SITE_CONFIG?.contact?.email || "",
         photoUrl: ""
     };
+    const sellerName = window.getPropertySellerName ? window.getPropertySellerName(prop, assignedAgent) : null;
+    const defaultGreeting = sellerName ? `Hola ${escapeHtml(sellerName)}` : "Hola, ¿cómo estás?";
     const safeAgentName = escapeHtml(assignedAgent.name || "Dávalos Propiedades");
     const safeAgentRole = escapeHtml(assignedAgent.role || "Asesor a cargo");
     const safeAgentEmail = escapeHtml(assignedAgent.email || "");
@@ -183,9 +229,13 @@ function renderDetails(prop) {
         .map(part => part.charAt(0).toUpperCase())
         .join("") || "D";
 
+    const isVenta = String(prop.category || prop.operation || 'venta').toLowerCase().includes('venta');
     const typeLabel = prop.type ? `${escapeHtml(prop.type.charAt(0).toUpperCase() + prop.type.slice(1))} en ` : "";
     const categoryLabel = safeCategory.charAt(0).toUpperCase() + safeCategory.slice(1);
     const locationLabel = escapeHtml(prop.location || window.SITE_CONFIG?.contact?.city || "Salta");
+
+    const rawEnvironments = (prop.environments && Number(prop.environments) > 0) ? prop.environments : (getFeatureVal('ambiente', prop) || getFeatureVal('amb.', prop));
+    const environments = isValidVal(rawEnvironments) ? rawEnvironments : null;
 
     const rawAreaTotal = prop.areaTotal || prop.area;
     const areaTotal = isValidVal(rawAreaTotal) ? formatNumber(rawAreaTotal) : null;
@@ -203,245 +253,341 @@ function renderDetails(prop) {
     const garage = isValidVal(rawGarage) ? rawGarage : null;
 
     const horizontalFeaturesHtml = [
-        areaTotal ? `
-            <div class="feat-bar-item">
-                <div class="feat-icon-svg">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+        environments ? `
+            <div class="feat-chip">
+                <div class="feat-chip-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
                 </div>
-                <div class="feat-content">
-                    <span class="feat-bar-label">Sup. total:</span>
-                    <span class="feat-bar-value">${areaTotal} m²</span>
-                </div>
-            </div>` : "",
-        areaBuilt ? `
-            <div class="feat-bar-item">
-                <div class="feat-icon-svg">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"></path></svg>
-                </div>
-                <div class="feat-content">
-                    <span class="feat-bar-label">Sup. cubierta:</span>
-                    <span class="feat-bar-value">${areaBuilt} m²</span>
+                <div class="feat-chip-data">
+                    <span class="feat-chip-label">Ambientes</span>
+                    <span class="feat-chip-val">${escapeHtml(environments)}</span>
                 </div>
             </div>` : "",
         rooms ? `
-            <div class="feat-bar-item">
-                <div class="feat-icon-svg">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M12 4v6"></path><path d="M2 18h20"></path></svg>
+            <div class="feat-chip">
+                <div class="feat-chip-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 18h20"/></svg>
                 </div>
-                <div class="feat-content">
-                    <span class="feat-bar-label">Dormitorio/s:</span>
-                    <span class="feat-bar-value">${escapeHtml(rooms)}</span>
+                <div class="feat-chip-data">
+                    <span class="feat-chip-label">Dormitorios</span>
+                    <span class="feat-chip-val">${escapeHtml(rooms)}</span>
                 </div>
             </div>` : "",
         baths ? `
-            <div class="feat-bar-item">
-                <div class="feat-icon-svg">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18l-2 6H6a3 3 0 0 1-3-3V5c0-2 2-3 4-3s4 1 5 3"></path><path d="M11 5l3 3"></path></svg>
+            <div class="feat-chip">
+                <div class="feat-chip-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18l-2 6H6a3 3 0 0 1-3-3V5c0-2 2-3 4-3s4 1 5 3"/><path d="M11 5l3 3"/></svg>
                 </div>
-                <div class="feat-content">
-                    <span class="feat-bar-label">Baño/s:</span>
-                    <span class="feat-bar-value">${escapeHtml(baths)}</span>
+                <div class="feat-chip-data">
+                    <span class="feat-chip-label">Baños</span>
+                    <span class="feat-chip-val">${escapeHtml(baths)}</span>
+                </div>
+            </div>` : "",
+        areaTotal ? `
+            <div class="feat-chip">
+                <div class="feat-chip-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M9 21V9"/><circle cx="12" cy="15" r="1"/></svg>
+                </div>
+                <div class="feat-chip-data">
+                    <span class="feat-chip-label">Sup. Total</span>
+                    <span class="feat-chip-val">${areaTotal} m²</span>
+                </div>
+            </div>` : "",
+        areaBuilt ? `
+            <div class="feat-chip">
+                <div class="feat-chip-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18V3H3zm13 13H8v-2h8v2zm0-4H8v-2h8v2z"/></svg>
+                </div>
+                <div class="feat-chip-data">
+                    <span class="feat-chip-label">Sup. Cubierta</span>
+                    <span class="feat-chip-val">${areaBuilt} m²</span>
                 </div>
             </div>` : "",
         garage ? `
-            <div class="feat-bar-item">
-                <div class="feat-icon-svg">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
+            <div class="feat-chip">
+                <div class="feat-chip-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
                 </div>
-                <div class="feat-content">
-                    <span class="feat-bar-label">Cochera/s:</span>
-                    <span class="feat-bar-value">${escapeHtml(garage)}</span>
+                <div class="feat-chip-data">
+                    <span class="feat-chip-label">Cocheras</span>
+                    <span class="feat-chip-val">${escapeHtml(garage)}</span>
                 </div>
             </div>` : "",
         prop.creditEligible ? `
-            <div class="feat-bar-item">
-                <div class="feat-icon-svg">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5 5 2 7-7-4-7 4 2-7-5-5h7z"></path></svg>
+            <div class="feat-chip">
+                <div class="feat-chip-icon" style="color: #059669; background: #ecfdf5;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3 7h7l-5 5 2 7-7-4-7 4 2-7-5-5h7z"/></svg>
                 </div>
-                <div class="feat-content">
-                    <span class="feat-bar-label">Crédito:</span>
-                    <span class="feat-bar-value" style="color: #2e7d32;">Apto ✅</span>
+                <div class="feat-chip-data">
+                    <span class="feat-chip-label">Crédito</span>
+                    <span class="feat-chip-val" style="color: #059669;">Apto ✅</span>
                 </div>
             </div>` : ""
     ].filter(Boolean).join("");
 
     container.innerHTML = `
-        <!-- Section 2: Header Row (Title) -->
-        <div class="details-header-row">
-            <div class="details-title-block">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <h1 style="margin: 0;">${safeTitle}</h1>
-                    ${prop.mapLink ? `<a href="${prop.mapLink}" target="_blank" style="color: var(--primary); font-weight: 600; font-size: 0.9rem; text-decoration: none; display: flex; align-items: center; gap: 4px;"><span style="font-size: 1.1rem;">🗺️</span> Ver mapa</a>` : ""}
-                </div>
-                <div class="details-location-breadcrumb">
-                    ${typeLabel}${categoryLabel}, ${locationLabel}
-                </div>
-            </div>
-        </div>
-
-        <!-- Section 1: Gallery -->
-        <div class="details-gallery-section" style="margin-bottom: 20px;">
-            <div class="carousel" id="property-carousel">
-                <div class="carousel-inner" id="carousel-inner">
-                    ${prop.images.map((img, index) => `
-                        <div class="carousel-item ${index === 0 ? "active" : ""}">
-                            <img loading="lazy" src="${img}" alt="${safeTitle}" class="carousel-img">
-                        </div>
-                    `).join("")}
-                </div>
-                ${prop.images.length > 1 ? `
-                    <button class="carousel-control prev" type="button" onclick="moveCarousel(-1)">&#10094;</button>
-                    <button class="carousel-control next" type="button" onclick="moveCarousel(1)">&#10095;</button>
-                    <div class="carousel-indicators">
-                        ${prop.images.map((_, index) => `<span class="dot ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})"></span>`).join("")}
+        <div class="details-layout-v4">
+            <!-- COLUMNA PRINCIPAL (Izquierda / ~65-70%) -->
+            <div class="details-main-column">
+                <!-- 1. Cabecera del Inmueble -->
+                <header class="property-header-card">
+                    <div class="property-header-badges">
+                        <span class="operation-badge-tag ${isVenta ? 'badge-venta' : 'badge-alquiler'}">
+                            ${isVenta ? 'Venta' : 'Alquiler'}
+                        </span>
+                        <span class="property-type-tag">
+                            ${escapeHtml(prop.type || 'Inmueble')}
+                        </span>
+                        ${prop.creditEligible ? `
+                            <span class="credit-eligible-tag">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3 7h7l-5 5 2 7-7-4-7 4 2-7-5-5h7z"/></svg>
+                                Apto Crédito
+                            </span>
+                        ` : ''}
+                        <span class="property-code-tag">ID: #${prop.id}</span>
                     </div>
-                ` : ""}
-            </div>
-            ${prop.images.length > 1 ? `
-                <div class="carousel-thumbnails" id="carousel-thumbnails">
-                    ${prop.images.map((img, index) => `
-                        <div class="thumb-item ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})">
-                            <img src="${img}" alt="Thumbnail ${index + 1}">
+
+                    <h1 class="property-page-title">${safeTitle}</h1>
+
+                    <div class="property-location-line">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                        <span>${escapeHtml(prop.location || window.SITE_CONFIG?.contact?.city || "Salta, Argentina")}</span>
+                        ${prop.mapLink ? `
+                            <a href="${escapeHtml(prop.mapLink)}" target="_blank" rel="noopener noreferrer" class="link-open-map">
+                                <span>Ver en mapa ↗</span>
+                            </a>
+                        ` : ''}
+                    </div>
+
+                    <!-- Fila de precio para dispositivos móviles -->
+                    <div class="property-price-mobile-row">
+                        <div class="price-val-mobile">${formatCurrency(prop.price, prop.currency)}</div>
+                        ${prop.expensasAmount ? `<span class="expensas-sub-mobile">+ ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} expensas</span>` : ''}
+                    </div>
+                </header>
+
+                <!-- 2. Galería de Fotos Moderna -->
+                <section class="property-gallery-card">
+                    <div class="gallery-viewport" id="property-carousel">
+                        <div class="carousel-inner" id="carousel-inner">
+                            ${prop.images.map((img, index) => `
+                                <div class="carousel-item ${index === 0 ? "active" : ""}">
+                                    <img loading="${index === 0 ? 'eager' : 'lazy'}" src="${img}" alt="${safeTitle}" class="carousel-img">
+                                </div>
+                            `).join("")}
                         </div>
-                    `).join("")}
-                </div>
-            ` : ""}
-        </div>
 
-        <!-- Section 3: Horizontal Features Bar -->
-        ${horizontalFeaturesHtml ? `
-            <div class="features-horizontal-bar">
-                ${horizontalFeaturesHtml}
-            </div>
-        ` : ""}
+                        ${prop.images.length > 1 ? `
+                            <button class="gallery-nav-btn prev" type="button" onclick="moveCarousel(-1)" aria-label="Foto anterior">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                            </button>
+                            <button class="gallery-nav-btn next" type="button" onclick="moveCarousel(1)" aria-label="Siguiente foto">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        ` : ""}
 
-        <!-- Section 4: Main Content Grid -->
-        <div class="details-content-columns">
-            <div class="column-left-main">
-                <div class="details-price-block" style="text-align: left; margin-bottom: 24px;">
-                    <div class="price-main">${formatCurrency(prop.price, prop.currency)}</div>
-                    ${prop.expensasAmount ? `
-                        <div class="expensas-sub">+ ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} expensas</div>
+                        <div class="gallery-counter-pill" id="gallery-photo-counter">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                            <span>1 / ${prop.images.length}</span>
+                        </div>
+
+                        <button class="gallery-expand-btn" type="button" onclick="document.querySelector('.carousel-item.active .carousel-img').click()" title="Ampliar imagen">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                            <span>Pantalla completa</span>
+                        </button>
+                    </div>
+
+                    ${prop.images.length > 1 ? `
+                        <div class="gallery-thumbnails-row" id="carousel-thumbnails">
+                            ${prop.images.map((img, index) => `
+                                <div class="thumb-item ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})">
+                                    <img src="${img}" alt="Foto ${index + 1}" loading="lazy">
+                                </div>
+                            `).join("")}
+                        </div>
                     ` : ""}
-                </div>
-                <section class="description-section">
-                    <h2>Descripción</h2>
-                    <div style="white-space: pre-line; line-height: 1.8; color: #444; font-size: 1.05rem;">
-                        ${safeDescription}
-                    </div>
+
+                    ${logged ? `
+                        <div class="gallery-bottom-actions">
+                            <button type="button" class="btn-util-action btn-gallery-download" id="btn-download-images" onclick="downloadAllImages()" title="Descargar fotos">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                <span>Descargar</span>
+                            </button>
+                        </div>
+                    ` : ""}
                 </section>
 
-                ${prop.customFeatures && prop.customFeatures.length ? `
-                    <section class="comodidades-section">
-                        <h2>Más detalles y comodidades</h2>
-                        <div class="features-grid">
-                            ${prop.customFeatures.map((feat) => {
-                                const isObj = typeof feat === 'object';
-                                const icon = isObj ? feat.icon : "✨";
-                                const name = isObj ? feat.name : feat;
-                                const qty = (isObj && feat.qty) ? `${feat.qty} ` : "";
-                                return `
-                                            <div class="feature-item">
-                                                <span class="feature-icon">${icon}</span>
-                                                <span class="feature-text"><strong>${qty ? formatNumber(qty) + ' ' : ''}${name}</strong></span>
-                                            </div>
-                                        `;
-                            }).join("")}
-                        </div>
+                <!-- 3. Fila de Características Clave -->
+                ${horizontalFeaturesHtml ? `
+                    <section class="property-features-bar">
+                        ${horizontalFeaturesHtml}
                     </section>
                 ` : ""}
 
-                ${prop.memoryDescription ? `
-                    <section class="memory-section">
-                        <h2>Memoria Descriptiva</h2>
-                        <div style="white-space: pre-line; line-height: 1.8; color: #555; background: #fdfdfd; padding: 20px; border-left: 4px solid var(--primary); border-radius: 4px;">
-                            ${escapeHtml(prop.memoryDescription)}
+                <!-- 4. Descripción de la Propiedad -->
+                <section class="property-card-section description-card">
+                    <h2 class="section-title">Descripción</h2>
+                    <div class="description-body">
+                        ${safeDescription}
+                    </div>
+
+                    ${prop.customFeatures && prop.customFeatures.length ? `
+                        <div class="amenities-subsection">
+                            <h3 class="subsection-title">Comodidades y detalles</h3>
+                            <div class="amenities-grid">
+                                ${prop.customFeatures.map((feat) => {
+                                    const isObj = typeof feat === 'object';
+                                    const icon = isObj ? feat.icon : "✨";
+                                    const name = isObj ? feat.name : feat;
+                                    const qty = (isObj && feat.qty) ? `${feat.qty} ` : "";
+                                    return `
+                                        <div class="amenity-chip">
+                                            <span class="amenity-icon">${icon}</span>
+                                            <span class="amenity-text">${qty ? '<strong>' + formatNumber(qty) + '</strong> ' : ''}${escapeHtml(name)}</span>
+                                        </div>
+                                    `;
+                                }).join("")}
+                            </div>
                         </div>
+                    ` : ""}
+
+                    ${prop.memoryDescription ? `
+                        <div class="memory-subsection">
+                            <h3 class="subsection-title">Memoria Descriptiva</h3>
+                            <div class="memory-box">
+                                ${escapeHtml(prop.memoryDescription)}
+                            </div>
+                        </div>
+                    ` : ""}
+                </section>
+
+                <!-- 5. Ubicación y Mapa Leaflet -->
+                ${hasCoords ? `
+                    <section class="property-card-section location-card">
+                        <div class="location-header-row">
+                            <div>
+                                <h2 class="section-title" style="margin-bottom: 4px;">Ubicación</h2>
+                                <div class="location-text-line">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                                    <span>${escapeHtml(prop.location || "Salta, Argentina")}</span>
+                                </div>
+                            </div>
+                            <a href="${prop.mapLink || `https://www.google.com/maps?q=${lat},${lng}`}" target="_blank" rel="noopener noreferrer" class="btn-external-gmaps">
+                                <span>Abrir en Google Maps ↗</span>
+                            </a>
+                        </div>
+                        <div id="property-map"></div>
                     </section>
                 ` : ""}
             </div>
 
-            <div class="column-right-sidebar">
-                <div class="sidebar-actions-row">
-                    <button class="btn btn-sidebar-action" onclick="shareProperty()"><span class="icon">🔗</span> Compartir</button>
-                    <button class="btn btn-sidebar-action" onclick="window.print()"><span class="icon">🖨️</span> Imprimir</button>
-                    ${logged ? `
-                        <button class="btn btn-sidebar-action" id="btn-download-images" onclick="downloadAllImages()">
-                            <span class="icon">📥</span> Descargar imágenes
-                        </button>
-                    ` : ""}
-                    ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.EDIT_PROPERTY)) ? `
-                        <button class="btn btn-sidebar-action" onclick="window.location.href='index.html?edit=${prop.id}'" style="color: var(--primary); border-color: var(--primary); font-weight: 600;">
-                            <span class="icon">✏️</span> Editar
-                        </button>
-                    ` : ""}
-                </div>
-
-                <div class="contact-card-v3">
-                    <div class="contact-card-header">
-                        <h3>Contáctanos</h3>
-                        <span class="required-note">* Campos obligatorios</span>
+            <!-- COLUMNA LATERAL STICKY (Derecha / ~30-35%) -->
+            <aside class="details-sidebar-column">
+                <div class="sticky-contact-card">
+                    <!-- Precio -->
+                    <div class="sidebar-price-container">
+                        <span class="sidebar-price-label">Precio de la propiedad</span>
+                        <div class="sidebar-price-number">${formatCurrency(prop.price, prop.currency)}</div>
+                        ${prop.expensasAmount ? `
+                            <div class="sidebar-expensas-tag">+ ${formatCurrency(prop.expensasAmount, prop.expensasCurrency || "ARS")} expensas</div>
+                        ` : ""}
                     </div>
-                    
-                    <form id="contact-form-sidebar" class="sidebar-form">
-                        <div class="form-group-sidebar">
-                            <input type="text" id="contact-name" placeholder="Nombre *" required>
-                        </div>
-                        <div class="form-group-sidebar">
-                            <input type="tel" id="contact-phone" placeholder="Teléfono *" required>
-                        </div>
-                        <div class="form-group-sidebar">
-                            <input type="email" id="contact-email" placeholder="Email *" required>
-                        </div>
-                        <div class="form-group-sidebar">
-                            <textarea id="contact-msg" rows="4">Hola ${safeAgentName}, vi esta propiedad en el sitio web de la inmobiliaria y me gustaría que me contacten. Cód. aviso: ${prop.id}. Gracias.</textarea>
-                        </div>
-                        <button type="submit" class="btn btn-full btn-dark-sidebar">Contactar</button>
-                        <a class="btn btn-full btn-whatsapp-v2" target="_blank" rel="noopener noreferrer" href="${buildWhatsappUrl(prop)}">
-                            <span>Contactar a ${safeAgentName} por WhatsApp</span>
-                        </a>
-                    </form>
 
-                    <div class="agent-compact-info">
-                        <span class="agent-label">Asesor a cargo</span>
-                        <div class="agent-row">
+                    <!-- Botón Principal: Consultar por WhatsApp -->
+                    <div class="sidebar-whatsapp-block">
+                        <input type="text" id="consultant-name" placeholder="Tu nombre y apellido (opcional)" class="consultant-name-input" autocomplete="name" />
+                        <a id="btn-sidebar-whatsapp" href="${buildWhatsappUrl(prop)}" target="_blank" rel="noopener noreferrer" class="btn-sidebar-whatsapp">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.625.846 5.059 2.284 7.033l-1.494 5.462 5.602-1.469c1.908 1.132 4.132 1.787 6.516 1.787 6.627 0 12-5.373 12-12s-5.373-12-12.908-12.813z"/>
+                            </svg>
+                            <span>Consultar por WhatsApp</span>
+                        </a>
+                    </div>
+
+                    <!-- Acciones Utilitarias -->
+                    <div class="sidebar-utility-actions">
+                        <button type="button" class="btn-util-action" onclick="shareProperty()" title="Compartir">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                            <span>Compartir</span>
+                        </button>
+                        <button type="button" class="btn-util-action" onclick="window.print()" title="Imprimir ficha">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                            <span>Imprimir</span>
+                        </button>
+                        ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.EDIT_PROPERTY)) ? `
+                            <button type="button" class="btn-util-action btn-util-edit" onclick="window.location.href='index.html?edit=${prop.id}'" title="Editar propiedad">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                <span>Editar</span>
+                            </button>
+                        ` : ""}
+                    </div>
+
+                    <!-- Datos del Asesor / Inmobiliaria -->
+                    <div class="sidebar-agent-block">
+                        <div class="agent-avatar-wrap">
                             ${safeAgentPhoto ? `
-                                <img src="${safeAgentPhoto}" alt="${safeAgentName}" class="agent-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                <div class="agent-avatar" style="display: none;">${agentInitials}</div>
+                                <img src="${safeAgentPhoto}" alt="${safeAgentName}" class="agent-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="agent-avatar-fallback" style="display:none;">${agentInitials}</div>
                             ` : `
-                                <div class="agent-avatar">${agentInitials}</div>
+                                <div class="agent-avatar-fallback">${agentInitials}</div>
                             `}
-                            <div class="agent-meta">
-                                <span class="agent-name">${safeAgentName}</span>
-                                <span class="agent-role">${safeAgentRole}</span>
-                                ${safeAgentEmail ? `<span class="agent-email">${safeAgentEmail}</span>` : ""}
-                            </div>
+                        </div>
+                        <div class="agent-info-meta">
+                            <span class="agent-name-title">${safeAgentName}</span>
+                            <span class="agent-license-subtitle">${safeAgentRole} · MP N° 96</span>
+                            ${safeAgentEmail ? `<a href="mailto:${safeAgentEmail}" class="agent-contact-link">${safeAgentEmail}</a>` : ""}
                         </div>
                     </div>
 
                     ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
-                        <div class="admin-data-box">
-                            <span class="admin-label">🔒 Datos Privados (Admin)</span>
-                            <p><strong>Owner:</strong> ${escapeHtml(prop.ownerName || "N/D")}</p>
-                            <p><strong>Tel:</strong> ${escapeHtml(prop.ownerPhone || "N/D")}</p>
+                        <div class="admin-private-data-card">
+                            <div class="admin-data-title">🔒 Datos Privados (Admin)</div>
+                            <p><strong>Propietario:</strong> ${escapeHtml(prop.ownerName || "No registrado")}</p>
+                            <p><strong>Teléfono:</strong> ${escapeHtml(prop.ownerPhone || "No registrado")}</p>
                         </div>
                     ` : ""}
                 </div>
-            </div>
+            </aside>
         </div>
-
-        <section class="location-section" style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 30px;">
-            <h2>Ubicación</h2>
-            <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; color: #444;">
-                <span>📍 ${escapeHtml(prop.title)}</span>
-            </div>
-            ${prop.mapLink ? `
-                <div class="map-iframe-container" style="margin-top: 20px; border-radius: 12px; overflow: hidden; height: 400px; background: #eee;">
-                    <iframe width="100%" height="100%" frameborder="0" style="border:0" src="${prop.mapLink.includes('google.com/maps/embed') ? prop.mapLink : `https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(prop.title)}`}" allowfullscreen></iframe>
-                </div>
-            ` : ""}
-        </section>
     `;
+
+    // Actualizar título en breadcrumbs superior
+    const breadcrumbTitle = document.getElementById("breadcrumb-prop-title");
+    if (breadcrumbTitle) {
+        breadcrumbTitle.textContent = prop.title;
+    }
+
+    // Vincular interacción dinámica del input de nombre y botón WhatsApp
+    const consultantNameInput = document.getElementById("consultant-name");
+    const sidebarWaBtn = document.getElementById("btn-sidebar-whatsapp");
+
+    function getDynamicWhatsappUrl() {
+        const nameVal = consultantNameInput ? consultantNameInput.value.trim() : "";
+        return buildWhatsappUrl(prop, nameVal);
+    }
+
+    if (sidebarWaBtn) {
+        sidebarWaBtn.onclick = (e) => {
+            e.preventDefault();
+            const targetUrl = getDynamicWhatsappUrl();
+            window.open(targetUrl, "_blank");
+        };
+    }
+
+    if (consultantNameInput) {
+        consultantNameInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                const targetUrl = getDynamicWhatsappUrl();
+                window.open(targetUrl, "_blank");
+            }
+        });
+        consultantNameInput.addEventListener("input", () => {
+            const nextUrl = getDynamicWhatsappUrl();
+            if (sidebarWaBtn) sidebarWaBtn.href = nextUrl;
+            if (floatingWhatsapp) floatingWhatsapp.href = nextUrl;
+        });
+    }
 
     // Actualizar dinámicamente metadatos SEO, Open Graph y Twitter Cards para esta propiedad
     const brandName = window.SITE_CONFIG?.brand?.name || "Dávalos Propiedades";
@@ -502,6 +648,82 @@ function renderDetails(prop) {
 
     bindLightbox(prop.images);
     setupFloating(prop);
+
+    if (hasCoords) {
+        initDetailsMap(lat, lng, prop);
+    }
+}
+
+let propertyDetailsMapInstance = null;
+function initDetailsMap(rawLat, rawLng, prop) {
+    if (!window.L) return;
+
+    const mapContainer = document.getElementById('property-map');
+    if (!mapContainer) return;
+
+    // 4. Manejo de Coordenadas: asegurar conversión a Float numéricos
+    const lat = parseFloat(rawLat);
+    const lng = parseFloat(rawLng);
+
+    // Si no hay coordenadas válidas, ocultar la sección completa para no dejar hueco
+    if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) {
+        const section = mapContainer.closest('.location-section');
+        if (section) section.style.display = 'none';
+        else mapContainer.style.display = 'none';
+        return;
+    }
+
+    try {
+        if (propertyDetailsMapInstance) {
+            propertyDetailsMapInstance.remove();
+            propertyDetailsMapInstance = null;
+        }
+
+        const map = L.map('property-map', {
+            center: [lat, lng],
+            zoom: 15,
+            scrollWheelZoom: false
+        });
+        propertyDetailsMapInstance = map;
+
+        // 2. Inicialización del Mapa y tiles de OpenStreetMap
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const customPin = L.divIcon({
+            className: 'custom-map-marker',
+            html: `
+                <div class="map-marker-pin" style="background:#0b1b4f; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; box-shadow:0 3px 10px rgba(0,0,0,0.35); border:2px solid #fff;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                </div>
+            `,
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -36]
+        });
+
+        const marker = L.marker([lat, lng], { icon: customPin }).addTo(map);
+        if (prop && prop.title) {
+            marker.bindPopup(`<strong>${escapeHtml(prop.title)}</strong><br><span style="color:#666;">${escapeHtml(prop.location || '')}</span>`);
+        }
+
+        // 3. Invalidate Size (ajuste de cálculo de pantalla)
+        setTimeout(() => {
+            if (map) {
+                map.invalidateSize();
+            }
+        }, 200);
+
+        setTimeout(() => {
+            if (map) {
+                map.invalidateSize();
+            }
+        }, 500);
+    } catch (err) {
+        console.error('Error al inicializar mapa en detalles:', err);
+    }
 }
 
 function shareProperty() {
@@ -610,28 +832,50 @@ function setupFloating(prop) {
     floatingWhatsapp.href = buildWhatsappUrl(prop);
     floatingCall.href = `tel:+${getAgentPhone(prop)}`;
     floatingContact.style.display = "flex";
+
+    floatingWhatsapp.onclick = (e) => {
+        e.preventDefault();
+        const consultantNameInput = document.getElementById("consultant-name");
+        const nameVal = consultantNameInput ? consultantNameInput.value.trim() : "";
+        window.open(buildWhatsappUrl(prop, nameVal), "_blank");
+    };
 }
 
 // Carousel global handlers
 window.moveCarousel = (dir) => {
     const items = document.querySelectorAll(".carousel-item");
-    const dots = document.querySelectorAll(".dot");
+    const thumbs = document.querySelectorAll(".thumb-item");
     if (items.length <= 1) return;
     items[currentSlide].classList.remove("active");
-    if (dots[currentSlide]) dots[currentSlide].classList.remove("active");
+    if (thumbs[currentSlide]) thumbs[currentSlide].classList.remove("active");
     currentSlide = (currentSlide + dir + items.length) % items.length;
     items[currentSlide].classList.add("active");
-    if (dots[currentSlide]) dots[currentSlide].classList.add("active");
+    if (thumbs[currentSlide]) {
+        thumbs[currentSlide].classList.add("active");
+        thumbs[currentSlide].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+    const counter = document.getElementById("gallery-photo-counter");
+    if (counter) {
+        counter.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span>${currentSlide + 1} / ${items.length}</span>`;
+    }
 };
 
 window.setCarousel = (idx) => {
     const items = document.querySelectorAll(".carousel-item");
-    const dots = document.querySelectorAll(".dot");
+    const thumbs = document.querySelectorAll(".thumb-item");
+    if (items.length <= 1 || idx < 0 || idx >= items.length) return;
     items[currentSlide].classList.remove("active");
-    if (dots[currentSlide]) dots[currentSlide].classList.remove("active");
+    if (thumbs[currentSlide]) thumbs[currentSlide].classList.remove("active");
     currentSlide = idx;
     items[currentSlide].classList.add("active");
-    if (dots[currentSlide]) dots[currentSlide].classList.add("active");
+    if (thumbs[currentSlide]) {
+        thumbs[currentSlide].classList.add("active");
+        thumbs[currentSlide].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+    const counter = document.getElementById("gallery-photo-counter");
+    if (counter) {
+        counter.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span>${currentSlide + 1} / ${items.length}</span>`;
+    }
 };
 
 if (lightboxClose) lightboxClose.onclick = closeLightbox;
@@ -680,8 +924,40 @@ if (lightboxClose) lightboxClose.onclick = closeLightbox;
         }
 
         if (!property) return showNotFound();
+
+        // Ocultar al público general propiedades marcadas como no disponibles
+        const isFalseFlag = (v) => v === false || String(v).trim().toLowerCase() === "false";
+        const isPropUnavailable = (p) => {
+            if (!p) return true;
+            if (isFalseFlag(p.available) || isFalseFlag(p.disponible)) return true;
+            const st = String(p.status || "").toLowerCase().trim();
+            return ["vendida", "alquilada", "no_disponible", "no-disponible", "no disponible", "inactiva", "pausada", "unavailable", "baja"].includes(st);
+        };
+
+        const manager = window.AuthManager;
+        const userRole = manager?.currentUserProfile?.role || manager?.getCurrentUser()?.role;
+        const canManage = Boolean(
+            manager && manager.isLoggedIn() && (
+                manager.hasPermission(manager.Permissions.EDIT_PROPERTY) ||
+                ["AGENT", "ADMIN", "SUPER_ADMIN", "EDITOR"].includes(userRole)
+            )
+        );
+
+        if (isPropUnavailable(property)) {
+            if (!canManage) {
+                return showNotFound();
+            }
+        }
+
         currentProperty = property;
         renderDetails(property);
+
+        if (isPropUnavailable(property) && canManage) {
+            const warningBanner = document.createElement("div");
+            warningBanner.className = "details-unavailable-banner";
+            warningBanner.innerHTML = "🚫 <strong>Propiedad no disponible:</strong> Esta publicación está pausada y oculta para el público general. Solo es visible para el equipo administrador.";
+            if (container) container.prepend(warningBanner);
+        }
 
         // Show greeting if logged in
         const logged = window.AuthManager && window.AuthManager.isLoggedIn();

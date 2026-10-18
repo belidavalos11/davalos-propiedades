@@ -284,17 +284,6 @@ window.getPropertyAgent = function (prop) {
     return { ...agent, whatsapp: window.normalizeWhatsappPhone(directPhone), phone: prop.agentPhone || agent.phone };
 };
 
-// Helper centralizado para generar el enlace de WhatsApp apuntando al vendedor de la propiedad
-window.buildPropertyWhatsappUrl = function (prop) {
-    const agent = window.getPropertyAgent(prop);
-    const rawPhone = window.normalizeWhatsappPhone(agent?.whatsapp || agent?.phone);
-    const sellerName = agent?.name || window.SITE_CONFIG?.brand?.name || "Asesor";
-    const title = prop?.title || "Propiedad";
-    const id = prop?.id ?? "";
-    const message = `Hola ${sellerName}, quiero consultar por la propiedad: ${title} (ID: ${id})`;
-    return `https://wa.me/${rawPhone}?text=${encodeURIComponent(message)}`;
-};
-
 // Resuelve una ruta de imagen/recurso como URL absoluta para Open Graph y WhatsApp
 window.resolveAbsoluteUrl = function (rawPath) {
     if (!rawPath) return "";
@@ -307,6 +296,80 @@ window.resolveAbsoluteUrl = function (rawPath) {
     // Si estamos dentro de /public/ en servidor local, respetar el directorio base
     const dir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
     return `${base}${dir}${trimmed}`;
+};
+
+// Resuelve la URL completa y directa a la publicación de la propiedad
+window.getPropertyDirectUrl = function (prop) {
+    if (!prop) return "";
+    // Si estamos navegando dentro de details.html y coincide con la propiedad visualizada, usar window.location.href
+    if (typeof window !== "undefined" && window.location && window.location.pathname.includes("details.html")) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!prop.id || urlParams.get("id") == prop.id) {
+            return window.location.href;
+        }
+    }
+    const propId = prop.id ?? "";
+    const relativeUrl = `details.html?id=${encodeURIComponent(propId)}`;
+    if (typeof window.resolveAbsoluteUrl === "function") {
+        return window.resolveAbsoluteUrl(relativeUrl);
+    }
+    const base = (typeof window !== "undefined" && window.location?.origin && window.location.origin !== "null")
+        ? window.location.origin
+        : (window.SITE_CONFIG?.seo?.siteUrl || "https://davalospropiedades.com.ar");
+    return `${base}/${relativeUrl}`;
+};
+
+// Determina si una propiedad tiene un vendedor/asesor específico asignado y devuelve su nombre (o null si es genérico)
+window.getPropertySellerName = function (prop, agent) {
+    const rawAgent = agent || (window.getPropertyAgent ? window.getPropertyAgent(prop) : null);
+    if (!rawAgent) return null;
+
+    // Si el ID es explícitamente el genérico por defecto
+    if (rawAgent.id === "agente-default") return null;
+
+    // Si la propiedad no tiene ni agentId ni agent especificado
+    if (!prop?.agentId && !prop?.agent) return null;
+
+    const brandName = String(window.SITE_CONFIG?.brand?.name || "Dávalos Propiedades").trim().toLowerCase();
+    const rawName = String(rawAgent.name || "").trim();
+    if (!rawName) return null;
+
+    const lower = rawName.toLowerCase();
+    const genericNames = [
+        brandName,
+        "dávalos propiedades",
+        "davalos propiedades",
+        "admin",
+        "administrador",
+        "asesor",
+        "asesora",
+        "asesor inmobiliario",
+        "inmobiliaria"
+    ];
+    if (genericNames.includes(lower)) return null;
+
+    return rawName;
+};
+
+// Helper centralizado para generar el enlace de WhatsApp con formato unificado y URL directa
+window.buildPropertyWhatsappUrl = function (prop, consultantName = "") {
+    const agent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
+    const rawPhone = window.normalizeWhatsappPhone
+        ? window.normalizeWhatsappPhone(agent?.whatsapp || agent?.phone || window.SITE_CONFIG?.contact?.whatsapp || "5493874155902")
+        : String(agent?.whatsapp || agent?.phone || window.SITE_CONFIG?.contact?.whatsapp || "5493874155902").replace(/\D/g, "");
+
+    const rawName = String(consultantName || "").trim();
+    const title = String(prop?.title || "la propiedad").trim();
+    const directUrl = window.getPropertyDirectUrl ? window.getPropertyDirectUrl(prop) : "";
+
+    let message = "";
+    if (rawName) {
+        message = `¡Hola me llamo ${rawName}, vi esta propiedad en la página '${title}' (${directUrl}) y me gustaría que me pasen más información. ¡Muchas gracias!`;
+    } else {
+        message = `¡Hola, vi esta propiedad en la página '${title}' (${directUrl}) y me gustaría que me pasen más información. ¡Muchas gracias!`;
+    }
+
+    return `https://wa.me/${rawPhone}?text=${encodeURIComponent(message)}`;
 };
 
 // Actualiza dinámicamente <title>, meta description, keywords, Open Graph, Twitter Cards y canonical

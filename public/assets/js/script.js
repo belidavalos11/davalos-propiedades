@@ -14,62 +14,464 @@ const btnHeroSearch = document.getElementById("btn-hero-search");
 const sortBy = document.getElementById("sort-by");
 const clearFiltersBtn = document.getElementById("clear-filters");
 
-// Initialize Map
-let mapInstance = null;
-function initMap(propsToDisplay) {
-    const mapContainer = document.getElementById('map-view');
-    if (!mapContainer) return;
+// ==========================================================================
+// Interactive Catalog Map & Location Picker (Leaflet + OpenStreetMap)
+// ==========================================================================
+const SALTA_DEFAULT_COORDS = [-24.7821, -65.4232];
+let catalogMapInstance = null;
+let catalogClusterGroup = null;
+let currentCatalogViewMode = "grid"; // "grid" | "map"
+let lastFilteredProperties = [];
+let pickerMapInstance = null;
+let pickerMarkerInstance = null;
 
-    if (!mapInstance) {
-        // Default map center from SITE_CONFIG (Salta, Argentina)
-        const saltaPos = window.SITE_CONFIG?.contact?.mapCenter || [-24.7859, -65.4117];
-        mapInstance = L.map('map-view', {
-            scrollWheelZoom: false 
-        }).setView(saltaPos, 13);
+function createCustomPin(color = "var(--primary)") {
+    return L.divIcon({
+        className: "custom-map-marker",
+        html: `
+            <div class="map-marker-pin" style="background:${color};">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            </div>
+        `,
+        iconSize: [42, 42],
+        iconAnchor: [21, 42],
+        popupAnchor: [0, -42]
+    });
+}
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(mapInstance);
-
-        // Fix for tiles not organizing correctly on load
-        setTimeout(() => {
-            mapInstance.invalidateSize();
-        }, 500);
-
-        // Allow zoom on click
-        mapInstance.on('focus', () => { mapInstance.scrollWheelZoom.enable(); });
-        mapInstance.on('blur', () => { mapInstance.scrollWheelZoom.disable(); });
+function createMapPopupHtml(prop) {
+    const mainImg = (prop.images && prop.images[0]) || PLACEHOLDER_IMAGE;
+    const opBadge = prop.category === "alquiler" ? "Alquiler" : (prop.operation ? prop.operation.toUpperCase() : "Venta");
+    const formattedPrice = formatCurrency(prop.price, prop.currency);
+    const safeTitle = escapeHtml(prop.title || "Propiedad");
+    
+    // Key features
+    const area = prop.areaTotal || prop.area;
+    const rooms = prop.rooms;
+    
+    let featuresHtml = "";
+    if (area) {
+        featuresHtml += `<span>📐 ${formatNumber(area)} m²</span>`;
+    }
+    if (rooms) {
+        featuresHtml += `<span>🛏️ ${rooms} amb.</span>`;
     }
 
-    // Clear existing markers (if any)
-    mapInstance.eachLayer((layer) => {
-        if (layer instanceof L.Marker) {
-            mapInstance.removeLayer(layer);
-        }
-    });
+    return `
+        <div class="map-popup-card">
+            <div class="map-popup-img-wrap">
+                <img src="${mainImg}" alt="${safeTitle}" class="map-popup-img" loading="lazy">
+                <span class="map-popup-badge-op">${opBadge}</span>
+            </div>
+            <div class="map-popup-body">
+                <div class="map-popup-price">${formattedPrice}</div>
+                <h4 class="map-popup-title" title="${safeTitle}">${safeTitle}</h4>
+                ${featuresHtml ? `<div class="map-popup-features">${featuresHtml}</div>` : ""}
+                <a href="details.html?id=${prop.id}" class="map-popup-btn">Ver propiedad →</a>
+            </div>
+        </div>
+    `;
+}
 
-    // Add markers for properties with coords
-    if (propsToDisplay && propsToDisplay.length > 0) {
-        const markers = [];
-        propsToDisplay.forEach(p => {
-            if (p.coords && Array.isArray(p.coords) && p.coords.length === 2) {
-                const marker = L.marker(p.coords).addTo(mapInstance);
-                marker.bindPopup(`
-                    <div style="font-family: var(--font-main);">
-                        <h4 style="margin: 0 0 5px 0; color: var(--primary);">${p.title}</h4>
-                        <p style="margin: 0; font-size: 0.85rem;">${p.currency} ${formatPrice(p.price)}</p>
-                        <a href="details?id=${p.id}" style="display: block; margin-top: 8px; font-size: 0.8rem; color: var(--secondary); font-weight: 600; text-decoration: none;">Ver detalles →</a>
-                    </div>
-                `);
-                markers.push(marker);
-            }
+function initCatalogMap() {
+    const mapContainer = document.getElementById("catalog-map");
+    if (!mapContainer || !window.L) return;
+
+    if (!catalogMapInstance) {
+        catalogMapInstance = L.map("catalog-map", {
+            center: SALTA_DEFAULT_COORDS,
+            zoom: 13,
+            scrollWheelZoom: true
         });
 
-        // Optionally fit map to markers if there are several
-        if (markers.length > 0) {
-            // mapInstance.fitBounds(L.featureGroup(markers).getBounds(), { padding: [20, 20] });
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+        }).addTo(catalogMapInstance);
+
+        if (typeof L.markerClusterGroup === "function") {
+            catalogClusterGroup = L.markerClusterGroup({
+                showCoverageOnHover: false,
+                maxClusterRadius: 45,
+                spiderfyOnMaxZoom: true
+            });
+        } else {
+            catalogClusterGroup = L.featureGroup();
+        }
+        catalogMapInstance.addLayer(catalogClusterGroup);
+    }
+}
+
+function renderCatalogMap(propsToDisplay) {
+    initCatalogMap();
+    if (!catalogMapInstance || !catalogClusterGroup) return;
+
+    catalogClusterGroup.clearLayers();
+
+    const list = Array.isArray(propsToDisplay) ? propsToDisplay : properties;
+    const validMarkers = [];
+
+    list.forEach(prop => {
+        const lat = Number(prop.lat);
+        const lng = Number(prop.lng);
+        if (isNaN(lat) || isNaN(lng) || prop.lat === null || prop.lng === null || prop.lat === "" || prop.lng === "") {
+            return;
+        }
+
+        const marker = L.marker([lat, lng], {
+            icon: createCustomPin("#050e36")
+        });
+
+        marker.bindPopup(createMapPopupHtml(prop), {
+            maxWidth: 280,
+            className: "custom-leaflet-popup"
+        });
+
+        catalogClusterGroup.addLayer(marker);
+        validMarkers.push(marker);
+    });
+
+    if (validMarkers.length > 0) {
+        if (validMarkers.length === 1) {
+            catalogMapInstance.setView(validMarkers[0].getLatLng(), 15);
+        } else {
+            catalogMapInstance.fitBounds(catalogClusterGroup.getBounds(), {
+                padding: [40, 40],
+                maxZoom: 15
+            });
+        }
+    } else {
+        catalogMapInstance.setView(SALTA_DEFAULT_COORDS, 13);
+    }
+
+    setTimeout(() => {
+        catalogMapInstance?.invalidateSize();
+    }, 150);
+}
+
+function setCatalogViewMode(mode) {
+    currentCatalogViewMode = mode;
+    const btnGrid = document.getElementById("btn-view-grid");
+    const btnMap = document.getElementById("btn-view-map");
+    const mapWrapper = document.getElementById("catalog-map-wrapper");
+    const gridEl = document.getElementById("properties-grid");
+    const carouselWrapper = document.getElementById("featured-carousel-wrapper");
+
+    if (btnGrid) {
+        btnGrid.classList.toggle("active", mode === "grid");
+        btnGrid.setAttribute("aria-pressed", mode === "grid" ? "true" : "false");
+    }
+    if (btnMap) {
+        btnMap.classList.toggle("active", mode === "map");
+        btnMap.setAttribute("aria-pressed", mode === "map" ? "true" : "false");
+    }
+
+    if (mode === "map") {
+        if (gridEl) gridEl.style.display = "none";
+        if (carouselWrapper) carouselWrapper.style.display = "none";
+        if (mapWrapper) mapWrapper.style.display = "block";
+        const targetProps = (lastFilteredProperties && lastFilteredProperties.length > 0)
+            ? lastFilteredProperties
+            : properties.filter(isPropertyAvailable);
+        renderCatalogMap(targetProps);
+    } else {
+        if (mapWrapper) mapWrapper.style.display = "none";
+        applyFilters();
+    }
+}
+
+// Mini-map Location Picker for Property Modal (Create / Edit)
+function initPropertyPickerMap() {
+    const container = document.getElementById("property-picker-map");
+    if (!container || !window.L) return;
+
+    if (!pickerMapInstance) {
+        pickerMapInstance = L.map("property-picker-map", {
+            center: SALTA_DEFAULT_COORDS,
+            zoom: 13,
+            scrollWheelZoom: true
+        });
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(pickerMapInstance);
+
+        pickerMarkerInstance = L.marker(SALTA_DEFAULT_COORDS, {
+            draggable: true,
+            icon: createCustomPin("#c9a050")
+        }).addTo(pickerMapInstance);
+
+        pickerMarkerInstance.on("dragend", () => {
+            const pos = pickerMarkerInstance.getLatLng();
+            syncPickerInputs(pos.lat, pos.lng);
+        });
+
+        pickerMapInstance.on("click", (e) => {
+            pickerMarkerInstance.setLatLng(e.latlng);
+            syncPickerInputs(e.latlng.lat, e.latlng.lng);
+        });
+
+        const latInput = document.getElementById("prop-lat");
+        const lngInput = document.getElementById("prop-lng");
+        const onInputChange = () => {
+            const lat = Number(latInput?.value);
+            const lng = Number(lngInput?.value);
+            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                pickerMarkerInstance.setLatLng([lat, lng]);
+                pickerMapInstance.panTo([lat, lng]);
+            }
+        };
+        latInput?.addEventListener("change", onInputChange);
+        lngInput?.addEventListener("change", onInputChange);
+
+        // 1. Buscador de dirección con Nominatim (OpenStreetMap)
+        const btnPickerSearch = document.getElementById("btn-picker-search");
+        const addressSearchInput = document.getElementById("picker-address-search");
+        if (btnPickerSearch) {
+            btnPickerSearch.onclick = () => searchAddressWithNominatim();
+        }
+        if (addressSearchInput) {
+            addressSearchInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    searchAddressWithNominatim();
+                }
+            });
+        }
+
+        // 2. Extractor de coordenadas de Google Maps
+        const btnExtractGmaps = document.getElementById("btn-extract-gmaps");
+        const mapLinkInput = document.getElementById("prop-map-link");
+        if (btnExtractGmaps) {
+            btnExtractGmaps.onclick = () => handleGoogleMapsExtraction(true);
+        }
+        if (mapLinkInput) {
+            mapLinkInput.addEventListener("input", () => handleGoogleMapsExtraction(false));
+            mapLinkInput.addEventListener("paste", () => {
+                setTimeout(() => handleGoogleMapsExtraction(true), 80);
+            });
+        }
+
+        // Cerrar dropdown de resultados al hacer clic fuera
+        document.addEventListener("click", (e) => {
+            const dropdown = document.getElementById("picker-search-results");
+            const searchContainer = document.querySelector(".picker-search-container");
+            if (dropdown && searchContainer && !searchContainer.contains(e.target)) {
+                dropdown.style.display = "none";
+            }
+        });
+    }
+}
+
+function syncPickerInputs(lat, lng) {
+    const latInput = document.getElementById("prop-lat");
+    const lngInput = document.getElementById("prop-lng");
+    if (latInput) latInput.value = Number(lat).toFixed(6);
+    if (lngInput) lngInput.value = Number(lng).toFixed(6);
+}
+
+function extractCoordsFromGoogleMaps(input) {
+    if (!input || typeof input !== "string") return null;
+    const s = input.trim();
+
+    // 1. Coordenadas con @lat,lng en URLs estándar de Google Maps
+    const atMatch = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+
+    // 2. Parámetros de lugar embebidos (!3dlat!4dlng)
+    const dMatch = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    if (dMatch) return { lat: parseFloat(dMatch[1]), lng: parseFloat(dMatch[2]) };
+
+    // 3. Query string q=lat,lng / query=lat,lng / ll=lat,lng
+    const qMatch = s.match(/[?&](?:q|query|ll|center)=(-?\d+\.\d+)(?:%2C|,)(-?\d+\.\d+)/i);
+    if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+
+    // 4. Par de coordenadas decimales directas: "lat, lng" o "lat lng"
+    const rawMatch = s.match(/(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)/);
+    if (rawMatch) return { lat: parseFloat(rawMatch[1]), lng: parseFloat(rawMatch[2]) };
+
+    return null;
+}
+
+function handleGoogleMapsExtraction(manualTrigger = false) {
+    const input = document.getElementById("prop-map-link");
+    const feedback = document.getElementById("gmaps-extract-feedback");
+    if (!input || !feedback) return;
+
+    const val = input.value.trim();
+    if (!val) {
+        if (manualTrigger) {
+            feedback.textContent = "Ingresá un enlace o coordenadas de Google Maps para extraer.";
+            feedback.className = "error";
+            feedback.style.display = "block";
+        } else {
+            feedback.style.display = "none";
+        }
+        return;
+    }
+
+    const coords = extractCoordsFromGoogleMaps(val);
+    if (coords) {
+        updatePickerMapPosition(coords.lat, coords.lng, true);
+        feedback.textContent = `✅ Coordenadas detectadas: Lat ${coords.lat.toFixed(5)}, Lng ${coords.lng.toFixed(5)}`;
+        feedback.className = "success";
+        feedback.style.display = "block";
+    } else if (manualTrigger) {
+        if (val.includes("goo.gl") || val.includes("maps.app")) {
+            feedback.textContent = "ℹ️ Enlace corto detectado. Si podés, abrí el enlace en el navegador y copiá la URL completa o las coordenadas que muestra Google Maps.";
+            feedback.className = "info";
+        } else {
+            feedback.textContent = "No se pudieron extraer coordenadas. Verificá que contenga números decimales (ej: -24.7821, -65.4232).";
+            feedback.className = "error";
+        }
+        feedback.style.display = "block";
+    }
+}
+
+async function searchAddressWithNominatim() {
+    const searchInput = document.getElementById("picker-address-search");
+    const searchBtn = document.getElementById("btn-picker-search");
+    const feedback = document.getElementById("picker-search-feedback");
+    const dropdown = document.getElementById("picker-search-results");
+    if (!searchInput) return;
+
+    const queryRaw = searchInput.value.trim();
+    if (!queryRaw) {
+        if (feedback) {
+            feedback.textContent = "Escribí una calle o dirección para buscar.";
+            feedback.className = "error";
+            feedback.style.display = "block";
+        }
+        return;
+    }
+
+    let query = queryRaw;
+    if (!/salta/i.test(query)) {
+        query += ", Salta, Argentina";
+    } else if (!/argentina/i.test(query)) {
+        query += ", Argentina";
+    }
+
+    if (searchBtn) {
+        searchBtn.disabled = true;
+        searchBtn.innerHTML = `<span>Buscando...</span>`;
+    }
+    if (feedback) feedback.style.display = "none";
+    if (dropdown) dropdown.style.display = "none";
+
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`, {
+            headers: {
+                "Accept-Language": "es"
+            }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data || data.length === 0) {
+            if (feedback) {
+                feedback.textContent = "No se encontraron resultados para esa dirección. Probá con otra calle o hacé clic directamente en el mapa.";
+                feedback.className = "error";
+                feedback.style.display = "block";
+            }
+            return;
+        }
+
+        // Posicionar en el primer resultado
+        const top = data[0];
+        const lat = parseFloat(top.lat);
+        const lng = parseFloat(top.lon);
+
+        if (pickerMapInstance && pickerMarkerInstance) {
+            pickerMapInstance.flyTo([lat, lng], 16, { duration: 1.2 });
+            pickerMarkerInstance.setLatLng([lat, lng]);
+            syncPickerInputs(lat, lng);
+        }
+
+        if (feedback) {
+            feedback.textContent = `📍 Ubicado en: ${top.display_name.split(",").slice(0, 3).join(",")}`;
+            feedback.className = "success";
+            feedback.style.display = "block";
+        }
+
+        // Si hay varios resultados, desplegar sugerencias
+        if (data.length > 1 && dropdown) {
+            dropdown.innerHTML = data.map((item, idx) => `
+                <div class="picker-search-item" data-idx="${idx}">
+                    <strong>${escapeHtml(item.display_name.split(",")[0])}</strong><br>
+                    <small style="color: #64748b;">${escapeHtml(item.display_name.split(",").slice(1, 4).join(","))}</small>
+                </div>
+            `).join("");
+            dropdown.style.display = "block";
+
+            dropdown.querySelectorAll(".picker-search-item").forEach(el => {
+                el.onclick = () => {
+                    const item = data[Number(el.dataset.idx)];
+                    if (item) {
+                        const iLat = parseFloat(item.lat);
+                        const iLng = parseFloat(item.lon);
+                        pickerMapInstance.flyTo([iLat, iLng], 16, { duration: 1.2 });
+                        pickerMarkerInstance.setLatLng([iLat, iLng]);
+                        syncPickerInputs(iLat, iLng);
+                        if (feedback) {
+                            feedback.textContent = `📍 Ubicado en: ${item.display_name.split(",").slice(0, 3).join(",")}`;
+                            feedback.className = "success";
+                            feedback.style.display = "block";
+                        }
+                    }
+                    dropdown.style.display = "none";
+                };
+            });
+        }
+    } catch (err) {
+        console.error("Error al buscar en Nominatim:", err);
+        if (feedback) {
+            feedback.textContent = "Hubo un inconveniente al consultar el servicio de búsqueda. Podés fijar el punto directamente en el mapa.";
+            feedback.className = "error";
+            feedback.style.display = "block";
+        }
+    } finally {
+        if (searchBtn) {
+            searchBtn.disabled = false;
+            searchBtn.innerHTML = `<span>Buscar</span>`;
         }
     }
+}
+
+function resetPickerHelpers() {
+    const searchInput = document.getElementById("picker-address-search");
+    if (searchInput) searchInput.value = "";
+    const searchFeedback = document.getElementById("picker-search-feedback");
+    if (searchFeedback) { searchFeedback.textContent = ""; searchFeedback.style.display = "none"; }
+    const dropdown = document.getElementById("picker-search-results");
+    if (dropdown) { dropdown.innerHTML = ""; dropdown.style.display = "none"; }
+    const gmapsFeedback = document.getElementById("gmaps-extract-feedback");
+    if (gmapsFeedback) { gmapsFeedback.textContent = ""; gmapsFeedback.style.display = "none"; }
+}
+
+function updatePickerMapPosition(lat, lng, preserveFeedback = false) {
+    initPropertyPickerMap();
+    if (!preserveFeedback) resetPickerHelpers();
+    if (!pickerMapInstance || !pickerMarkerInstance) return;
+
+    const numLat = Number(lat);
+    const numLng = Number(lng);
+    const hasValidCoords = !isNaN(numLat) && !isNaN(numLng) && lat !== null && lng !== null && lat !== "" && lng !== "";
+
+    const targetPos = hasValidCoords ? [numLat, numLng] : SALTA_DEFAULT_COORDS;
+    const targetZoom = hasValidCoords ? 15 : 13;
+
+    pickerMarkerInstance.setLatLng(targetPos);
+    pickerMapInstance.setView(targetPos, targetZoom);
+
+    if (hasValidCoords) {
+        syncPickerInputs(numLat, numLng);
+    }
+
+    setTimeout(() => {
+        pickerMapInstance?.invalidateSize();
+    }, 200);
 }
 
 // Pill Search Elements
@@ -174,6 +576,17 @@ function updateAuthUI() {
         } else {
             greeting.style.display = "none";
         }
+    }
+
+    // Botón de filtro de propiedades no disponibles en el catálogo (solo AGENT, ADMIN, SUPER_ADMIN)
+    const canManage = canManageProperties();
+    const unavailCount = (properties || []).filter(p => !isPropertyAvailable(p)).length;
+
+    const btnToggleUnavailable = document.getElementById("btn-toggle-unavailable");
+    if (btnToggleUnavailable) {
+        btnToggleUnavailable.style.display = canManage ? "inline-flex" : "none";
+        const countSpan = document.getElementById("unavailable-count");
+        if (countSpan) countSpan.textContent = unavailCount;
     }
 }
 
@@ -597,6 +1010,7 @@ const FEATURED_MAX_COUNT = 10;
 let featuredCarouselIndex = 0;
 let featuredAutoTimer = null;
 let showAllCatalogMode = false;
+let showUnavailableMode = false;
 let lastFeaturedSlot = Math.floor(Date.now() / SIX_HOURS_MS);
 
 function isFalseFlag(value) {
@@ -604,21 +1018,39 @@ function isFalseFlag(value) {
 }
 
 // Una propiedad se considera disponible salvo que available/disponible sea false
-// o que su status sea uno de los estados "fuera de catalogo". Si el campo no existe, esta disponible.
+// o que su status sea uno de los estados "fuera de catalogo". Si el campo no existe, está disponible.
 function isPropertyAvailable(prop) {
     if (!prop) return false;
     if (isFalseFlag(prop.available) || isFalseFlag(prop.disponible)) return false;
     const status = String(prop.status || "").trim().toLowerCase();
-    if (["vendida", "alquilada", "no_disponible", "inactiva", "pausada"].includes(status)) {
+    if ([
+        "vendida",
+        "alquilada",
+        "no_disponible",
+        "no-disponible",
+        "no disponible",
+        "inactiva",
+        "pausada",
+        "unavailable",
+        "baja"
+    ].includes(status)) {
         return false;
     }
     return true;
 }
 
-// Los usuarios con permiso de edicion siguen viendo las propiedades no disponibles (para poder reactivarlas).
-function canViewUnavailable() {
+function canManageProperties() {
     const manager = window.AuthManager;
-    return Boolean(manager && manager.hasPermission(manager.Permissions.EDIT_PROPERTY));
+    if (!manager || !manager.isLoggedIn()) return false;
+    const userRole = manager?.currentUserProfile?.role || manager?.getCurrentUser()?.role;
+    return Boolean(
+        manager.hasPermission(manager.Permissions.EDIT_PROPERTY) ||
+        ["AGENT", "ADMIN", "SUPER_ADMIN", "EDITOR"].includes(userRole)
+    );
+}
+
+function canViewUnavailable() {
+    return canManageProperties();
 }
 
 function getFeaturedProperties(allProps) {
@@ -716,6 +1148,9 @@ function applyFilters() {
     const sort = sortBy.value;
 
     let filtered = properties.filter(prop => {
+        // En catálogo y búsqueda principal, NUNCA incluir propiedades no disponibles
+        if (!isPropertyAvailable(prop)) return false;
+
         const matchesOperation = type === "todos" || prop.category === type;
         const matchesPropType = selectedPropertyTypes.length === 0 || selectedPropertyTypes.some(tId => matchesSelectedPropertyType(prop, tId));
         const propRooms = Number(prop.rooms || 0);
@@ -738,12 +1173,21 @@ function applyFilters() {
     const carouselWrapper = document.getElementById("featured-carousel-wrapper");
     const carouselControls = document.getElementById("featured-carousel-controls");
     const btnToggleAll = document.getElementById("btn-toggle-all-props");
+    const btnToggleUnavailable = document.getElementById("btn-toggle-unavailable");
     const sectionTitle = document.getElementById("properties-section-title");
     const sectionSubtitle = document.getElementById("properties-section-subtitle");
+    const featuredEyebrow = document.getElementById("featured-eyebrow");
+
+    if (btnToggleUnavailable) btnToggleUnavailable.classList.remove("active");
 
     if (btnToggleAll) {
-        btnToggleAll.style.display = properties.length > 0 ? "inline-flex" : "none";
+        const availableCount = properties.filter(isPropertyAvailable).length;
+        btnToggleAll.style.display = availableCount > 0 ? "inline-flex" : "none";
         btnToggleAll.onclick = () => {
+            if (showUnavailableMode) {
+                exitUnavailableMode();
+                return;
+            }
             if (filteringActive) {
                 if (clearFiltersBtn) clearFiltersBtn.click();
                 showAllCatalogMode = false;
@@ -754,33 +1198,50 @@ function applyFilters() {
         };
     }
 
-    const featuredEyebrow = document.getElementById("featured-eyebrow");
+    lastFilteredProperties = filtered;
+    const mapWrapper = document.getElementById("catalog-map-wrapper");
 
-    if (!filteringActive && !showAllCatalogMode) {
-        // Modo por defecto: mostrar el carrusel de 10 propiedades destacadas al azar (cada 6h)
-        if (featuredEyebrow) featuredEyebrow.textContent = "● DESTACADAS";
-        if (sectionTitle) sectionTitle.textContent = "Propiedades destacadas.";
-        if (sectionSubtitle) sectionSubtitle.textContent = "Selección de propiedades destacadas";
-        if (resultsCount) resultsCount.textContent = "";
-        if (grid) grid.style.display = "none";
-        if (carouselWrapper) carouselWrapper.style.display = "block";
-        if (carouselControls) carouselControls.style.display = "inline-flex";
-        if (btnToggleAll) btnToggleAll.textContent = `Ver todas (${properties.filter(isPropertyAvailable).length})`;
-
-        const featuredList = getFeaturedProperties(properties);
-        renderFeaturedCarousel(featuredList);
-    } else {
-        // Modo filtrado o ver todas las propiedades
+    if (currentCatalogViewMode === "map") {
         stopFeaturedAutoSlide();
-        if (featuredEyebrow) featuredEyebrow.textContent = filteringActive ? "● BÚSQUEDA" : "● CATÁLOGO";
-        if (sectionTitle) sectionTitle.textContent = filteringActive ? "Resultados de búsqueda." : "Todas las propiedades.";
-        if (sectionSubtitle) sectionSubtitle.textContent = filteringActive ? "Propiedades que coinciden con tus filtros seleccionados." : "Catálogo completo de propiedades disponibles.";
         if (carouselWrapper) carouselWrapper.style.display = "none";
         if (carouselControls) carouselControls.style.display = "none";
-        if (grid) grid.style.display = "grid";
-        if (btnToggleAll) btnToggleAll.textContent = "← Volver a destacadas";
+        if (grid) grid.style.display = "none";
+        if (mapWrapper) mapWrapper.style.display = "block";
 
-        renderProperties(filtered);
+        if (featuredEyebrow) featuredEyebrow.textContent = filteringActive ? "● BÚSQUEDA" : (showAllCatalogMode ? "● CATÁLOGO" : "● MAPA");
+        if (sectionTitle) sectionTitle.textContent = filteringActive ? "Resultados en el mapa." : "Mapa de propiedades.";
+        if (sectionSubtitle) sectionSubtitle.textContent = "Explorá la ubicación de los inmuebles disponibles en Salta.";
+        if (resultsCount) resultsCount.textContent = `${filtered.length} propiedad${filtered.length === 1 ? "" : "es"} en el mapa`;
+
+        renderCatalogMap(filtered);
+    } else {
+        if (mapWrapper) mapWrapper.style.display = "none";
+        if (!filteringActive && !showAllCatalogMode) {
+            // Modo por defecto: mostrar el carrusel de 10 propiedades destacadas al azar (cada 6h)
+            if (featuredEyebrow) featuredEyebrow.textContent = "● DESTACADAS";
+            if (sectionTitle) sectionTitle.textContent = "Propiedades destacadas.";
+            if (sectionSubtitle) sectionSubtitle.textContent = "Selección de propiedades destacadas";
+            if (resultsCount) resultsCount.textContent = "";
+            if (grid) grid.style.display = "none";
+            if (carouselWrapper) carouselWrapper.style.display = "block";
+            if (carouselControls) carouselControls.style.display = "inline-flex";
+            if (btnToggleAll) btnToggleAll.textContent = `Ver todas (${properties.filter(isPropertyAvailable).length})`;
+
+            const featuredList = getFeaturedProperties(properties);
+            renderFeaturedCarousel(featuredList);
+        } else {
+            // Modo filtrado o ver todas las propiedades
+            stopFeaturedAutoSlide();
+            if (featuredEyebrow) featuredEyebrow.textContent = filteringActive ? "● BÚSQUEDA" : "● CATÁLOGO";
+            if (sectionTitle) sectionTitle.textContent = filteringActive ? "Resultados de búsqueda." : "Todas las propiedades.";
+            if (sectionSubtitle) sectionSubtitle.textContent = filteringActive ? "Propiedades que coinciden con tus filtros seleccionados." : "Catálogo completo de propiedades disponibles.";
+            if (carouselWrapper) carouselWrapper.style.display = "none";
+            if (carouselControls) carouselControls.style.display = "none";
+            if (grid) grid.style.display = "grid";
+            if (btnToggleAll) btnToggleAll.textContent = "← Volver a destacadas";
+
+            renderProperties(filtered);
+        }
     }
 
     if (window.hideLoader) window.hideLoader();
@@ -809,7 +1270,13 @@ window.filterByOperation = function (type) {
 
 function createPropertyCardElement(prop) {
     const manager = window.AuthManager;
-    const canManage = manager && manager.hasPermission(manager.Permissions.EDIT_PROPERTY);
+    const userRole = manager?.currentUserProfile?.role || manager?.getCurrentUser()?.role;
+    const canManage = Boolean(
+        manager && manager.isLoggedIn() && (
+            manager.hasPermission(manager.Permissions.EDIT_PROPERTY) ||
+            ["AGENT", "ADMIN", "SUPER_ADMIN", "EDITOR"].includes(userRole)
+        )
+    );
 
     const getFeatureVal = (namePattern) => {
         const feat = prop.customFeatures?.find(f =>
@@ -886,7 +1353,15 @@ function createPropertyCardElement(prop) {
     const currencyLabel = prop.currency === "ARS" ? "AR$" : "U$D";
     const whatsappUrl = window.buildPropertyWhatsappUrl
         ? window.buildPropertyWhatsappUrl(prop)
-        : `https://wa.me/${(window.SITE_CONFIG?.contact?.whatsapp || "5493874155902").replace(/\D/g, "")}?text=${encodeURIComponent(`Hola, quiero consultar por la propiedad: ${prop.title} (ID: ${prop.id})`)}`;
+        : (() => {
+            const rawPhone = (window.SITE_CONFIG?.contact?.whatsapp || "5493874155902").replace(/\D/g, "");
+            const title = String(prop?.title || "la propiedad").trim();
+            const directUrl = window.getPropertyDirectUrl
+                ? window.getPropertyDirectUrl(prop)
+                : `${window.location.origin}/details.html?id=${encodeURIComponent(prop.id ?? "")}`;
+            const msg = `¡Hola, vi esta propiedad en la página '${title}' (${directUrl}) y me gustaría que me pasen más información. ¡Muchas gracias!`;
+            return `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`;
+        })();
 
     const card = document.createElement("article");
     card.className = "property-card";
@@ -895,28 +1370,46 @@ function createPropertyCardElement(prop) {
     card.innerHTML = `
         <div class="property-image-container">
             <div class="operation-badge badge-${(prop.operation || prop.category || 'venta').toLowerCase()}">${escapeHtml(prop.operation || prop.category || 'Venta')}</div>
-            ${isUnavailable ? '<div class="unavailable-ribbon">No disponible</div>' : ''}
+            ${isUnavailable ? '<div class="unavailable-ribbon">🚫 No disponible</div>' : ''}
             <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : PLACEHOLDER_IMAGE}" alt="${escapeHtml(prop.title)}" class="property-image">
-            <img src="${window.SITE_CONFIG?.assets?.logoSeal || 'assets/images/logo-seal.svg'}" class="property-seal" alt="Seal">
+            <img src="${window.SITE_CONFIG?.assets?.logoSeal || 'assets/images/logo-seal.svg'}" class="property-seal" alt="Dávalos Propiedades" aria-hidden="true">
         </div>
-        ${canManage ? `
-            <button class="property-settings-btn" title="Opciones" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">
-                ⚙️
-            </button>
-            <div class="property-settings-menu" onclick="event.stopPropagation()">
-                <button class="property-settings-item" onclick="togglePropertyAvailability(${prop.id})">
-                    ${isUnavailable ? "Marcar como disponible" : "Marcar como no disponible"}
-                </button>
-                <button class="property-settings-item" onclick="openEditModal(${prop.id})">
-                    Editar publicación
-                </button>
-                <button class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
-                    Eliminar publicación
-                </button>
-            </div>
-        ` : ""}
         <div class="property-info">
-            <div class="property-price">${currencyLabel} ${formatPrice(prop.price)}</div>
+            <div class="property-info-header">
+                <div class="property-price">${currencyLabel} ${formatPrice(prop.price)}</div>
+                ${canManage ? `
+                    <div class="property-actions-wrapper">
+                        ${isUnavailable ? `
+                            <button type="button" class="btn-quick-activate" title="Volver a activar publicación en el catálogo público" onclick="event.stopPropagation(); togglePropertyAvailability(${prop.id})">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M23 4v6h-6"></path>
+                                    <path d="M1 20v-6h6"></path>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                </svg>
+                                <span>Activar</span>
+                            </button>
+                        ` : ''}
+                        <button type="button" class="property-settings-btn" title="Opciones de administración" aria-label="Opciones" onclick="event.stopPropagation(); const m = this.nextElementSibling; const wasOpen = m.classList.contains('show'); document.querySelectorAll('.property-settings-menu.show').forEach(el => el.classList.remove('show')); if (!wasOpen) m.classList.add('show');">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                                <circle cx="12" cy="5" r="2"></circle>
+                                <circle cx="12" cy="12" r="2"></circle>
+                                <circle cx="12" cy="19" r="2"></circle>
+                            </svg>
+                        </button>
+                        <div class="property-settings-menu" onclick="event.stopPropagation()">
+                            <button type="button" class="property-settings-item" onclick="togglePropertyAvailability(${prop.id})">
+                                ${isUnavailable ? "✓ Marcar como disponible" : "🚫 Marcar como no disponible"}
+                            </button>
+                            <button type="button" class="property-settings-item" onclick="openEditModal(${prop.id})">
+                                Editar publicación
+                            </button>
+                            <button type="button" class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
+                                Eliminar publicación
+                            </button>
+                        </div>
+                    </div>
+                ` : ""}
+            </div>
             <h3 class="property-title">${escapeHtml(prop.title)}</h3>
             ${shortDesc ? `<p class="property-description">${shortDesc}</p>` : ""}
             <div class="property-card-footer">
@@ -938,9 +1431,9 @@ function createPropertyCardElement(prop) {
     card.onclick = () => {
         if (featuredSwipeJustHappened) return;
         if (window.triggerLoader) {
-            window.triggerLoader(`details?id=${prop.id}`);
+            window.triggerLoader(`details.html?id=${prop.id}`);
         } else {
-            window.location.href = `details?id=${prop.id}`;
+            window.location.href = `details.html?id=${prop.id}`;
         }
     };
     return card;
@@ -1182,7 +1675,6 @@ setInterval(() => {
 
 function renderProperties(filtered) {
     grid.innerHTML = "";
-    if (!canViewUnavailable()) filtered = filtered.filter(isPropertyAvailable);
     if (resultsCount) resultsCount.textContent = `${filtered.length} resultado${filtered.length === 1 ? "" : "s"}`;
 
     if (!filtered.length) {
@@ -1195,9 +1687,74 @@ function renderProperties(filtered) {
     });
 }
 
+// Vista rápida de propiedades no disponibles (solo AGENT, ADMIN, SUPER_ADMIN)
+function renderUnavailableProperties() {
+    if (!canManageProperties()) return;
+    stopFeaturedAutoSlide();
+    showUnavailableMode = true;
+    showAllCatalogMode = true;
+
+    const carouselWrapper = document.getElementById("featured-carousel-wrapper");
+    const carouselControls = document.getElementById("featured-carousel-controls");
+    const btnToggleAll = document.getElementById("btn-toggle-all-props");
+    const btnToggleUnavailable = document.getElementById("btn-toggle-unavailable");
+    const featuredEyebrow = document.getElementById("featured-eyebrow");
+    const sectionTitle = document.getElementById("properties-section-title");
+    const sectionSubtitle = document.getElementById("properties-section-subtitle");
+
+    if (carouselWrapper) carouselWrapper.style.display = "none";
+    if (carouselControls) carouselControls.style.display = "none";
+    if (grid) grid.style.display = "grid";
+
+    if (featuredEyebrow) featuredEyebrow.textContent = "● GESTIÓN INTERNA";
+    if (sectionTitle) sectionTitle.textContent = "Propiedades no disponibles.";
+    if (sectionSubtitle) sectionSubtitle.textContent = "Inmuebles pausados, vendidos o dados de baja temporalmente. Solo visible para el equipo administrador.";
+
+    if (btnToggleAll) {
+        btnToggleAll.textContent = "← Volver al catálogo disponible";
+        btnToggleAll.style.display = "inline-flex";
+    }
+
+    if (btnToggleUnavailable) {
+        btnToggleUnavailable.classList.add("active");
+    }
+
+    const unavailProps = properties.filter(p => !isPropertyAvailable(p));
+    if (resultsCount) {
+        resultsCount.textContent = `${unavailProps.length} propiedad${unavailProps.length === 1 ? "" : "es"} no disponible${unavailProps.length === 1 ? "" : "s"}`;
+    }
+
+    grid.innerHTML = "";
+    if (unavailProps.length === 0) {
+        grid.innerHTML = `
+            <div class="no-results" style="grid-column: 1 / -1; padding: 50px 20px; text-align: center;">
+                <div style="font-size: 2.2rem; margin-bottom: 12px;">✅</div>
+                <h3 style="margin-bottom: 8px;">No hay propiedades pausadas</h3>
+                <p style="color: var(--text-light); margin-bottom: 20px;">Todas las propiedades publicadas se encuentran activas y disponibles en la web.</p>
+                <button type="button" class="btn btn-primary btn-small" onclick="exitUnavailableMode()">Volver al catálogo disponible</button>
+            </div>
+        `;
+        return;
+    }
+
+    unavailProps.forEach(prop => {
+        grid.appendChild(createPropertyCardElement(prop));
+    });
+}
+
+function exitUnavailableMode() {
+    showUnavailableMode = false;
+    const btnToggleUnavailable = document.getElementById("btn-toggle-unavailable");
+    if (btnToggleUnavailable) btnToggleUnavailable.classList.remove("active");
+    applyFilters();
+}
+
+window.renderUnavailableProperties = renderUnavailableProperties;
+window.exitUnavailableMode = exitUnavailableMode;
+
 // Alterna Disponible / No disponible con un solo clic y lo persiste en Firestore.
 window.togglePropertyAvailability = async function (id) {
-    if (!canViewUnavailable()) return;
+    if (!canManageProperties()) return;
     const prop = properties.find(p => String(p.id) === String(id));
     if (!prop) return;
     if (!prop.firebaseId) {
@@ -1213,9 +1770,14 @@ window.togglePropertyAvailability = async function (id) {
     try {
         await window.db.collection("properties").doc(prop.firebaseId).update(patch);
         Object.assign(prop, patch);
+        updateAuthUI();
         renderPropertyCategories();
-        applyFilters();
         renderOpportunities();
+        if (showUnavailableMode) {
+            renderUnavailableProperties();
+        } else {
+            applyFilters();
+        }
     } catch (e) {
         console.error("Error al cambiar disponibilidad:", e);
         alert("No se pudo actualizar la disponibilidad. Verificá que hayas iniciado sesión con Google como administrador.");
@@ -1713,6 +2275,15 @@ function openEditModal(id) {
         });
     }
 
+    // Coordinates and picker mini-map
+    const latVal = (prop.lat !== undefined && prop.lat !== null) ? prop.lat : "";
+    const lngVal = (prop.lng !== undefined && prop.lng !== null) ? prop.lng : "";
+    const propLatInput = document.getElementById("prop-lat");
+    const propLngInput = document.getElementById("prop-lng");
+    if (propLatInput) propLatInput.value = latVal;
+    if (propLngInput) propLngInput.value = lngVal;
+    updatePickerMapPosition(latVal, lngVal);
+
     // Change modal title
     const modalHeader = propertyModal.querySelector(".modal-header h2");
     if (modalHeader) modalHeader.textContent = "Editar propiedad";
@@ -1866,13 +2437,51 @@ function bindEvents() {
             document.getElementById("custom-features-container").innerHTML = "";
             document.getElementById("image-previews").innerHTML = "";
             uploadedImages = [];
+            const propLatInput = document.getElementById("prop-lat");
+            const propLngInput = document.getElementById("prop-lng");
+            if (propLatInput) propLatInput.value = "";
+            if (propLngInput) propLngInput.value = "";
+            updatePickerMapPosition(null, null);
+
             const modalHeader = propertyModal.querySelector(".modal-header h2");
             if (modalHeader) modalHeader.textContent = "Cargar nueva propiedad";
             openModal(propertyModal);
         };
     }
-    if (btnLogout) btnLogout.onclick = () => { window.AuthManager.logout(); updateAuthUI(); applyFilters(); };
+    if (btnLogout) btnLogout.onclick = () => {
+        window.AuthManager.logout();
+        showUnavailableMode = false;
+        updateAuthUI();
+        applyFilters();
+    };
     closeBtns.forEach(btn => btn.onclick = closeModal);
+
+    const btnToggleUnavailable = document.getElementById("btn-toggle-unavailable");
+    if (btnToggleUnavailable) {
+        btnToggleUnavailable.onclick = () => {
+            if (showUnavailableMode) {
+                exitUnavailableMode();
+            } else {
+                renderUnavailableProperties();
+            }
+            const propSection = document.getElementById("propiedades");
+            if (propSection) propSection.scrollIntoView({ behavior: "smooth" });
+        };
+    }
+
+    // Cerrar menús de acciones de propiedades al hacer clic afuera
+    document.addEventListener("click", () => {
+        document.querySelectorAll(".property-settings-menu.show").forEach(m => m.classList.remove("show"));
+    });
+
+    const btnViewGrid = document.getElementById("btn-view-grid");
+    const btnViewMap = document.getElementById("btn-view-map");
+    if (btnViewGrid) {
+        btnViewGrid.onclick = () => setCatalogViewMode("grid");
+    }
+    if (btnViewMap) {
+        btnViewMap.onclick = () => setCatalogViewMode("map");
+    }
 
     if (btnToggleFilters) {
         btnToggleFilters.onclick = (e) => {
@@ -2061,6 +2670,14 @@ function bindEvents() {
                     agent: agentName,
                     creditEligible: (category === "venta") ? document.getElementById("prop-credit").checked : false,
                     mapLink: document.getElementById("prop-map-link").value,
+                    lat: (() => {
+                        const v = document.getElementById("prop-lat")?.value;
+                        return (v !== "" && v !== null && !isNaN(Number(v))) ? Number(v) : null;
+                    })(),
+                    lng: (() => {
+                        const v = document.getElementById("prop-lng")?.value;
+                        return (v !== "" && v !== null && !isNaN(Number(v))) ? Number(v) : null;
+                    })(),
                     createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
                     images: finalImageUrls,
                     customFeatures,

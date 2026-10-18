@@ -43,8 +43,12 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=5">
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
     <link rel="stylesheet" href="assets/css/loader.css">
+    <!-- Leaflet & MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 </head>
 
 <body>
@@ -213,9 +217,22 @@
                     </div>
                     <div class="featured-header-right">
                         <div class="featured-header-actions">
+                            <button type="button" id="btn-toggle-unavailable" class="btn-view-unavailable" style="display: none;" title="Ver propiedades pausadas o dadas de baja">
+                                🚫 No disponibles (<span id="unavailable-count">0</span>)
+                            </button>
                             <button type="button" id="btn-toggle-all-props" class="btn-view-all-props" style="display: none;">
                                 Ver todas las propiedades
                             </button>
+                            <div class="catalog-view-switch" role="group" aria-label="Modo de visualización">
+                                <button type="button" id="btn-view-grid" class="btn-view-mode active" title="Vista en cuadrícula" aria-pressed="true">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>
+                                    <span>Cuadrícula</span>
+                                </button>
+                                <button type="button" id="btn-view-map" class="btn-view-mode" title="Vista en mapa interactivo" aria-pressed="false">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+                                    <span>Mapa</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -234,6 +251,11 @@
 
                 <!-- Grilla de resultados al filtrar o ver catálogo completo -->
                 <div id="properties-grid" class="properties-grid" style="display: none;">
+                </div>
+
+                <!-- Vista de Mapa Interactivo del Catálogo -->
+                <div id="catalog-map-wrapper" class="catalog-map-wrapper" style="display: none;">
+                    <div id="catalog-map" class="catalog-map"></div>
                 </div>
             </div>
         </section>
@@ -656,10 +678,56 @@
                     <label for="prop-credit" style="margin-bottom: 0;">¿Es apta para crédito hipotecario?</label>
                 </div>
 
-                <!-- 9. Location (Google Maps) -->
-                <div class="form-group">
-                    <label for="prop-map-link">Ubicación (Link de Google Maps)</label>
-                    <input type="url" id="prop-map-link" placeholder="https://www.google.com/maps/...">
+                <!-- 9. Ubicación Geográfica y Mini Mapa Interactivo -->
+                <div class="form-section form-group-location" style="margin-top: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; flex-wrap: wrap; gap: 6px;">
+                        <h3 style="margin: 0; font-size: 1rem; color: var(--primary);">Ubicación en el Mapa</h3>
+                        <small style="color: var(--text-light);">Clic en el mapa o arrastrá el pin para fijar coordenadas</small>
+                    </div>
+
+                    <!-- Buscador de dirección con Nominatim -->
+                    <div class="picker-search-container" style="margin-bottom: 12px; position: relative;">
+                        <label for="picker-address-search" style="font-size: 0.8rem; color: #475569; display: block; margin-bottom: 4px; font-weight: 600;">
+                            Buscar por calle o dirección (OpenStreetMap):
+                        </label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="picker-address-search" placeholder="Ej: Av. Belgrano 500, Salta o San Lorenzo..." style="flex: 1; padding: 9px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem;">
+                            <button type="button" id="btn-picker-search" class="btn btn-primary" style="padding: 0 16px; white-space: nowrap; font-size: 0.84rem; display: flex; align-items: center; gap: 6px;">
+                                <span>Buscar</span>
+                            </button>
+                        </div>
+                        <div id="picker-search-feedback" style="display: none; font-size: 0.78rem; margin-top: 4px;"></div>
+                        <div id="picker-search-results" class="picker-search-dropdown" style="display: none;"></div>
+                    </div>
+
+                    <!-- Input opcional de link o coordenadas de Google Maps -->
+                    <div class="picker-gmaps-container" style="margin-bottom: 12px;">
+                        <label for="prop-map-link" style="font-size: 0.8rem; color: #475569; display: block; margin-bottom: 4px; font-weight: 600;">
+                            O pegar link o coordenadas de Google Maps (opcional):
+                        </label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="prop-map-link" placeholder="Ej: https://maps.google.com/... o -24.7821, -65.4232" style="flex: 1; padding: 9px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem;">
+                            <button type="button" id="btn-extract-gmaps" class="btn btn-outline" style="padding: 0 14px; white-space: nowrap; font-size: 0.84rem;">
+                                Extraer
+                            </button>
+                        </div>
+                        <div id="gmaps-extract-feedback" style="display: none; font-size: 0.78rem; margin-top: 5px; font-weight: 600;"></div>
+                    </div>
+
+                    <!-- Mini Mapa Leaflet -->
+                    <div id="property-picker-map" class="property-picker-map" style="height: 280px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 12px; z-index: 1;"></div>
+
+                    <!-- Coordenadas resultantes -->
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="prop-lat" style="font-size: 0.78rem; color: #64748b; margin-bottom: 4px; display: block; font-weight: 600;">Latitud</label>
+                            <input type="number" step="any" id="prop-lat" placeholder="-24.782100" style="font-size: 0.88rem; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="prop-lng" style="font-size: 0.78rem; color: #64748b; margin-bottom: 4px; display: block; font-weight: 600;">Longitud</label>
+                            <input type="number" step="any" id="prop-lng" placeholder="-65.423200" style="font-size: 0.88rem; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Gallery and Submit will follow in the original structure -->
@@ -695,17 +763,18 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-    <script src="assets/js/config.js?v=5"></script>
+    <script src="assets/js/config.js?v=7"></script>
     <script src="assets/js/firebase-config.js"></script>
 
-    <script src="assets/js/auth.js?v=9"></script>
+    <script src="assets/js/auth.js?v=10"></script>
     <script src="assets/js/loader.js"></script>
-    <script src="assets/js/script.js?v=10"></script>
+    <script src="assets/js/script.js?v=16"></script>
     <script>
         const menuToggle = document.getElementById('mobile-menu-toggle');
         const navMain = document.querySelector('.nav-main');
