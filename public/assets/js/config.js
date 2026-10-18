@@ -280,8 +280,15 @@ const resolvePropertyAgentByConfig = function (prop) {
 window.getPropertyAgent = function (prop) {
     const agent = resolvePropertyAgentByConfig(prop);
     const directPhone = String(prop?.agentWhatsapp || prop?.agentPhone || "").replace(/\D/g, "");
-    if (!directPhone) return agent;
-    return { ...agent, whatsapp: window.normalizeWhatsappPhone(directPhone), phone: prop.agentPhone || agent.phone };
+    return {
+        ...agent,
+        name: prop?.agent || agent.name,
+        role: prop?.agentRole || agent.role,
+        email: (prop?.agentEmail !== undefined && prop.agentEmail !== "") ? prop.agentEmail : agent.email,
+        photoUrl: (prop?.agentPhotoUrl !== undefined && prop.agentPhotoUrl !== "") ? prop.agentPhotoUrl : agent.photoUrl,
+        whatsapp: directPhone ? window.normalizeWhatsappPhone(directPhone) : agent.whatsapp,
+        phone: prop?.agentPhone || agent.phone
+    };
 };
 
 // Resuelve una ruta de imagen/recurso como URL absoluta para Open Graph y WhatsApp

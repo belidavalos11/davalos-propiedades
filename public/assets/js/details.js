@@ -207,6 +207,8 @@ function renderDetails(prop) {
     const hasCoords = !isNaN(lat) && !isNaN(lng) && isFinite(lat) && isFinite(lng) && (lat !== 0 || lng !== 0);
 
     const logged = window.AuthManager && window.AuthManager.isLoggedIn();
+    const userRole = (window.AuthManager?.currentUserProfile?.role || window.AuthManager?.getUserRole() || "").toUpperCase();
+    const isSuperAdmin = Boolean(logged && userRole === "SUPER_ADMIN");
     const safeTitle = escapeHtml(prop.title);
     const safeCategory = escapeHtml(prop.category);
     const safeDescription = escapeHtml(prop.description || "");
@@ -484,7 +486,7 @@ function renderDetails(prop) {
             <!-- COLUMNA LATERAL STICKY (Derecha / ~30-35%) -->
             <aside class="details-sidebar-column">
                 <div class="sticky-contact-card">
-                    <!-- Precio -->
+                    <!-- 1. Precio -->
                     <div class="sidebar-price-container">
                         <span class="sidebar-price-label">Precio de la propiedad</span>
                         <div class="sidebar-price-number">${formatCurrency(prop.price, prop.currency)}</div>
@@ -493,7 +495,44 @@ function renderDetails(prop) {
                         ` : ""}
                     </div>
 
-                    <!-- Botón Principal: Consultar por WhatsApp -->
+                    <!-- 2. Datos del Asesor / Inmobiliaria -->
+                    <div class="sidebar-agent-card">
+                        <div class="agent-card-header">
+                            <span class="agent-card-badge">Asesor a cargo</span>
+                        </div>
+                        <div class="agent-profile-row">
+                            <div class="agent-avatar-wrap" id="sidebar-agent-avatar-wrap">
+                                ${safeAgentPhoto ? `
+                                    <img id="sidebar-agent-photo" src="${safeAgentPhoto}" alt="${safeAgentName}" class="agent-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div id="sidebar-agent-fallback" class="agent-avatar-fallback" style="display:none;">${agentInitials}</div>
+                                ` : `
+                                    <div id="sidebar-agent-fallback" class="agent-avatar-fallback">${agentInitials}</div>
+                                `}
+                            </div>
+                            <div class="agent-info-meta">
+                                <span id="sidebar-agent-name" class="agent-name-title">${safeAgentName}</span>
+                                <span id="sidebar-agent-role" class="agent-license-subtitle">${safeAgentRole} · MP N° 96</span>
+                                <span id="sidebar-agent-email-wrap">${safeAgentEmail ? `<a id="sidebar-agent-email" href="mailto:${safeAgentEmail}" class="agent-contact-link">${safeAgentEmail}</a>` : ""}</span>
+                            </div>
+                        </div>
+
+                        ${isSuperAdmin ? `
+                            <div class="super-admin-agent-selector-wrap">
+                                <label for="select-assign-agent" class="agent-selector-label">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                                    <span>Asignar / Cambiar Asesor</span>
+                                </label>
+                                <div class="agent-select-wrapper">
+                                    <select id="select-assign-agent" class="agent-select-control" aria-label="Asignar o cambiar asesor responsable">
+                                        <option value="">Cargando asesores...</option>
+                                    </select>
+                                </div>
+                                <div id="agent-change-status" class="agent-change-status" style="display:none;"></div>
+                            </div>
+                        ` : ""}
+                    </div>
+
+                    <!-- 3. Botón Principal: Consultar por WhatsApp -->
                     <div class="sidebar-whatsapp-block">
                         <input type="text" id="consultant-name" placeholder="Tu nombre y apellido (opcional)" class="consultant-name-input" autocomplete="name" />
                         <a id="btn-sidebar-whatsapp" href="${buildWhatsappUrl(prop)}" target="_blank" rel="noopener noreferrer" class="btn-sidebar-whatsapp">
@@ -504,7 +543,7 @@ function renderDetails(prop) {
                         </a>
                     </div>
 
-                    <!-- Acciones Utilitarias -->
+                    <!-- 4. Acciones Utilitarias -->
                     <div class="sidebar-utility-actions">
                         <button type="button" class="btn-util-action" onclick="shareProperty()" title="Compartir">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
@@ -522,23 +561,7 @@ function renderDetails(prop) {
                         ` : ""}
                     </div>
 
-                    <!-- Datos del Asesor / Inmobiliaria -->
-                    <div class="sidebar-agent-block">
-                        <div class="agent-avatar-wrap">
-                            ${safeAgentPhoto ? `
-                                <img src="${safeAgentPhoto}" alt="${safeAgentName}" class="agent-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                <div class="agent-avatar-fallback" style="display:none;">${agentInitials}</div>
-                            ` : `
-                                <div class="agent-avatar-fallback">${agentInitials}</div>
-                            `}
-                        </div>
-                        <div class="agent-info-meta">
-                            <span class="agent-name-title">${safeAgentName}</span>
-                            <span class="agent-license-subtitle">${safeAgentRole} · MP N° 96</span>
-                            ${safeAgentEmail ? `<a href="mailto:${safeAgentEmail}" class="agent-contact-link">${safeAgentEmail}</a>` : ""}
-                        </div>
-                    </div>
-
+                    <!-- 5. Datos Privados (Admin) -->
                     ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
                         <div class="admin-private-data-card">
                             <div class="admin-data-title">🔒 Datos Privados (Admin)</div>
@@ -649,9 +672,233 @@ function renderDetails(prop) {
     bindLightbox(prop.images);
     setupFloating(prop);
 
+    if (isSuperAdmin) {
+        populateAssignAgentSelect(prop);
+    }
+
     if (hasCoords) {
         initDetailsMap(lat, lng, prop);
     }
+}
+
+function refreshAdvisorAndWhatsappLive(prop) {
+    const assignedAgent = window.getPropertyAgent ? window.getPropertyAgent(prop) : {
+        name: prop.agent || "Dávalos Propiedades",
+        role: prop.agentRole || "Asesor Inmobiliario",
+        email: prop.agentEmail || "",
+        photoUrl: prop.agentPhotoUrl || ""
+    };
+
+    const safeAgentName = escapeHtml(assignedAgent.name || "Dávalos Propiedades");
+    const safeAgentRole = escapeHtml(assignedAgent.role || "Asesor Inmobiliario");
+    const safeAgentEmail = escapeHtml(assignedAgent.email || "");
+    const safeAgentPhoto = safeImageUrl(assignedAgent.photoUrl) || (assignedAgent.photoUrl && !assignedAgent.photoUrl.startsWith("http") ? escapeHtml(assignedAgent.photoUrl) : "");
+    const agentInitials = safeAgentName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part.charAt(0).toUpperCase())
+        .join("") || "D";
+
+    const nameEl = document.getElementById("sidebar-agent-name");
+    const roleEl = document.getElementById("sidebar-agent-role");
+    const emailWrap = document.getElementById("sidebar-agent-email-wrap");
+    const avatarWrap = document.getElementById("sidebar-agent-avatar-wrap");
+    const sidebarWaBtn = document.getElementById("btn-sidebar-whatsapp");
+    const consultantNameInput = document.getElementById("consultant-name");
+
+    if (nameEl) nameEl.textContent = assignedAgent.name || "Dávalos Propiedades";
+    if (roleEl) roleEl.textContent = `${assignedAgent.role || "Asesor Inmobiliario"} · MP N° 96`;
+    if (emailWrap) {
+        emailWrap.innerHTML = safeAgentEmail ? `<a id="sidebar-agent-email" href="mailto:${safeAgentEmail}" class="agent-contact-link">${safeAgentEmail}</a>` : "";
+    }
+    if (avatarWrap) {
+        if (safeAgentPhoto) {
+            avatarWrap.innerHTML = `
+                <img id="sidebar-agent-photo" src="${safeAgentPhoto}" alt="${safeAgentName}" class="agent-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div id="sidebar-agent-fallback" class="agent-avatar-fallback" style="display:none;">${agentInitials}</div>
+            `;
+        } else {
+            avatarWrap.innerHTML = `<div id="sidebar-agent-fallback" class="agent-avatar-fallback">${agentInitials}</div>`;
+        }
+    }
+
+    const nameVal = consultantNameInput ? consultantNameInput.value.trim() : "";
+    const nextUrl = buildWhatsappUrl(prop, nameVal);
+    if (sidebarWaBtn) sidebarWaBtn.href = nextUrl;
+    if (floatingWhatsapp) floatingWhatsapp.href = nextUrl;
+    if (floatingCall) floatingCall.href = `tel:+${getAgentPhone(prop)}`;
+}
+
+async function populateAssignAgentSelect(prop) {
+    const select = document.getElementById("select-assign-agent");
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Dávalos Propiedades (Por defecto)</option>';
+
+    let activeUsers = [];
+    if (window.db) {
+        try {
+            const snap = await window.db.collection("users").where("status", "==", "active").get();
+            snap.forEach(doc => {
+                const u = doc.data();
+                activeUsers.push({
+                    uid: doc.id,
+                    displayName: u.displayName || u.email || "Asesor",
+                    email: u.email || "",
+                    phone: u.phone || u.whatsapp || "",
+                    whatsapp: u.whatsapp || u.phone || "",
+                    photoURL: u.photoURL || "",
+                    role: u.role || "AGENT"
+                });
+            });
+        } catch (err) {
+            console.warn("[details] Error al consultar usuarios activos de Firestore:", err);
+        }
+    }
+
+    // Complementar con agentes preconfigurados de SITE_CONFIG si no estuvieran en Firestore
+    const configAgents = Array.isArray(window.SITE_CONFIG?.agents) ? window.SITE_CONFIG.agents : [];
+    configAgents.forEach(cfgAg => {
+        if (!cfgAg || !cfgAg.name) return;
+        const exists = activeUsers.some(u =>
+            (cfgAg.id && u.uid === cfgAg.id) ||
+            (u.displayName && u.displayName.toLowerCase() === cfgAg.name.toLowerCase())
+        );
+        if (!exists) {
+            activeUsers.push({
+                uid: cfgAg.id || cfgAg.name,
+                displayName: cfgAg.name,
+                email: cfgAg.email || "",
+                phone: cfgAg.phone || cfgAg.whatsapp || "",
+                whatsapp: cfgAg.whatsapp || cfgAg.phone || "",
+                photoURL: cfgAg.photoUrl || cfgAg.avatar || "",
+                role: cfgAg.role || "Asesor Inmobiliario"
+            });
+        }
+    });
+
+    activeUsers.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+    activeUsers.forEach(u => {
+        const opt = document.createElement("option");
+        opt.value = u.uid;
+        const displayRole = u.role === "SUPER_ADMIN" ? "Super Administrador" : (u.role === "ADMIN" ? "Administrador" : "Asesor Inmobiliario");
+        opt.textContent = `${u.displayName} (${displayRole})`;
+        opt.dataset.agentName = u.displayName;
+        opt.dataset.agentEmail = u.email;
+        opt.dataset.agentPhone = u.phone;
+        opt.dataset.agentWhatsapp = u.whatsapp;
+        opt.dataset.agentPhoto = u.photoURL;
+        opt.dataset.agentRole = displayRole;
+        select.appendChild(opt);
+    });
+
+    // Seleccionar el asesor asignado actualmente
+    const currentAgentId = String(prop.agentId || "").trim();
+    const currentAgentName = String(prop.agent || "").trim().toLowerCase();
+    let matchedOption = false;
+
+    if (currentAgentId) {
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === currentAgentId) {
+                select.selectedIndex = i;
+                matchedOption = true;
+                break;
+            }
+        }
+    }
+
+    if (!matchedOption && currentAgentName) {
+        for (let i = 0; i < select.options.length; i++) {
+            const optName = String(select.options[i].dataset.agentName || select.options[i].textContent || "").toLowerCase();
+            if (optName && (optName === currentAgentName || optName.includes(currentAgentName))) {
+                select.selectedIndex = i;
+                matchedOption = true;
+                break;
+            }
+        }
+    }
+
+    select.onchange = async () => {
+        const selectedOpt = select.options[select.selectedIndex];
+        const newAgentId = select.value;
+        const statusEl = document.getElementById("agent-change-status");
+        if (statusEl) {
+            statusEl.style.display = "block";
+            statusEl.className = "agent-change-status loading";
+            statusEl.textContent = "Guardando cambio...";
+        }
+        select.disabled = true;
+
+        let newAgentData = {};
+        if (!newAgentId) {
+            newAgentData = {
+                agentId: "",
+                agent: window.SITE_CONFIG?.brand?.name || "Dávalos Propiedades",
+                agentPhone: window.SITE_CONFIG?.contact?.phone || "",
+                agentWhatsapp: window.SITE_CONFIG?.contact?.whatsapp || "",
+                agentEmail: window.SITE_CONFIG?.contact?.email || "",
+                agentPhotoUrl: "",
+                agentRole: "Asesor Inmobiliario"
+            };
+        } else {
+            newAgentData = {
+                agentId: newAgentId,
+                agent: selectedOpt.dataset.agentName || selectedOpt.textContent,
+                agentPhone: selectedOpt.dataset.agentPhone || "",
+                agentWhatsapp: selectedOpt.dataset.agentWhatsapp || "",
+                agentEmail: selectedOpt.dataset.agentEmail || "",
+                agentPhotoUrl: selectedOpt.dataset.agentPhoto || "",
+                agentRole: selectedOpt.dataset.agentRole || "Asesor Inmobiliario"
+            };
+        }
+
+        try {
+            if (window.db) {
+                if (prop.firebaseId) {
+                    await window.db.collection("properties").doc(prop.firebaseId).update(newAgentData);
+                } else {
+                    const searchIds = [...new Set([prop.id, String(prop.id), Number(prop.id)])].filter(val => val !== null && val !== undefined && !Number.isNaN(val));
+                    const snap = await window.db.collection("properties").where("id", "in", searchIds).get();
+                    if (!snap.empty) {
+                        const targetDoc = snap.docs[0];
+                        prop.firebaseId = targetDoc.id;
+                        await window.db.collection("properties").doc(targetDoc.id).update(newAgentData);
+                    } else {
+                        const newDoc = await window.db.collection("properties").add({
+                            ...prop,
+                            ...newAgentData
+                        });
+                        prop.firebaseId = newDoc.id;
+                    }
+                }
+            }
+
+            Object.assign(prop, newAgentData);
+            if (currentProperty) {
+                Object.assign(currentProperty, newAgentData);
+            }
+
+            refreshAdvisorAndWhatsappLive(prop);
+
+            if (statusEl) {
+                statusEl.className = "agent-change-status success";
+                statusEl.textContent = "✓ Asesor actualizado correctamente";
+                setTimeout(() => {
+                    if (statusEl) statusEl.style.display = "none";
+                }, 3000);
+            }
+        } catch (error) {
+            console.error("[details] Error al actualizar asesor:", error);
+            if (statusEl) {
+                statusEl.className = "agent-change-status error";
+                statusEl.textContent = "✕ Error al guardar cambio";
+            }
+        } finally {
+            select.disabled = false;
+        }
+    };
 }
 
 let propertyDetailsMapInstance = null;

@@ -815,7 +815,9 @@ body {
 .sidebar-utility-actions {
     display: flex;
     gap: 8px;
-    margin-top: 14px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
     width: 100%;
     box-sizing: border-box;
 }
@@ -863,11 +865,32 @@ body {
     color: var(--primary-dark);
 }
 
-/* Bloque del asesor / inmobiliaria */
-.sidebar-agent-block {
-    margin-top: 20px;
-    padding-top: 18px;
-    border-top: 1px solid var(--border-light);
+/* Tarjeta y datos del Asesor a Cargo */
+.sidebar-agent-card {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.agent-card-header {
+    margin-bottom: 10px;
+}
+
+.agent-card-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--primary);
+    background: rgba(11, 27, 79, 0.08);
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.agent-profile-row {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -893,6 +916,18 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.agent-avatar-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1.05rem;
 }
 
 .agent-info-meta {
@@ -922,6 +957,83 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.agent-contact-link:hover {
+    text-decoration: underline;
+}
+
+/* Selector desplegable de Asignar / Cambiar Asesor para SUPER_ADMIN */
+.super-admin-agent-selector-wrap {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed #cbd5e1;
+}
+
+.agent-selector-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.agent-selector-label svg {
+    color: var(--primary);
+}
+
+.agent-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.agent-select-control {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    font-weight: 600;
+    color: var(--text-dark);
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    outline: none;
+    cursor: pointer;
+    transition: var(--transition);
+    box-sizing: border-box;
+}
+
+.agent-select-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(11, 27, 79, 0.1);
+}
+
+.agent-select-control:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f1f5f9;
+}
+
+.agent-change-status {
+    font-size: 0.76rem;
+    margin-top: 6px;
+    font-weight: 600;
+}
+
+.agent-change-status.loading {
+    color: var(--primary);
+}
+
+.agent-change-status.success {
+    color: #059669;
+}
+
+.agent-change-status.error {
+    color: #dc2626;
 }
 
 
