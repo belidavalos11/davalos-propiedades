@@ -2582,6 +2582,10 @@ textarea {
 }
 
 .btn-team-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
     padding: 8px 14px;
     border: 1px solid #f5c2c2;
     border-radius: 8px;
@@ -2599,10 +2603,22 @@ textarea {
     color: var(--white);
 }
 
+.btn-team-danger.btn-small {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+}
+
 .team-actions button:disabled,
 .team-actions-cell button:disabled {
     opacity: 0.6;
     cursor: wait;
+}
+
+.team-actions-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .team-table-wrap {

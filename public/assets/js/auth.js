@@ -367,6 +367,26 @@ const AuthManager = {
             return { success: false, reason: "error", error: e.message || String(e) };
         }
     },
+
+    // Elimina permanentemente un usuario de Firestore (solo SUPER_ADMIN)
+    async deleteUser(uid) {
+        if (!this.hasPermission(this.Permissions.MANAGE_USERS) || this.getUserRole() !== this.Roles.SUPER_ADMIN) {
+            return { success: false, reason: "permission" };
+        }
+        if (window.auth && window.auth.currentUser && window.auth.currentUser.uid === uid) {
+            return { success: false, reason: "self" };
+        }
+        if (!window.db) {
+            return { success: false, reason: "error", error: "Firestore no está disponible." };
+        }
+        try {
+            await window.db.collection("users").doc(uid).delete();
+            return { success: true };
+        } catch (e) {
+            console.error("[Auth] Error al eliminar usuario:", e);
+            return { success: false, reason: "error", error: e.message || String(e) };
+        }
+    },
     _normalizeUsername(value) {
         return String(value || "").trim().toLowerCase();
     },

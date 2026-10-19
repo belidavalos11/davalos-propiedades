@@ -2078,20 +2078,50 @@ function renderTeam() {
             <tr><td>${teamUserHtml(u)}</td>
             <td><span class="team-role-tag">${TEAM_ROLE_LABELS[u.role] || escapeHtml(u.role || "")}</span></td>
             <td>${formatTeamDate(u.createdAt)}</td>
-            <td class="team-actions-cell"><button type="button" class="btn btn-outline btn-small" data-team-action="reactivate" data-uid="${escapeHtml(u.uid)}">Reactivar</button></td></tr>`).join("")}
+            <td class="team-actions-cell">
+                <div class="team-actions-inline">
+                    <button type="button" class="btn btn-outline btn-small" data-team-action="reactivate" data-uid="${escapeHtml(u.uid)}">Reactivar</button>
+                    <button type="button" class="btn-team-danger btn-small" data-team-action="delete" data-uid="${escapeHtml(u.uid)}" title="Eliminar definitivamente">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Eliminar
+                    </button>
+                </div>
+            </td></tr>`).join("")}
         </tbody></table></div>` : empty("No hay usuarios inactivos."));
 }
 
 function teamErrorMessage(res) {
-    if (res.reason === "self") return "No podés modificar tu propia cuenta.";
+    if (res.reason === "self") return "No podés modificar o eliminar tu propia cuenta.";
     if (res.reason === "permission") return "No tenés permisos para gestionar el equipo.";
-    return "No se pudo guardar el cambio. Verificá tu conexión y las reglas de Firestore.";
+    return res.error || "No se pudo guardar el cambio. Verificá tu conexión y las reglas de Firestore.";
 }
 
 async function handleTeamAction(action, uid, btn) {
     const user = teamState.users.find(u => u.uid === uid);
     if (!user) return;
     const name = user.displayName || user.email;
+
+    if (action === "delete") {
+        if (!window.AuthManager || window.AuthManager.getUserRole() !== "SUPER_ADMIN") {
+            alert("Solo un usuario con rol Super Admin puede eliminar miembros del equipo.");
+            return;
+        }
+        if (!confirm("¿Estás seguro de que deseas eliminar permanentemente a este usuario? Esta acción no se puede deshacer.")) {
+            return;
+        }
+        btn.disabled = true;
+        const res = await window.AuthManager.deleteUser(uid);
+        if (res.success) {
+            alert("Usuario eliminado correctamente");
+            // Actualización inmediata del estado local para feedback instantáneo; watchTeam también sincronizará vía onSnapshot
+            teamState.users = teamState.users.filter(u => u.uid !== uid);
+            renderTeam();
+        } else {
+            btn.disabled = false;
+            alert(teamErrorMessage(res));
+        }
+        return;
+    }
+
     let patch;
     let confirmMsg = "";
     switch (action) {
