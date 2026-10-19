@@ -2660,81 +2660,50 @@ textarea {
    Interactive Catalog Map & Location Picker
    ========================================================================== */
 
-.catalog-view-switch {
-    display: inline-flex;
-    align-items: center;
-    background: #f1f5f9;
-    padding: 3px;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-}
-
-.btn-view-mode {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    border: none;
-    border-radius: 7px;
-    background: transparent;
-    color: #64748b;
+/* Sección fija dedicada para el Mapa Interactivo */
+.section-badge {
+    display: inline-block;
     font-family: var(--font-main);
-    font-size: 0.84rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.btn-view-mode:hover {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     color: var(--primary);
+    margin-bottom: 10px;
 }
 
-.btn-view-mode.active {
-    background: var(--white);
-    color: var(--primary);
-    box-shadow: 0 2px 6px rgba(5, 14, 54, 0.08);
+.map-section {
+    padding: 60px 0;
+    background: #ffffff;
 }
 
-/* Vista de Mapa Interactivo del Catálogo */
-#map-container {
-    width: 100%;
-    height: 600px;
-    min-height: 500px;
-    border-radius: 16px;
-    margin: 20px 0;
-    position: relative;
-    z-index: 1;
-}
-
-#catalog-map-wrapper,
-.catalog-map-wrapper {
-    width: 100%;
-    margin: 20px 0;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 8px 30px rgba(5, 14, 54, 0.08);
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    position: relative;
-    z-index: 1;
+.map-section .section-header {
+    text-align: left;
+    margin-bottom: 30px;
 }
 
 #catalog-map,
-.catalog-map {
-    width: 100%;
-    height: 600px;
-    min-height: 500px;
+.visible-map,
+.map-section .map-container {
+    width: 100% !important;
+    height: 550px !important;
+    min-height: 500px !important;
+    display: block !important;
+    position: relative !important;
     border-radius: 16px;
-    position: relative;
+    margin-top: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
     z-index: 1;
 }
 
 @media (max-width: 768px) {
-    #map-container,
     #catalog-map,
-    .catalog-map {
-        height: 450px;
-        min-height: 380px;
+    .visible-map,
+    .map-section .map-container {
+        height: 400px !important;
+        min-height: 350px !important;
     }
 }
 

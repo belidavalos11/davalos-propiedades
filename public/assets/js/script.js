@@ -20,7 +20,6 @@ const clearFiltersBtn = document.getElementById("clear-filters");
 const SALTA_DEFAULT_COORDS = [-24.7821, -65.4232];
 let catalogMapInstance = null;
 let catalogClusterGroup = null;
-let currentCatalogViewMode = "grid"; // "grid" | "map"
 let lastFilteredProperties = [];
 let pickerMapInstance = null;
 let pickerMarkerInstance = null;
@@ -228,19 +227,18 @@ function initCatalogMap() {
 
     window.catalogMap = catalogMapInstance;
     window.catalogMapInstance = catalogMapInstance;
+    try {
+        catalogMapInstance.invalidateSize();
+    } catch (_) {}
 }
 
 function renderCatalogMap(propsToDisplay) {
     try {
-        console.log("Propiedades recibidas para renderizar en mapa:", (properties || []).length);
-
-        const mapWrapper = document.getElementById("catalog-map-wrapper") || document.getElementById("map-container");
-        if (mapWrapper && mapWrapper.id === "catalog-map-wrapper") {
-            mapWrapper.style.display = "block";
-        }
-
         initCatalogMap();
         if (!catalogMapInstance) return;
+
+        // Invalidar tamaño inmediatamente
+        catalogMapInstance.invalidateSize();
 
         // A) Corrige las rutas rotas de iconos de Leaflet (obligatorio al usar CDN, de lo contrario los pines quedan invisibles)
         delete L.Icon.Default.prototype._getIconUrl;
@@ -263,7 +261,7 @@ function renderCatalogMap(propsToDisplay) {
             ? propsToDisplay
             : (lastFilteredProperties && lastFilteredProperties.length > 0 ? lastFilteredProperties : properties.filter(isPropertyAvailable));
 
-        console.group(`[renderCatalogMap] Evaluando ${list.length} propiedades`);
+        console.log(`[renderCatalogMap] Dibujando ${list.length} propiedades en el mapa`);
 
         list.forEach((prop, idx) => {
             try {
@@ -289,8 +287,6 @@ function renderCatalogMap(propsToDisplay) {
                     lng = -65.4232 + (Math.random() - 0.5) * 0.04;
                 }
 
-                console.log(`Propiedad #${prop.id || idx} ("${prop.title || 'Sin título'}"): lat=${lat}, lng=${lng}`);
-
                 // C) Marcador y popup:
                 const marker = L.marker([parseFloat(lat), parseFloat(lng)]);
                 const popupContent = (typeof createMapPopupHtml === "function")
@@ -306,9 +302,6 @@ function renderCatalogMap(propsToDisplay) {
             }
         });
 
-        console.log(`[renderCatalogMap] Total marcadores añadidos: ${markersGroup.getLayers().length} de ${list.length}`);
-        console.groupEnd();
-
         markersGroup.addTo(catalogMapInstance);
 
         if (markersGroup.getLayers().length > 0) {
@@ -321,6 +314,8 @@ function renderCatalogMap(propsToDisplay) {
             catalogMapInstance.setView(SALTA_DEFAULT_COORDS, 13);
         }
 
+        // Invalidar tamaño inmediatamente y tras 300ms para asegurar renderizado completo sin áreas en blanco
+        catalogMapInstance.invalidateSize();
         setTimeout(() => {
             if (catalogMapInstance) {
                 catalogMapInstance.invalidateSize();
@@ -330,46 +325,9 @@ function renderCatalogMap(propsToDisplay) {
                     } catch (_) {}
                 }
             }
-        }, 180);
+        }, 300);
     } catch (err) {
         console.error("[renderCatalogMap] Error general al renderizar mapa:", err);
-    }
-}
-
-function setCatalogViewMode(mode) {
-    currentCatalogViewMode = mode;
-    const btnGrid = document.getElementById("btn-view-grid");
-    const btnMap = document.getElementById("btn-view-map");
-    const mapWrapper = document.getElementById("catalog-map-wrapper");
-    const gridEl = document.getElementById("properties-grid");
-    const carouselWrapper = document.getElementById("featured-carousel-wrapper");
-
-    if (btnGrid) {
-        btnGrid.classList.toggle("active", mode === "grid");
-        btnGrid.setAttribute("aria-pressed", mode === "grid" ? "true" : "false");
-    }
-    if (btnMap) {
-        btnMap.classList.toggle("active", mode === "map");
-        btnMap.setAttribute("aria-pressed", mode === "map" ? "true" : "false");
-    }
-
-    if (mode === "map") {
-        if (gridEl) gridEl.style.display = "none";
-        if (carouselWrapper) carouselWrapper.style.display = "none";
-        if (mapWrapper) mapWrapper.style.display = "block";
-
-        applyFilters();
-
-        setTimeout(() => {
-            if (window.catalogMap) {
-                window.catalogMap.invalidateSize();
-            } else if (catalogMapInstance) {
-                catalogMapInstance.invalidateSize();
-            }
-        }, 150);
-    } else {
-        if (mapWrapper) mapWrapper.style.display = "none";
-        applyFilters();
     }
 }
 
@@ -890,6 +848,16 @@ async function loadProperties() {
     updateActiveTypeUI();
     applyFilters();
     renderOpportunities();
+
+    // Inicialización y renderizado obligatorio del mapa al cargar propiedades
+    initCatalogMap();
+    renderCatalogMap(properties);
+
+    setTimeout(() => {
+        if (window.catalogMap || window.catalogMapInstance) {
+            (window.catalogMap || window.catalogMapInstance).invalidateSize();
+        }
+    }, 200);
 }
 
 function normalizeProperty(prop) {
@@ -1408,49 +1376,38 @@ function applyFilters() {
     }
 
     lastFilteredProperties = filtered;
-    const mapWrapper = document.getElementById("catalog-map-wrapper");
 
-    if (currentCatalogViewMode === "map") {
+    if (!filteringActive && !showAllCatalogMode) {
+        // Modo por defecto: mostrar el carrusel de 10 propiedades destacadas al azar (cada 6h)
+        if (featuredEyebrow) featuredEyebrow.textContent = "● DESTACADAS";
+        if (sectionTitle) sectionTitle.textContent = "Propiedades destacadas.";
+        if (sectionSubtitle) sectionSubtitle.textContent = "Selección de propiedades destacadas";
+        if (resultsCount) resultsCount.textContent = "";
+        if (grid) grid.style.display = "none";
+        if (carouselWrapper) carouselWrapper.style.display = "block";
+        if (carouselControls) carouselControls.style.display = "inline-flex";
+        if (btnToggleAll) btnToggleAll.textContent = `Ver todas (${properties.filter(isPropertyAvailable).length})`;
+
+        const featuredList = getFeaturedProperties(properties);
+        renderFeaturedCarousel(featuredList);
+    } else {
+        // Modo filtrado o ver todas las propiedades
         stopFeaturedAutoSlide();
+        if (featuredEyebrow) featuredEyebrow.textContent = filteringActive ? "● BÚSQUEDA" : "● CATÁLOGO";
+        if (sectionTitle) sectionTitle.textContent = filteringActive ? "Resultados de búsqueda." : "Todas las propiedades.";
+        if (sectionSubtitle) sectionSubtitle.textContent = filteringActive ? "Propiedades que coinciden con tus filtros seleccionados." : "Catálogo completo de propiedades disponibles.";
         if (carouselWrapper) carouselWrapper.style.display = "none";
         if (carouselControls) carouselControls.style.display = "none";
-        if (grid) grid.style.display = "none";
-        if (mapWrapper) mapWrapper.style.display = "block";
+        if (grid) grid.style.display = "grid";
+        if (btnToggleAll) btnToggleAll.textContent = "← Volver a destacadas";
 
-        if (featuredEyebrow) featuredEyebrow.textContent = filteringActive ? "● BÚSQUEDA" : (showAllCatalogMode ? "● CATÁLOGO" : "● MAPA");
-        if (sectionTitle) sectionTitle.textContent = filteringActive ? "Resultados en el mapa." : "Mapa de propiedades.";
-        if (sectionSubtitle) sectionSubtitle.textContent = "Explorá la ubicación de los inmuebles disponibles en Salta.";
-        if (resultsCount) resultsCount.textContent = `${filtered.length} propiedad${filtered.length === 1 ? "" : "es"} en el mapa`;
+        renderProperties(filtered);
+    }
 
-        renderCatalogMap(filtered);
-    } else {
-        if (mapWrapper) mapWrapper.style.display = "none";
-        if (!filteringActive && !showAllCatalogMode) {
-            // Modo por defecto: mostrar el carrusel de 10 propiedades destacadas al azar (cada 6h)
-            if (featuredEyebrow) featuredEyebrow.textContent = "● DESTACADAS";
-            if (sectionTitle) sectionTitle.textContent = "Propiedades destacadas.";
-            if (sectionSubtitle) sectionSubtitle.textContent = "Selección de propiedades destacadas";
-            if (resultsCount) resultsCount.textContent = "";
-            if (grid) grid.style.display = "none";
-            if (carouselWrapper) carouselWrapper.style.display = "block";
-            if (carouselControls) carouselControls.style.display = "inline-flex";
-            if (btnToggleAll) btnToggleAll.textContent = `Ver todas (${properties.filter(isPropertyAvailable).length})`;
-
-            const featuredList = getFeaturedProperties(properties);
-            renderFeaturedCarousel(featuredList);
-        } else {
-            // Modo filtrado o ver todas las propiedades
-            stopFeaturedAutoSlide();
-            if (featuredEyebrow) featuredEyebrow.textContent = filteringActive ? "● BÚSQUEDA" : "● CATÁLOGO";
-            if (sectionTitle) sectionTitle.textContent = filteringActive ? "Resultados de búsqueda." : "Todas las propiedades.";
-            if (sectionSubtitle) sectionSubtitle.textContent = filteringActive ? "Propiedades que coinciden con tus filtros seleccionados." : "Catálogo completo de propiedades disponibles.";
-            if (carouselWrapper) carouselWrapper.style.display = "none";
-            if (carouselControls) carouselControls.style.display = "none";
-            if (grid) grid.style.display = "grid";
-            if (btnToggleAll) btnToggleAll.textContent = "← Volver a destacadas";
-
-            renderProperties(filtered);
-        }
+    // Actualizar pines del mapa interactivo dedicado
+    if (document.getElementById("catalog-map")) {
+        const propsForMap = filteringActive ? filtered : properties.filter(isPropertyAvailable);
+        renderCatalogMap(propsForMap);
     }
 
     if (window.hideLoader) window.hideLoader();
@@ -2683,23 +2640,6 @@ function bindEvents() {
         document.querySelectorAll(".property-settings-menu.show").forEach(m => m.classList.remove("show"));
     });
 
-    const btnViewGrid = document.getElementById("btn-view-grid");
-    const btnViewMap = document.getElementById("btn-view-map");
-    if (btnViewGrid) {
-        btnViewGrid.onclick = () => setCatalogViewMode("grid");
-    }
-    if (btnViewMap) {
-        btnViewMap.onclick = () => {
-            setCatalogViewMode("map");
-            setTimeout(() => {
-                if (window.catalogMap) {
-                    window.catalogMap.invalidateSize();
-                } else if (catalogMapInstance) {
-                    catalogMapInstance.invalidateSize();
-                }
-            }, 150);
-        };
-    }
 
     if (btnToggleFilters) {
         btnToggleFilters.onclick = (e) => {
@@ -3171,6 +3111,17 @@ async function init() {
     updateAuthUI();
     bindEvents();
     initNavigation();
+
+    // Asegurar que el mapa esté inicializado y redimensionado al cargar la página
+    initCatalogMap();
+    if (Array.isArray(properties) && properties.length > 0) {
+        renderCatalogMap(properties);
+    }
+    setTimeout(() => {
+        if (window.catalogMap || window.catalogMapInstance) {
+            (window.catalogMap || window.catalogMapInstance).invalidateSize();
+        }
+    }, 200);
 
     document.getElementById("add-user-form")?.addEventListener("submit", handleAddUser);
 
