@@ -18,9 +18,9 @@ const AuthManager = {
 
     _rolePermissions: {
         SUPER_ADMIN: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "DELETE_PUBLICATION", "ACCESS_SETTINGS", "VIEW_PRIVATE_DATA", "MANAGE_USERS"],
-        ADMIN: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "ACCESS_SETTINGS", "VIEW_PRIVATE_DATA"],
-        EDITOR: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "VIEW_PRIVATE_DATA", "ACCESS_SETTINGS"],
-        AGENT: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "VIEW_PRIVATE_DATA", "ACCESS_SETTINGS"]
+        ADMIN: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "DELETE_PUBLICATION", "ACCESS_SETTINGS", "VIEW_PRIVATE_DATA"],
+        EDITOR: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "ACCESS_SETTINGS"],
+        AGENT: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "ACCESS_SETTINGS"]
     },
 
     _users: [
@@ -433,7 +433,14 @@ const AuthManager = {
         const live = this.currentUserProfile && this.currentUserProfile.status === "active" ? this.currentUserProfile : null;
         const google = live || this._getGoogleSession();
         if (google) {
-            return { username: google.email, email: google.email, displayName: google.displayName, role: google.role, provider: "google" };
+            return {
+                uid: google.uid || window.auth?.currentUser?.uid || "",
+                username: google.email,
+                email: google.email,
+                displayName: google.displayName,
+                role: google.role,
+                provider: "google"
+            };
         }
         const username = this.getCurrentUser();
         if (!username) return null;
@@ -452,6 +459,59 @@ const AuthManager = {
         if (!role) return false;
         const perms = this._rolePermissions[role] || [];
         return perms.includes(permission);
+    },
+
+    canUserEditProperty(prop) {
+        if (!this.isLoggedIn() || !prop) return false;
+        const role = this.getUserRole();
+        if (!role) return false;
+        if (role === this.Roles.SUPER_ADMIN || role === this.Roles.ADMIN) {
+            return true;
+        }
+        if (role === this.Roles.AGENT) {
+            return this.isPropertyAssignedToCurrentUser(prop);
+        }
+        return false;
+    },
+
+    isPropertyAssignedToCurrentUser(prop) {
+        if (!prop) return false;
+        const user = this.currentUserProfile || this.getUserData();
+        if (!user) return false;
+
+        const uid = String(user.uid || window.auth?.currentUser?.uid || "").trim();
+        const email = String(user.email || "").trim().toLowerCase();
+        const displayName = String(user.displayName || "").trim().toLowerCase();
+        const username = String(user.username || "").trim().toLowerCase();
+
+        // 1. Coincidencia por agentId (UID o ID de agente)
+        const propAgentId = String(prop.agentId || "").trim().toLowerCase();
+        if (propAgentId) {
+            if (uid && propAgentId === uid.toLowerCase()) return true;
+            if (username && propAgentId === username) return true;
+        }
+
+        // 2. Coincidencia por createdBy
+        const propCreatedBy = String(prop.createdBy || "").trim().toLowerCase();
+        if (propCreatedBy) {
+            if (uid && propCreatedBy === uid.toLowerCase()) return true;
+            if (email && propCreatedBy === email) return true;
+        }
+
+        // 3. Coincidencia por email del agente o creador
+        const propAgentEmail = String(prop.agentEmail || "").trim().toLowerCase();
+        if (propAgentEmail && email && propAgentEmail === email) return true;
+        const propCreatorEmail = String(prop.creatorEmail || "").trim().toLowerCase();
+        if (propCreatorEmail && email && propCreatorEmail === email) return true;
+
+        // 4. Coincidencia por nombre visible del asesor
+        const propAgentName = String(prop.agent || "").trim().toLowerCase();
+        if (propAgentName) {
+            if (displayName && (propAgentName === displayName || displayName.includes(propAgentName) || propAgentName.includes(displayName))) return true;
+            if (username && propAgentName === username) return true;
+        }
+
+        return false;
     },
 
     async login(username, password) {

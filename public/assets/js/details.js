@@ -209,6 +209,8 @@ function renderDetails(prop) {
     const logged = window.AuthManager && window.AuthManager.isLoggedIn();
     const userRole = (window.AuthManager?.currentUserProfile?.role || window.AuthManager?.getUserRole() || "").toUpperCase();
     const isSuperAdmin = Boolean(logged && userRole === "SUPER_ADMIN");
+    const canReassignAgent = Boolean(logged && (userRole === "SUPER_ADMIN" || userRole === "ADMIN"));
+    const canEditCurrentProp = Boolean(logged && window.AuthManager && window.AuthManager.canUserEditProperty(prop));
     const safeTitle = escapeHtml(prop.title);
     const safeCategory = escapeHtml(prop.category);
     const safeDescription = escapeHtml(prop.description || "");
@@ -516,7 +518,7 @@ function renderDetails(prop) {
                             </div>
                         </div>
 
-                        ${isSuperAdmin ? `
+                        ${canReassignAgent ? `
                             <div class="super-admin-agent-selector-wrap">
                                 <label for="select-assign-agent" class="agent-selector-label">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
@@ -553,7 +555,7 @@ function renderDetails(prop) {
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                             <span>Imprimir</span>
                         </button>
-                        ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.EDIT_PROPERTY)) ? `
+                        ${canEditCurrentProp ? `
                             <button type="button" class="btn-util-action btn-util-edit" onclick="window.location.href='index.html?edit=${prop.id}'" title="Editar propiedad">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 <span>Editar</span>
@@ -672,7 +674,7 @@ function renderDetails(prop) {
     bindLightbox(prop.images);
     setupFloating(prop);
 
-    if (isSuperAdmin) {
+    if (canReassignAgent) {
         populateAssignAgentSelect(prop);
     }
 

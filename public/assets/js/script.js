@@ -750,6 +750,15 @@ function closeModal() {
     [loginModal, settingsModal, propertyModal, document.getElementById("team-modal")].forEach(m => {
         if (m) m.style.display = "none";
     });
+    const agentSelect = document.getElementById("prop-agent");
+    if (agentSelect) {
+        agentSelect.disabled = false;
+        agentSelect.removeAttribute("title");
+    }
+    const ownerSection = document.getElementById("section-prop-owner");
+    if (ownerSection) {
+        ownerSection.style.display = "";
+    }
     document.body.style.overflow = "auto";
 }
 
@@ -1436,13 +1445,8 @@ window.filterByOperation = function (type) {
 
 function createPropertyCardElement(prop) {
     const manager = window.AuthManager;
-    const userRole = manager?.currentUserProfile?.role || manager?.getCurrentUser()?.role;
-    const canManage = Boolean(
-        manager && manager.isLoggedIn() && (
-            manager.hasPermission(manager.Permissions.EDIT_PROPERTY) ||
-            ["AGENT", "ADMIN", "SUPER_ADMIN", "EDITOR"].includes(userRole)
-        )
-    );
+    const canManage = Boolean(manager && manager.isLoggedIn() && manager.canUserEditProperty(prop));
+    const canDelete = Boolean(manager && manager.isLoggedIn() && manager.hasPermission(manager.Permissions.DELETE_PROPERTY));
 
     const getFeatureVal = (namePattern) => {
         const feat = prop.customFeatures?.find(f =>
@@ -1569,9 +1573,11 @@ function createPropertyCardElement(prop) {
                             <button type="button" class="property-settings-item" onclick="openEditModal(${prop.id})">
                                 Editar publicación
                             </button>
-                            <button type="button" class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
-                                Eliminar publicación
-                            </button>
+                            ${canDelete ? `
+                                <button type="button" class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
+                                    Eliminar publicación
+                                </button>
+                            ` : ""}
                         </div>
                     </div>
                 ` : ""}
@@ -1920,9 +1926,14 @@ window.exitUnavailableMode = exitUnavailableMode;
 
 // Alterna Disponible / No disponible con un solo clic y lo persiste en Firestore.
 window.togglePropertyAvailability = async function (id) {
-    if (!canManageProperties()) return;
+    const manager = window.AuthManager;
+    if (!manager || !manager.isLoggedIn()) return;
     const prop = properties.find(p => String(p.id) === String(id));
     if (!prop) return;
+    if (!manager.canUserEditProperty(prop)) {
+        alert("No tienes permisos para modificar la disponibilidad de esta propiedad.");
+        return;
+    }
     if (!prop.firebaseId) {
         alert("Esta propiedad proviene del respaldo local y no se puede modificar desde acá.");
         return;
@@ -2067,25 +2078,32 @@ function renderTeam() {
                         <option value="SUPER_ADMIN"${u.role === "SUPER_ADMIN" ? " selected" : ""}>Super Admin</option>
                    </select>`;
             const action = locked
-                ? ""
+                ? `<span class="team-self-badge">Tu cuenta</span>`
                 : `<button type="button" class="btn-team-danger" data-team-action="suspend" data-uid="${escapeHtml(u.uid)}">Suspender</button>`;
-            return `<tr><td>${teamUserHtml(u)}</td><td>${roleCell}</td><td>${formatTeamDate(u.createdAt)}</td><td class="team-actions-cell">${action}</td></tr>`;
+            return `<tr>
+                <td class="team-col-user">${teamUserHtml(u)}</td>
+                <td class="team-col-role">${roleCell}</td>
+                <td class="team-col-date"><span class="team-date-label">Desde: </span>${formatTeamDate(u.createdAt)}</td>
+                <td class="team-col-actions team-actions-cell">${action}</td>
+            </tr>`;
         }).join("")}</tbody></table></div>` : empty("Todavía no hay miembros activos."));
 
     setPanel("inactive", inactive.length ? `<div class="team-table-wrap"><table class="team-table">
         <thead><tr><th>Miembro</th><th>Rol</th><th>Desde</th><th></th></tr></thead>
         <tbody>${inactive.map(u => `
-            <tr><td>${teamUserHtml(u)}</td>
-            <td><span class="team-role-tag">${TEAM_ROLE_LABELS[u.role] || escapeHtml(u.role || "")}</span></td>
-            <td>${formatTeamDate(u.createdAt)}</td>
-            <td class="team-actions-cell">
-                <div class="team-actions-inline">
-                    <button type="button" class="btn btn-outline btn-small" data-team-action="reactivate" data-uid="${escapeHtml(u.uid)}">Reactivar</button>
-                    <button type="button" class="btn-team-danger btn-small" data-team-action="delete" data-uid="${escapeHtml(u.uid)}" title="Eliminar definitivamente">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Eliminar
-                    </button>
-                </div>
-            </td></tr>`).join("")}
+            <tr>
+                <td class="team-col-user">${teamUserHtml(u)}</td>
+                <td class="team-col-role"><span class="team-role-tag">${TEAM_ROLE_LABELS[u.role] || escapeHtml(u.role || "")}</span></td>
+                <td class="team-col-date"><span class="team-date-label">Desde: </span>${formatTeamDate(u.createdAt)}</td>
+                <td class="team-col-actions team-actions-cell">
+                    <div class="team-actions-inline">
+                        <button type="button" class="btn btn-outline btn-small" data-team-action="reactivate" data-uid="${escapeHtml(u.uid)}">Reactivar</button>
+                        <button type="button" class="btn-team-danger btn-small" data-team-action="delete" data-uid="${escapeHtml(u.uid)}" title="Eliminar definitivamente">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Eliminar
+                        </button>
+                    </div>
+                </td>
+            </tr>`).join("")}
         </tbody></table></div>` : empty("No hay usuarios inactivos."));
 }
 
@@ -2245,6 +2263,11 @@ function buildLocalDescription(ctx) {
 }
 
 async function deleteProperty(id) {
+    const manager = window.AuthManager;
+    if (!manager || !manager.isLoggedIn() || !manager.hasPermission(manager.Permissions.DELETE_PROPERTY)) {
+        alert("No tienes permisos para eliminar publicaciones. Esta acción está reservada para Administradores.");
+        return;
+    }
     if (!confirm("¿Estás seguro de que deseas eliminar esta publicación permanentemente?")) return;
 
     try {
@@ -2405,6 +2428,16 @@ function openEditModal(id) {
     const prop = properties.find(p => p.id === id);
     if (!prop) return;
 
+    const manager = window.AuthManager;
+    if (!manager || !manager.isLoggedIn()) {
+        alert("Debes iniciar sesión para editar publicaciones.");
+        return;
+    }
+    if (!manager.canUserEditProperty(prop)) {
+        alert("No tienes permisos para editar esta propiedad.");
+        return;
+    }
+
     currentEditingId = id;
 
     // Repopulate agents just in case
@@ -2418,16 +2451,34 @@ function openEditModal(id) {
     document.getElementById("prop-price").value = formatNumber(prop.price);
     document.getElementById("prop-currency").value = prop.currency || "USD";
 
-    // Owner data
-    document.getElementById("prop-owner-name").value = prop.ownerName || "";
-    document.getElementById("prop-owner-phone").value = prop.ownerPhone || "";
-    document.getElementById("prop-owner-address").value = prop.ownerAddress || "";
+    // Owner data visibility according to permissions
+    const canViewPrivate = manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA);
+    const ownerSection = document.getElementById("section-prop-owner");
+    if (ownerSection) {
+        ownerSection.style.display = canViewPrivate ? "block" : "none";
+    }
+    if (canViewPrivate) {
+        document.getElementById("prop-owner-name").value = prop.ownerName || "";
+        document.getElementById("prop-owner-phone").value = prop.ownerPhone || "";
+        document.getElementById("prop-owner-address").value = prop.ownerAddress || "";
+    } else {
+        document.getElementById("prop-owner-name").value = "";
+        document.getElementById("prop-owner-phone").value = "";
+        document.getElementById("prop-owner-address").value = "";
+    }
 
     const resolvedAgent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
     const agentSelect = document.getElementById("prop-agent");
+    const canReassignAgent = Boolean(manager.isSuperAdmin() || manager.isAdmin());
     if (agentSelect) {
         const candidateId = prop.agentId || (resolvedAgent && resolvedAgent.id !== "agente-default" ? resolvedAgent.id : "") || prop.agent || "";
         agentSelect.value = candidateId;
+        agentSelect.disabled = !canReassignAgent;
+        if (!canReassignAgent) {
+            agentSelect.title = "Solo administradores pueden reasignar el asesor a cargo.";
+        } else {
+            agentSelect.removeAttribute("title");
+        }
     }
     document.getElementById("prop-credit").checked = !!prop.creditEligible;
     document.getElementById("prop-map-link").value = prop.mapLink || "";
@@ -2622,6 +2673,48 @@ function bindEvents() {
             propertyForm.reset();
             populateAgentDropdown();
             updateCreditVisibility();
+
+            const manager = window.AuthManager;
+            const canViewPrivate = Boolean(manager && manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
+            const ownerSection = document.getElementById("section-prop-owner");
+            if (ownerSection) {
+                ownerSection.style.display = canViewPrivate ? "block" : "none";
+            }
+            if (!canViewPrivate) {
+                document.getElementById("prop-owner-name").value = "";
+                document.getElementById("prop-owner-phone").value = "";
+                document.getElementById("prop-owner-address").value = "";
+            }
+
+            const canReassignAgent = Boolean(manager && (manager.isSuperAdmin() || manager.isAdmin()));
+            const agentSelect = document.getElementById("prop-agent");
+            if (agentSelect) {
+                if (!canReassignAgent) {
+                    const currentUser = manager?.getUserData ? manager.getUserData() : null;
+                    const myId = currentUser?.uid || manager?.getDisplayName() || "";
+                    let found = false;
+                    for (let i = 0; i < agentSelect.options.length; i++) {
+                        if (agentSelect.options[i].value === myId || (manager?.getDisplayName() && agentSelect.options[i].textContent.includes(manager.getDisplayName()))) {
+                            agentSelect.selectedIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found && myId) {
+                        const opt = document.createElement("option");
+                        opt.value = myId;
+                        opt.textContent = manager?.getDisplayName() || "Mi perfil";
+                        agentSelect.appendChild(opt);
+                        agentSelect.value = myId;
+                    }
+                    agentSelect.disabled = true;
+                    agentSelect.title = "Las nuevas publicaciones quedan automáticamente asignadas a tu nombre.";
+                } else {
+                    agentSelect.disabled = false;
+                    agentSelect.removeAttribute("title");
+                }
+            }
+
             document.getElementById("prop-area-total").value = "";
             document.getElementById("prop-area-built").value = "";
             document.getElementById("prop-has-memory").checked = false;
@@ -2811,18 +2904,59 @@ function bindEvents() {
             submitBtn.textContent = "Publicando...";
 
             try {
+                const manager = window.AuthManager;
+                const existing = currentEditingId ? properties.find(p => p.id === currentEditingId) : null;
+
+                if (currentEditingId && existing && manager && !manager.canUserEditProperty(existing)) {
+                    alert("No tienes permisos para editar esta publicación.");
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+
+                const currentUserData = manager?.getUserData ? manager.getUserData() : null;
+                const currentUid = currentUserData?.uid || window.auth?.currentUser?.uid || "";
+                const currentName = manager?.getDisplayName ? manager.getDisplayName() : "";
+                const currentEmail = currentUserData?.email || window.auth?.currentUser?.email || "";
+                const canViewPrivate = Boolean(manager && manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
+                const canReassignAgent = Boolean(manager && (manager.isSuperAdmin() || manager.isAdmin()));
+
                 const featuresContainer = document.getElementById("custom-features-container");
                 const customFeatures = featuresContainer ? Array.from(featuresContainer.querySelectorAll(".feature-data")).map(i => JSON.parse(i.value)) : [];
                 const category = document.getElementById("prop-category").value;
                 const type = document.getElementById("prop-type").value;
                 const price = unformatNumber(document.getElementById("prop-price").value);
                 const currency = document.getElementById("prop-currency").value;
-                const selectedAgentVal = document.getElementById("prop-agent").value;
-                const resolvedAgent = window.getPropertyAgent
-                    ? window.getPropertyAgent({ agentId: selectedAgentVal, agent: selectedAgentVal })
-                    : null;
-                const agentId = selectedAgentVal || "";
-                const agentName = (resolvedAgent && selectedAgentVal) ? resolvedAgent.name : selectedAgentVal;
+
+                let agentId = "";
+                let agentName = "";
+                let agentEmail = "";
+
+                if (!canReassignAgent && !currentEditingId) {
+                    // Nuevo inmueble creado por un AGENT: queda asignado a él mismo
+                    agentId = currentUid || "agente-default";
+                    agentName = currentName || "Asesor Inmobiliario";
+                    agentEmail = currentEmail || "";
+                } else if (!canReassignAgent && currentEditingId && existing) {
+                    // Inmueble editado por un AGENT: preserva el asesor asignado existente
+                    agentId = existing.agentId || currentUid;
+                    agentName = existing.agent || currentName;
+                    agentEmail = existing.agentEmail || currentEmail;
+                } else {
+                    // ADMIN o SUPER_ADMIN: toma el selector
+                    const selectedAgentVal = document.getElementById("prop-agent").value;
+                    const resolvedAgent = window.getPropertyAgent
+                        ? window.getPropertyAgent({ agentId: selectedAgentVal, agent: selectedAgentVal })
+                        : null;
+                    agentId = selectedAgentVal || (existing?.agentId || "");
+                    agentName = (resolvedAgent && selectedAgentVal) ? resolvedAgent.name : (selectedAgentVal || existing?.agent || "");
+                    agentEmail = (resolvedAgent && resolvedAgent.email) ? resolvedAgent.email : (existing?.agentEmail || "");
+                }
+
+                // Preservar datos privados del propietario si el usuario no tiene permisos de verlos
+                const ownerName = canViewPrivate ? document.getElementById("prop-owner-name").value : (existing?.ownerName || "");
+                const ownerPhone = canViewPrivate ? document.getElementById("prop-owner-phone").value : (existing?.ownerPhone || "");
+                const ownerAddress = canViewPrivate ? document.getElementById("prop-owner-address").value : (existing?.ownerAddress || "");
 
                 const areaTotal = unformatNumber(document.getElementById("prop-area-total").value);
                 const areaBuilt = unformatNumber(document.getElementById("prop-area-built").value);
@@ -2851,11 +2985,12 @@ function bindEvents() {
                     currency: currency,
                     category: category,
                     type: type,
-                    ownerName: document.getElementById("prop-owner-name").value,
-                    ownerPhone: document.getElementById("prop-owner-phone").value,
-                    ownerAddress: document.getElementById("prop-owner-address").value,
+                    ownerName: ownerName,
+                    ownerPhone: ownerPhone,
+                    ownerAddress: ownerAddress,
                     agentId: agentId,
                     agent: agentName,
+                    agentEmail: agentEmail,
                     creditEligible: (category === "venta") ? document.getElementById("prop-credit").checked : false,
                     mapLink: document.getElementById("prop-map-link").value,
                     lat: (() => {
@@ -2866,7 +3001,9 @@ function bindEvents() {
                         const v = document.getElementById("prop-lng")?.value;
                         return (v !== "" && v !== null && !isNaN(Number(v))) ? Number(v) : null;
                     })(),
-                    createdAt: currentEditingId ? (properties.find(p => p.id === currentEditingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+                    createdAt: currentEditingId ? (existing?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+                    createdBy: currentEditingId ? (existing?.createdBy || currentUid) : currentUid,
+                    creatorEmail: currentEditingId ? (existing?.creatorEmail || currentEmail) : currentEmail,
                     images: finalImageUrls,
                     customFeatures,
                     areaTotal: areaTotal || null,

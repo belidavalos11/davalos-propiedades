@@ -34,12 +34,29 @@ service cloud.firestore {
       return isActiveMember() && myProfile().role == 'SUPER_ADMIN';
     }
 
+    function isAdminOrSuperAdmin() {
+      return isActiveMember() && myProfile().role in ['SUPER_ADMIN', 'ADMIN'];
+    }
+
     function canManageProperties() {
       return isActiveMember() && myProfile().role in ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
     }
 
     function canDeleteProperties() {
-      return isActiveMember() && myProfile().role in ['SUPER_ADMIN', 'ADMIN'];
+      return isAdminOrSuperAdmin();
+    }
+
+    function isPropertyOwnerOrAssigned(data) {
+      return (data.agentId != null && data.agentId == request.auth.uid)
+        || (data.createdBy != null && data.createdBy == request.auth.uid)
+        || (data.agentEmail != null && data.agentEmail.lower() == request.auth.token.email.lower())
+        || (data.creatorEmail != null && data.creatorEmail.lower() == request.auth.token.email.lower())
+        || (data.agent != null && myProfile().displayName != null && data.agent == myProfile().displayName);
+    }
+
+    function canUpdateProperty(resourceData) {
+      return isAdminOrSuperAdmin()
+        || (isActiveMember() && myProfile().role == 'AGENT' && isPropertyOwnerOrAssigned(resourceData));
     }
 
     // Perfil nuevo propio, con el rol/estado indicados.
@@ -68,7 +85,8 @@ service cloud.firestore {
     // ---------- Catalogo ----------
     match /properties/{docId} {
       allow read: if true;
-      allow create, update: if canManageProperties();
+      allow create: if canManageProperties();
+      allow update: if canUpdateProperty(resource.data);
       allow delete: if canDeleteProperties();
     }
 

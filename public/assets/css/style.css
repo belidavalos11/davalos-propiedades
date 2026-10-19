@@ -2672,6 +2672,272 @@ textarea {
     font-weight: 700;
 }
 
+.team-date-label {
+    display: none;
+}
+
+.team-self-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: var(--text-light);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Responsive Team Management Modal (Mobile & Small Screens)
+   ========================================================================== */
+
+@media (max-width: 640px) {
+    .modal-content.team-modal-content {
+        width: 95%;
+        max-width: 100%;
+        margin: 5% auto;
+        padding: 22px 14px 20px;
+        border-radius: 16px;
+        box-sizing: border-box;
+    }
+
+    .team-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 6px;
+        margin-bottom: 16px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        scrollbar-width: none;
+    }
+
+    .team-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .team-tab {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        padding: 9px 12px;
+        font-size: 0.82rem;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .team-table-wrap {
+        overflow-x: visible;
+        width: 100%;
+    }
+
+    /* Transform table into card blocks */
+    .team-table,
+    .team-table tbody,
+    .team-table tr,
+    .team-table td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .team-table thead {
+        display: none !important;
+    }
+
+    .team-table tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px 10px;
+        align-items: center;
+        padding: 14px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 14px;
+        background: var(--white);
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        position: relative;
+    }
+
+    /* Fila superior: Foto de perfil, nombre y correo electrónico */
+    .team-col-user {
+        grid-column: 1 / -1;
+        width: 100%;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    .team-user {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .team-user-text strong {
+        font-size: 0.95rem;
+        word-break: break-word;
+    }
+
+    .team-user-text span {
+        font-size: 0.8rem;
+        word-break: break-all;
+    }
+
+    /* Fila fecha */
+    .team-col-date {
+        grid-column: 1 / -1;
+        font-size: 0.78rem;
+        color: var(--text-light);
+        margin-top: -4px;
+        padding: 0 0 8px 0 !important;
+        border: none !important;
+        border-bottom: 1px dashed rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .team-date-label {
+        display: inline;
+        font-weight: 600;
+        color: var(--text-light);
+    }
+
+    /* Fila inferior: Desplegable o badge de Rol a la izquierda */
+    .team-col-role {
+        grid-column: 1;
+        justify-self: start;
+        align-self: center;
+        min-width: 0;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    /* Fila inferior: Botones de acción a la derecha */
+    .team-col-actions {
+        grid-column: 2;
+        justify-self: end;
+        align-self: center;
+        text-align: right;
+        min-width: 0;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    .team-role-select {
+        min-height: 40px;
+        padding: 8px 12px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        border-radius: 10px;
+        background-color: #f8fafc;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        cursor: pointer;
+        width: auto;
+        max-width: 150px;
+        box-sizing: border-box;
+    }
+
+    .team-role-tag {
+        min-height: 34px;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        font-size: 0.82rem;
+        box-sizing: border-box;
+    }
+
+    /* Botones de acción táctiles: mínimo 40px para accesibilidad */
+    .btn-team-danger,
+    .btn-team-danger.btn-small,
+    .team-actions-cell button,
+    .team-actions-inline button,
+    .team-actions button {
+        min-height: 40px;
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+
+    .team-actions-inline {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .team-self-badge {
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 8px;
+        background: #f1f5f9;
+        color: var(--text-light);
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+}
+
+@media (max-width: 440px) {
+    .team-table tr {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .team-col-role,
+    .team-col-actions {
+        grid-column: 1 / -1;
+    }
+
+    .team-col-role {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .team-role-select {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .team-col-actions {
+        width: 100%;
+        justify-self: stretch;
+    }
+
+    .team-col-actions .btn-team-danger {
+        width: 100%;
+    }
+
+    .team-actions-inline {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .team-actions-inline button {
+        width: 100%;
+    }
+
+    .team-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .team-actions button {
+        width: 100%;
+    }
+}
+
 /* ==========================================================================
    Interactive Catalog Map & Location Picker
    ========================================================================== */
