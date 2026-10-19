@@ -904,6 +904,12 @@ async function populateAssignAgentSelect(prop) {
 let propertyDetailsMapInstance = null;
 function initDetailsMap(rawLat, rawLng, prop) {
     if (!window.L) return;
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    });
 
     const mapContainer = document.getElementById('property-map');
     if (!mapContainer) return;
@@ -933,8 +939,8 @@ function initDetailsMap(rawLat, rawLng, prop) {
         });
         propertyDetailsMapInstance = map;
 
-        // 2. Inicialización del Mapa y tiles de OpenStreetMap
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // 2. Inicialización del Mapa con estilo OSM HOT (libre de API Key y marcas de agua)
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);

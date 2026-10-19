@@ -25,128 +25,315 @@ let lastFilteredProperties = [];
 let pickerMapInstance = null;
 let pickerMarkerInstance = null;
 
-function createCustomPin(color = "var(--primary)") {
+// Configuración y corrección de rutas de iconos estándar de Leaflet (CDN fix)
+if (typeof window !== "undefined" && window.L && window.L.Icon && window.L.Icon.Default) {
+    try {
+        delete window.L.Icon.Default.prototype._getIconUrl;
+        window.L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        });
+    } catch (_) {}
+}
+
+function createCustomPin(color = "#050e36") {
     return L.divIcon({
-        className: "custom-map-marker",
+        className: "custom-map-marker-pin-wrap",
         html: `
-            <div class="map-marker-pin" style="background:${color};">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <div style="width:36px; height:36px; border-radius:50% 50% 50% 0; background:${color}; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(0,0,0,0.35); border:2px solid #ffffff; cursor:pointer;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" style="transform:rotate(45deg); width:16px; height:16px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
             </div>
         `,
-        iconSize: [42, 42],
-        iconAnchor: [21, 42],
-        popupAnchor: [0, -42]
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+        popupAnchor: [0, -36]
     });
 }
 
+function formatCurrency(price, currency = "USD") {
+    if (!price && price !== 0) return "Consultar";
+    const label = (currency === "ARS" || String(currency).toUpperCase() === "ARS") ? "AR$" : "U$D";
+    const num = Number(price);
+    if (isNaN(num)) return `${label} ${price}`;
+    return `${label} ${num.toLocaleString("es-AR")}`;
+}
+
 function createMapPopupHtml(prop) {
-    const mainImg = (prop.images && prop.images[0]) || PLACEHOLDER_IMAGE;
-    const opBadge = prop.category === "alquiler" ? "Alquiler" : (prop.operation ? prop.operation.toUpperCase() : "Venta");
-    const formattedPrice = formatCurrency(prop.price, prop.currency);
-    const safeTitle = escapeHtml(prop.title || "Propiedad");
-    
-    // Key features
-    const area = prop.areaTotal || prop.area;
-    const rooms = prop.rooms;
-    
-    let featuresHtml = "";
-    if (area) {
-        featuresHtml += `<span>📐 ${formatNumber(area)} m²</span>`;
+    if (!prop) return "";
+    try {
+        const mainImg = (prop.images && prop.images[0]) || PLACEHOLDER_IMAGE;
+        const opBadge = prop.category === "alquiler" ? "Alquiler" : (prop.operation ? String(prop.operation).toUpperCase() : "Venta");
+        const formattedPrice = formatCurrency(prop.price, prop.currency);
+        const safeTitle = (typeof escapeHtml === "function") ? escapeHtml(prop.title || "Propiedad") : String(prop.title || "Propiedad");
+        
+        // Key features
+        const area = prop.areaTotal || prop.area;
+        const rooms = prop.rooms;
+        
+        let featuresHtml = "";
+        if (area) {
+            const areaStr = (typeof formatNumber === "function") ? formatNumber(area) : area;
+            featuresHtml += `<span>📐 ${areaStr} m²</span>`;
+        }
+        if (rooms) {
+            featuresHtml += `<span>🛏️ ${rooms} amb.</span>`;
+        }
+
+        return `
+            <div class="map-popup-card">
+                <div class="map-popup-img-wrap">
+                    <img src="${mainImg}" alt="${safeTitle}" class="map-popup-img" loading="lazy">
+                    <span class="map-popup-badge-op">${opBadge}</span>
+                </div>
+                <div class="map-popup-body">
+                    <div class="map-popup-price">${formattedPrice}</div>
+                    <h4 class="map-popup-title" title="${safeTitle}">${safeTitle}</h4>
+                    ${featuresHtml ? `<div class="map-popup-features">${featuresHtml}</div>` : ""}
+                    <a href="details.html?id=${prop.id}" class="map-popup-btn">Ver propiedad →</a>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.warn("[createMapPopupHtml] Error al generar popup:", err);
+        return `<b>${prop.title || 'Propiedad'}</b><br><a href="details.html?id=${prop.id}">Ver propiedad</a>`;
     }
-    if (rooms) {
-        featuresHtml += `<span>🛏️ ${rooms} amb.</span>`;
+}
+
+// Diccionario de coordenadas de referencia por barrio/zona de Salta
+const SALTA_ZONE_COORDS = [
+    { keys: ["san lorenzo chico"], coords: [-24.7650, -65.4950] },
+    { keys: ["praderas de san lorenzo", "las praderas"], coords: [-24.7530, -65.4880] },
+    { keys: ["san lorenzo", "villa san lorenzo"], coords: [-24.7390, -65.4890] },
+    { keys: ["el tipal"], coords: [-24.7520, -65.4680] },
+    { keys: ["la almudena"], coords: [-24.7580, -65.4610] },
+    { keys: ["los molles"], coords: [-24.7490, -65.4750] },
+    { keys: ["valle escondido"], coords: [-24.7450, -65.4520] },
+    { keys: ["grand bourg", "gran bourg"], coords: [-24.7680, -65.4450] },
+    { keys: ["tres cerritos", "3 cerritos"], coords: [-24.7630, -65.3990] },
+    { keys: ["la lucinda"], coords: [-24.7380, -65.3720] },
+    { keys: ["chachapoyas"], coords: [-24.7680, -65.3880] },
+    { keys: ["ciudad del milagro", "el milagro"], coords: [-24.7460, -65.4080] },
+    { keys: ["mirasoles", "los mirasoles"], coords: [-24.7410, -65.4180] },
+    { keys: ["vaqueros"], coords: [-24.7180, -65.4050] },
+    { keys: ["la caldera"], coords: [-24.6010, -65.3810] },
+    { keys: ["san luis", "villa san luis"], coords: [-24.8380, -65.4880] },
+    { keys: ["intersindical"], coords: [-24.8350, -65.4420] },
+    { keys: ["santa ana"], coords: [-24.8410, -65.4510] },
+    { keys: ["limache", "barrio limache"], coords: [-24.8250, -65.4290] },
+    { keys: ["cerrillos"], coords: [-24.9010, -65.4850] },
+    { keys: ["la merced"], coords: [-24.9620, -65.4890] },
+    { keys: ["el carril"], coords: [-25.0740, -65.5340] },
+    { keys: ["chicoana"], coords: [-25.1050, -65.5350] },
+    { keys: ["campo quijano", "quijano"], coords: [-24.9080, -65.6420] },
+    { keys: ["rosario de lerma"], coords: [-24.9850, -65.5780] },
+    { keys: ["portezuelo"], coords: [-24.7920, -65.3950] },
+    { keys: ["monumento", "monumental"], coords: [-24.7890, -65.3980] },
+    { keys: ["macrocentro"], coords: [-24.7850, -65.4170] },
+    { keys: ["centro"], coords: [-24.7885, -65.4110] },
+    { keys: ["zona norte", "norte"], coords: [-24.7550, -65.4120] },
+    { keys: ["zona sur", "sur"], coords: [-24.8320, -65.4350] },
+    { keys: ["zona oeste", "oeste"], coords: [-24.7780, -65.4580] },
+    { keys: ["zona este", "este"], coords: [-24.7860, -65.3850] },
+    { keys: ["salta"], coords: [-24.7821, -65.4232] }
+];
+
+function resolvePropertyCoordinates(prop) {
+    if (!prop) return null;
+
+    // 1. Coordenadas directas numéricas o en string
+    const rawLat = prop.lat ?? prop.latitude;
+    const rawLng = prop.lng ?? prop.longitude;
+    if (rawLat !== undefined && rawLat !== null && rawLat !== "" &&
+        rawLng !== undefined && rawLng !== null && rawLng !== "") {
+        const parsedLat = parseFloat(rawLat);
+        const parsedLng = parseFloat(rawLng);
+        if (!isNaN(parsedLat) && !isNaN(parsedLng) && isFinite(parsedLat) && isFinite(parsedLng) && (parsedLat !== 0 || parsedLng !== 0)) {
+            return { lat: parsedLat, lng: parsedLng, source: "direct" };
+        }
     }
 
-    return `
-        <div class="map-popup-card">
-            <div class="map-popup-img-wrap">
-                <img src="${mainImg}" alt="${safeTitle}" class="map-popup-img" loading="lazy">
-                <span class="map-popup-badge-op">${opBadge}</span>
-            </div>
-            <div class="map-popup-body">
-                <div class="map-popup-price">${formattedPrice}</div>
-                <h4 class="map-popup-title" title="${safeTitle}">${safeTitle}</h4>
-                ${featuresHtml ? `<div class="map-popup-features">${featuresHtml}</div>` : ""}
-                <a href="details.html?id=${prop.id}" class="map-popup-btn">Ver propiedad →</a>
-            </div>
-        </div>
-    `;
+    // 2. Extraer de enlaces o texto de Google Maps
+    const potentialMapUrls = [
+        prop.mapLink,
+        prop.googleMapsUrl,
+        prop.map_url,
+        prop.urlMapa,
+        prop.ubicacionUrl
+    ].filter(Boolean);
+
+    for (const url of potentialMapUrls) {
+        const coords = extractCoordsFromGoogleMaps(String(url));
+        if (coords) {
+            return { lat: coords.lat, lng: coords.lng, source: "mapLink" };
+        }
+    }
+
+    // 3. Fallback inteligente por barrio / zona de Salta
+    const haystack = [
+        prop.location,
+        prop.ubicacion,
+        prop.barrio,
+        prop.zone,
+        prop.zona,
+        prop.address,
+        prop.direccion,
+        prop.title
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    for (const entry of SALTA_ZONE_COORDS) {
+        if (entry.keys.some(k => haystack.includes(k))) {
+            const numId = Number(String(prop.id).replace(/\D/g, "")) || 1;
+            const offsetLat = ((numId % 7) - 3) * 0.0018;
+            const offsetLng = (((numId * 3) % 7) - 3) * 0.0018;
+            return {
+                lat: entry.coords[0] + offsetLat,
+                lng: entry.coords[1] + offsetLng,
+                source: "zone_approx"
+            };
+        }
+    }
+
+    // 4. Fallback Salta Capital con dispersión según ID
+    const numId = Number(String(prop.id).replace(/\D/g, "")) || 1;
+    const offsetLat = ((numId % 9) - 4) * 0.0025;
+    const offsetLng = (((numId * 4) % 9) - 4) * 0.0025;
+    return {
+        lat: SALTA_DEFAULT_COORDS[0] + offsetLat,
+        lng: SALTA_DEFAULT_COORDS[1] + offsetLng,
+        source: "salta_fallback"
+    };
 }
 
 function initCatalogMap() {
-    const mapContainer = document.getElementById("catalog-map");
+    const mapContainer = document.getElementById("catalog-map") || document.getElementById("map-container");
     if (!mapContainer || !window.L) return;
 
     if (!catalogMapInstance) {
-        catalogMapInstance = L.map("catalog-map", {
+        if (mapContainer._leaflet_id) {
+            mapContainer._leaflet_id = null;
+        }
+
+        catalogMapInstance = L.map(mapContainer, {
             center: SALTA_DEFAULT_COORDS,
             zoom: 13,
             scrollWheelZoom: true
         });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(catalogMapInstance);
-
-        if (typeof L.markerClusterGroup === "function") {
-            catalogClusterGroup = L.markerClusterGroup({
-                showCoverageOnHover: false,
-                maxClusterRadius: 45,
-                spiderfyOnMaxZoom: true
-            });
-        } else {
-            catalogClusterGroup = L.featureGroup();
-        }
-        catalogMapInstance.addLayer(catalogClusterGroup);
     }
+
+    window.catalogMap = catalogMapInstance;
+    window.catalogMapInstance = catalogMapInstance;
 }
 
 function renderCatalogMap(propsToDisplay) {
-    initCatalogMap();
-    if (!catalogMapInstance || !catalogClusterGroup) return;
+    try {
+        console.log("Propiedades recibidas para renderizar en mapa:", (properties || []).length);
 
-    catalogClusterGroup.clearLayers();
-
-    const list = Array.isArray(propsToDisplay) ? propsToDisplay : properties;
-    const validMarkers = [];
-
-    list.forEach(prop => {
-        const lat = Number(prop.lat);
-        const lng = Number(prop.lng);
-        if (isNaN(lat) || isNaN(lng) || prop.lat === null || prop.lng === null || prop.lat === "" || prop.lng === "") {
-            return;
+        const mapWrapper = document.getElementById("catalog-map-wrapper") || document.getElementById("map-container");
+        if (mapWrapper && mapWrapper.id === "catalog-map-wrapper") {
+            mapWrapper.style.display = "block";
         }
 
-        const marker = L.marker([lat, lng], {
-            icon: createCustomPin("#050e36")
+        initCatalogMap();
+        if (!catalogMapInstance) return;
+
+        // A) Corrige las rutas rotas de iconos de Leaflet (obligatorio al usar CDN, de lo contrario los pines quedan invisibles)
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
 
-        marker.bindPopup(createMapPopupHtml(prop), {
-            maxWidth: 280,
-            className: "custom-leaflet-popup"
+        if (catalogClusterGroup) {
+            try {
+                catalogMapInstance.removeLayer(catalogClusterGroup);
+            } catch (_) {}
+        }
+
+        const markersGroup = L.featureGroup();
+        catalogClusterGroup = markersGroup;
+
+        const list = (Array.isArray(propsToDisplay) && propsToDisplay.length > 0)
+            ? propsToDisplay
+            : (lastFilteredProperties && lastFilteredProperties.length > 0 ? lastFilteredProperties : properties.filter(isPropertyAvailable));
+
+        console.group(`[renderCatalogMap] Evaluando ${list.length} propiedades`);
+
+        list.forEach((prop, idx) => {
+            try {
+                // B) Extracción real de coordenadas:
+                let lat = prop.lat || prop.latitude || (prop.coords && prop.coords.lat);
+                let lng = prop.lng || prop.longitude || (prop.coords && prop.lng);
+
+                // Si viene de un link de Google Maps:
+                if ((!lat || !lng) && (prop.mapLink || prop.googleMapsUrl || prop.ubicacion)) {
+                    const rawUrl = prop.mapLink || prop.googleMapsUrl || prop.ubicacion;
+                    const match = String(rawUrl).match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || 
+                                  String(rawUrl).match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/) ||
+                                  String(rawUrl).match(/\/search\/(-?\d+\.\d+),?\+*(-?\d+\.\d+)/);
+                    if (match) {
+                        lat = parseFloat(match[1]);
+                        lng = parseFloat(match[2]);
+                    }
+                }
+
+                // Fallback a Salta si no tiene coordenadas cargadas para que no desaparezca:
+                if (!lat || !lng) {
+                    lat = -24.7821 + (Math.random() - 0.5) * 0.04;
+                    lng = -65.4232 + (Math.random() - 0.5) * 0.04;
+                }
+
+                console.log(`Propiedad #${prop.id || idx} ("${prop.title || 'Sin título'}"): lat=${lat}, lng=${lng}`);
+
+                // C) Marcador y popup:
+                const marker = L.marker([parseFloat(lat), parseFloat(lng)]);
+                const popupContent = (typeof createMapPopupHtml === "function")
+                    ? createMapPopupHtml(prop)
+                    : `<b>${escapeHtml(prop.title || 'Propiedad')}</b><br><a href="details.html?id=${prop.id}">Ver propiedad</a>`;
+                marker.bindPopup(popupContent, {
+                    maxWidth: 280,
+                    className: "custom-leaflet-popup"
+                });
+                markersGroup.addLayer(marker);
+            } catch (itemErr) {
+                console.error(`[renderCatalogMap] Error procesando propiedad #${prop?.id}:`, itemErr);
+            }
         });
 
-        catalogClusterGroup.addLayer(marker);
-        validMarkers.push(marker);
-    });
+        console.log(`[renderCatalogMap] Total marcadores añadidos: ${markersGroup.getLayers().length} de ${list.length}`);
+        console.groupEnd();
 
-    if (validMarkers.length > 0) {
-        if (validMarkers.length === 1) {
-            catalogMapInstance.setView(validMarkers[0].getLatLng(), 15);
+        markersGroup.addTo(catalogMapInstance);
+
+        if (markersGroup.getLayers().length > 0) {
+            try {
+                catalogMapInstance.fitBounds(markersGroup.getBounds().pad(0.1));
+            } catch (e) {
+                console.warn("[renderCatalogMap] fitBounds error:", e);
+            }
         } else {
-            catalogMapInstance.fitBounds(catalogClusterGroup.getBounds(), {
-                padding: [40, 40],
-                maxZoom: 15
-            });
+            catalogMapInstance.setView(SALTA_DEFAULT_COORDS, 13);
         }
-    } else {
-        catalogMapInstance.setView(SALTA_DEFAULT_COORDS, 13);
-    }
 
-    setTimeout(() => {
-        catalogMapInstance?.invalidateSize();
-    }, 150);
+        setTimeout(() => {
+            if (catalogMapInstance) {
+                catalogMapInstance.invalidateSize();
+                if (markersGroup.getLayers().length > 0) {
+                    try {
+                        catalogMapInstance.fitBounds(markersGroup.getBounds().pad(0.1));
+                    } catch (_) {}
+                }
+            }
+        }, 180);
+    } catch (err) {
+        console.error("[renderCatalogMap] Error general al renderizar mapa:", err);
+    }
 }
 
 function setCatalogViewMode(mode) {
@@ -170,10 +357,16 @@ function setCatalogViewMode(mode) {
         if (gridEl) gridEl.style.display = "none";
         if (carouselWrapper) carouselWrapper.style.display = "none";
         if (mapWrapper) mapWrapper.style.display = "block";
-        const targetProps = (lastFilteredProperties && lastFilteredProperties.length > 0)
-            ? lastFilteredProperties
-            : properties.filter(isPropertyAvailable);
-        renderCatalogMap(targetProps);
+
+        applyFilters();
+
+        setTimeout(() => {
+            if (window.catalogMap) {
+                window.catalogMap.invalidateSize();
+            } else if (catalogMapInstance) {
+                catalogMapInstance.invalidateSize();
+            }
+        }, 150);
     } else {
         if (mapWrapper) mapWrapper.style.display = "none";
         applyFilters();
@@ -192,9 +385,9 @@ function initPropertyPickerMap() {
             scrollWheelZoom: true
         });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; OpenStreetMap'
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(pickerMapInstance);
 
         pickerMarkerInstance = L.marker(SALTA_DEFAULT_COORDS, {
@@ -672,8 +865,24 @@ async function loadProperties() {
         }
     }
 
+    // 3. Cargar coordenadas precalculadas para enriquecer propiedades de Firestore
+    let resolvedMap = {};
+    try {
+        const rRes = await fetch("data/resolved-locations.json");
+        if (rRes.ok) {
+            resolvedMap = await rRes.json();
+        }
+    } catch (_) {}
+
     properties = rawList
-        .map(p => normalizeProperty(p))
+        .map(p => {
+            const loc = resolvedMap[String(p.id)] || resolvedMap[p.id];
+            if (loc && (!p.lat || !p.lng)) {
+                p.lat = loc.lat;
+                p.lng = loc.lng;
+            }
+            return normalizeProperty(p);
+        })
         .filter(Boolean)
         .sort((a, b) => b.createdAtTs - a.createdAtTs);
 
@@ -2480,7 +2689,16 @@ function bindEvents() {
         btnViewGrid.onclick = () => setCatalogViewMode("grid");
     }
     if (btnViewMap) {
-        btnViewMap.onclick = () => setCatalogViewMode("map");
+        btnViewMap.onclick = () => {
+            setCatalogViewMode("map");
+            setTimeout(() => {
+                if (window.catalogMap) {
+                    window.catalogMap.invalidateSize();
+                } else if (catalogMapInstance) {
+                    catalogMapInstance.invalidateSize();
+                }
+            }, 150);
+        };
     }
 
     if (btnToggleFilters) {

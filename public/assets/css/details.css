@@ -708,6 +708,13 @@ body {
     z-index: 1;
 }
 
+.custom-map-marker,
+.custom-map-marker-pin-wrap,
+.leaflet-div-icon {
+    background: transparent !important;
+    border: none !important;
+}
+
 /* ---- 6. Columna Lateral Sticky (Derecha) ---- */
 .sticky-contact-card {
     position: sticky;
