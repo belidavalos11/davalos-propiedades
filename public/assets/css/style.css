@@ -2802,6 +2802,13 @@ textarea {
         color: var(--text-light);
     }
 
+    /* Fila teléfono / WhatsApp en móvil */
+    .team-col-phone {
+        grid-column: 1 / -1;
+        padding: 4px 0 6px 0 !important;
+        border: none !important;
+    }
+
     /* Fila inferior: Desplegable o badge de Rol a la izquierda */
     .team-col-role {
         grid-column: 1;
@@ -3214,3 +3221,252 @@ textarea {
 
 
 
+
+/* ---- Estilos para Gestión de Teléfono / WhatsApp en Equipo y Perfil ---- */
+.team-col-phone {
+    white-space: nowrap;
+}
+
+.team-phone-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+}
+
+.team-phone-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+}
+
+.team-phone-link:hover {
+    color: #25D366;
+}
+
+.btn-team-phone-edit {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s;
+    line-height: 1;
+}
+
+.btn-team-phone-edit:hover {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.btn-team-phone-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px dashed #93c5fd;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-team-phone-add:hover {
+    background: #dbeafe;
+    border-color: #3b82f6;
+    color: #1d4ed8;
+}
+
+/* User Greeting con acceso a perfil / teléfono */
+.user-greeting {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s;
+}
+
+.user-greeting.clickable {
+    cursor: pointer;
+}
+
+.user-greeting.clickable:hover {
+    opacity: 0.9;
+}
+
+.profile-phone-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(37, 211, 102, 0.15);
+    color: #128c7e;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(37, 211, 102, 0.3);
+    margin-left: 4px;
+}
+
+/* Modal Editar Teléfono */
+.team-phone-modal-content {
+    max-width: 480px;
+    padding: 24px 28px;
+    border-radius: 16px;
+}
+
+.phone-input-wrap {
+    display: flex;
+    align-items: center;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    transition: border-color 0.2s;
+}
+
+.phone-input-wrap:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(5, 14, 54, 0.1);
+}
+
+.phone-prefix {
+    padding: 10px 14px;
+    background: #f1f5f9;
+    color: var(--text-light);
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    user-select: none;
+}
+
+.phone-input-wrap input {
+    border: none !important;
+    outline: none !important;
+    padding: 10px 12px !important;
+    width: 100%;
+    font-size: 0.95rem;
+    box-shadow: none !important;
+}
+
+.member-info-preview {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.88rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.member-preview-name {
+    color: var(--text-dark);
+}
+
+.member-preview-email {
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+
+.form-help-text {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-light);
+    margin-top: 6px;
+    line-height: 1.35;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-family: var(--font-main, sans-serif);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #fff;
+    background: #0f172a;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    max-width: 90vw;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast-success {
+    border-left: 4px solid #10b981;
+}
+
+.toast-error {
+    border-left: 4px solid #ef4444;
+}
+
+.toast-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #10b981;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.toast-error .toast-icon {
+    background: #ef4444;
+}
+
+.toast-message {
+    line-height: 1.4;
+}
+
+.btn-team-icon-only {
+    padding: 6px 9px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.btn-team-icon-only svg {
+    margin: 0 !important;
+}

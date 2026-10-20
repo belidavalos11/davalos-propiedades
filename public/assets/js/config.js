@@ -84,8 +84,8 @@ const SITE_CONFIG = {
     propertyCategories: [
         {
             id: "campo",
-            label: "Campo",
-            matchTypes: ["campo"],
+            label: "Campos",
+            matchTypes: ["campo", "campos"],
             image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80"
         },
         {
@@ -108,7 +108,7 @@ const SITE_CONFIG = {
         },
         {
             id: "duplex",
-            label: "Dúplexs",
+            label: "Dúplex",
             matchTypes: ["duplex", "dúplex", "duplexs"],
             image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
         },
@@ -120,8 +120,8 @@ const SITE_CONFIG = {
         },
         {
             id: "galpon",
-            label: "Galpón",
-            matchTypes: ["galpon", "galpón"],
+            label: "Galpones",
+            matchTypes: ["galpon", "galpón", "galpones"],
             image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
         },
         {
@@ -279,15 +279,15 @@ const resolvePropertyAgentByConfig = function (prop) {
 // el nombre, rol, etc. se resuelven por agentId (o por defaultAgent si no coincide).
 window.getPropertyAgent = function (prop) {
     const agent = resolvePropertyAgentByConfig(prop);
-    const directPhone = String(prop?.agentWhatsapp || prop?.agentPhone || "").replace(/\D/g, "");
+    const directPhone = String(prop?.agentWhatsapp || prop?.agentPhone || prop?.agentUser?.whatsapp || prop?.agentUser?.phone || "").replace(/\D/g, "");
     return {
         ...agent,
-        name: prop?.agent || agent.name,
+        name: prop?.agent || prop?.agentUser?.displayName || agent.name,
         role: prop?.agentRole || agent.role,
-        email: (prop?.agentEmail !== undefined && prop.agentEmail !== "") ? prop.agentEmail : agent.email,
-        photoUrl: (prop?.agentPhotoUrl !== undefined && prop.agentPhotoUrl !== "") ? prop.agentPhotoUrl : agent.photoUrl,
+        email: (prop?.agentEmail !== undefined && prop.agentEmail !== "") ? prop.agentEmail : (prop?.agentUser?.email || agent.email),
+        photoUrl: (prop?.agentPhotoUrl !== undefined && prop.agentPhotoUrl !== "") ? prop.agentPhotoUrl : (prop?.agentUser?.photoURL || agent.photoUrl),
         whatsapp: directPhone ? window.normalizeWhatsappPhone(directPhone) : agent.whatsapp,
-        phone: prop?.agentPhone || agent.phone
+        phone: prop?.agentPhone || prop?.agentUser?.phone || agent.phone
     };
 };
 

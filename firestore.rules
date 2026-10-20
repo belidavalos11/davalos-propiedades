@@ -62,7 +62,7 @@ service cloud.firestore {
     // Perfil nuevo propio, con el rol/estado indicados.
     function validNewProfile(role, status) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['email', 'displayName', 'photoURL', 'role', 'status', 'createdAt', 'updatedAt'])
+      return d.keys().hasOnly(['email', 'displayName', 'photoURL', 'phone', 'whatsapp', 'role', 'status', 'createdAt', 'updatedAt'])
         && d.keys().hasAll(['email', 'role', 'status', 'createdAt', 'updatedAt'])
         && d.email == request.auth.token.email.lower()
         && d.role == role
@@ -74,7 +74,7 @@ service cloud.firestore {
     // Cada persona solo puede refrescar su nombre/foto; nunca su rol ni su estado.
     function onlyProfileFieldsChanged() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['displayName', 'photoURL', 'updatedAt']);
+        .hasOnly(['displayName', 'photoURL', 'phone', 'whatsapp', 'updatedAt']);
     }
 
     function validRoleAndStatus() {
@@ -98,7 +98,7 @@ service cloud.firestore {
     // ---------- Usuarios y roles ----------
     match /users/{userId} {
       // Cada persona lee su propio perfil; el SUPER_ADMIN activo lee y lista todos.
-      allow get: if signedInWithGoogle() && (request.auth.uid == userId || isSuperAdmin());
+      allow get: if (resource.data.status == 'active') || (signedInWithGoogle() && (request.auth.uid == userId || isSuperAdmin()));
       allow list: if isSuperAdmin();
 
       // Solicitud propia (AGENT / pending) o reclamo de arranque (SUPER_ADMIN / active) si nadie lo reclamo aun.

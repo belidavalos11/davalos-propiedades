@@ -722,10 +722,14 @@ function updateAuthUI() {
     if (greeting) {
         if (logged) {
             const name = window.AuthManager.getDisplayName();
+            greeting.className = "user-greeting";
             greeting.textContent = `¡Hola ${name}!`;
             greeting.style.display = "block";
+            greeting.onclick = null;
         } else {
+            greeting.className = "user-greeting";
             greeting.style.display = "none";
+            greeting.onclick = null;
         }
     }
 
@@ -747,7 +751,7 @@ function openModal(modal) {
 }
 
 function closeModal() {
-    [loginModal, settingsModal, propertyModal, document.getElementById("team-modal")].forEach(m => {
+    [loginModal, settingsModal, propertyModal, document.getElementById("team-modal"), document.getElementById("member-phone-modal")].forEach(m => {
         if (m) m.style.display = "none";
     });
     const agentSelect = document.getElementById("prop-agent");
@@ -2067,7 +2071,7 @@ function renderTeam() {
         </div>`).join("")}</div>` : empty("No hay solicitudes pendientes."));
 
     setPanel("active", active.length ? `<div class="team-table-wrap"><table class="team-table">
-        <thead><tr><th>Miembro</th><th>Rol</th><th>Desde</th><th></th></tr></thead>
+        <thead><tr><th>Miembro</th><th>Rol</th><th>Teléfono / WhatsApp</th><th>Desde</th><th></th></tr></thead>
         <tbody>${active.map(u => {
             const locked = u.uid === me;
             const roleCell = locked
@@ -2079,10 +2083,27 @@ function renderTeam() {
                    </select>`;
             const action = locked
                 ? `<span class="team-self-badge">Tu cuenta</span>`
-                : `<button type="button" class="btn-team-danger" data-team-action="suspend" data-uid="${escapeHtml(u.uid)}">Suspender</button>`;
+                : `<button type="button" class="btn-team-danger btn-team-icon-only" data-team-action="suspend" data-uid="${escapeHtml(u.uid)}" title="Suspender acceso">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                   </button>`;
+            const phoneVal = String(u.phone || u.whatsapp || "").trim();
+            const phoneCell = phoneVal
+                ? `<div class="team-phone-wrapper">
+                        <a href="https://wa.me/${escapeHtml(phoneVal.replace(/\D/g, ''))}" target="_blank" rel="noopener noreferrer" class="team-phone-link" title="Contactar por WhatsApp">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="#25D366" style="vertical-align: middle; margin-right: 4px;"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.625.846 5.059 2.284 7.033l-1.494 5.462 5.602-1.469c1.908 1.132 4.132 1.787 6.516 1.787 6.627 0 12-5.373 12-12s-5.373-12-12.908-12.813z"/></svg>
+                            <span>${escapeHtml(phoneVal)}</span>
+                        </a>
+                        <button type="button" class="btn-team-phone-edit" data-team-action="edit-phone" data-uid="${escapeHtml(u.uid)}" title="Modificar número">
+                            ✏️
+                        </button>
+                   </div>`
+                : `<button type="button" class="btn-team-phone-add" data-team-action="edit-phone" data-uid="${escapeHtml(u.uid)}" title="Cargar número de teléfono/WhatsApp">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Cargar teléfono
+                   </button>`;
             return `<tr>
                 <td class="team-col-user">${teamUserHtml(u)}</td>
                 <td class="team-col-role">${roleCell}</td>
+                <td class="team-col-phone">${phoneCell}</td>
                 <td class="team-col-date"><span class="team-date-label">Desde: </span>${formatTeamDate(u.createdAt)}</td>
                 <td class="team-col-actions team-actions-cell">${action}</td>
             </tr>`;
@@ -2114,6 +2135,10 @@ function teamErrorMessage(res) {
 }
 
 async function handleTeamAction(action, uid, btn) {
+    if (action === "edit-phone") {
+        openPhoneModal(uid);
+        return;
+    }
     const user = teamState.users.find(u => u.uid === uid);
     if (!user) return;
     const name = user.displayName || user.email;
@@ -2177,7 +2202,139 @@ async function handleTeamRoleChange(uid, role, select) {
     }
 }
 
+
+// ---- Toast Notifications ----
+window.showToast = function (message, type = "success") {
+    let container = document.getElementById("toast-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toast-container";
+        container.className = "toast-container";
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+    const icon = type === "success" ? "✓" : (type === "error" ? "✕" : "ℹ");
+    toast.innerHTML = `
+        <span class="toast-icon">${icon}</span>
+        <span class="toast-message">${escapeHtml(message)}</span>
+    `;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("show"));
+    setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+};
+
+window.openPhoneModal = function (uid) {
+    const modal = document.getElementById("member-phone-modal");
+    if (!modal) return;
+    const user = (teamState.users || []).find(u => u.uid === uid)
+        || (window.AuthManager?.currentUserProfile?.uid === uid ? window.AuthManager.currentUserProfile : null)
+        || (window.auth?.currentUser?.uid === uid ? { uid, displayName: window.auth.currentUser.displayName, email: window.auth.currentUser.email } : null);
+
+    const uidInput = document.getElementById("phone-modal-uid");
+    const phoneInput = document.getElementById("input-member-phone");
+    const nameEl = document.getElementById("phone-modal-user-name");
+    const emailEl = document.getElementById("phone-modal-user-email");
+    const previewWrap = document.getElementById("phone-modal-user-preview");
+    const titleEl = document.getElementById("phone-modal-title");
+
+    const me = window.auth && window.auth.currentUser ? window.auth.currentUser.uid : null;
+    const isSelf = me && me === uid;
+
+    if (uidInput) uidInput.value = uid || "";
+    if (phoneInput) {
+        phoneInput.value = user?.phone || user?.whatsapp || "";
+        setTimeout(() => phoneInput.focus(), 100);
+    }
+
+    if (titleEl) {
+        titleEl.textContent = isSelf ? "Mi Teléfono / WhatsApp" : "Editar Teléfono de Miembro";
+    }
+
+    if (previewWrap && user) {
+        previewWrap.style.display = "block";
+        if (nameEl) nameEl.textContent = user.displayName || user.email || "Miembro";
+        if (emailEl) emailEl.textContent = user.email ? `(${user.email})` : "";
+    } else if (previewWrap) {
+        previewWrap.style.display = "none";
+    }
+
+    modal.style.display = "block";
+    document.body.style.overflow = "hidden";
+};
+
+window.closePhoneModal = function () {
+    const modal = document.getElementById("member-phone-modal");
+    if (modal) modal.style.display = "none";
+    document.body.style.overflow = "auto";
+};
+
+function initPhoneModalModule() {
+    const modal = document.getElementById("member-phone-modal");
+    const form = document.getElementById("form-member-phone");
+    const closeBtn = document.getElementById("btn-close-phone-modal");
+    const cancelBtn = document.getElementById("btn-cancel-phone-modal");
+    const btnEditMyPhone = document.getElementById("btn-edit-my-phone");
+
+    if (btnEditMyPhone) {
+        btnEditMyPhone.onclick = () => {
+            closeModal();
+            const myUid = window.auth && window.auth.currentUser ? window.auth.currentUser.uid : (window.AuthManager?.currentUserProfile?.uid || null);
+            if (myUid) openPhoneModal(myUid);
+        };
+    }
+
+    if (!modal || !form) return;
+
+    if (closeBtn) closeBtn.onclick = closePhoneModal;
+    if (cancelBtn) cancelBtn.onclick = closePhoneModal;
+    modal.onclick = (e) => {
+        if (e.target === modal) closePhoneModal();
+    };
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const uid = document.getElementById("phone-modal-uid").value;
+        const phoneInput = document.getElementById("input-member-phone");
+        const rawVal = phoneInput ? phoneInput.value.trim() : "";
+        const saveBtn = document.getElementById("btn-save-phone-modal");
+        const btnText = saveBtn?.querySelector(".btn-text");
+        const btnSpinner = saveBtn?.querySelector(".btn-spinner");
+
+        if (saveBtn) saveBtn.disabled = true;
+        if (btnText) btnText.style.display = "none";
+        if (btnSpinner) btnSpinner.style.display = "inline-block";
+
+        try {
+            const res = await window.AuthManager.updateUserPhone(uid, rawVal);
+            if (res.success) {
+                const member = (teamState.users || []).find(u => u.uid === uid);
+                if (member) {
+                    member.phone = res.phone;
+                    member.whatsapp = res.phone;
+                    renderTeam();
+                }
+                closePhoneModal();
+                showToast("Teléfono actualizado correctamente", "success");
+            } else {
+                alert(res.error || "No se pudo actualizar el teléfono.");
+            }
+        } catch (err) {
+            console.error("Error al guardar teléfono:", err);
+            alert("Ocurrió un error inesperado al actualizar el teléfono.");
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
+            if (btnText) btnText.style.display = "inline-block";
+            if (btnSpinner) btnSpinner.style.display = "none";
+        }
+    };
+}
+
 function initTeamModule() {
+    initPhoneModalModule();
     const btnTeam = document.getElementById("btn-team");
     const modal = document.getElementById("team-modal");
     if (!btnTeam || !modal) return;

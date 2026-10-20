@@ -167,7 +167,9 @@ const AuthManager = {
             displayName: profile.displayName || email,
             photoURL: profile.photoURL || "",
             role: profile.role,
-            status: profile.status
+            status: profile.status,
+            phone: profile.phone || profile.whatsapp || "",
+            whatsapp: profile.whatsapp || profile.phone || ""
         };
         localStorage.setItem("davalos_current_user", email);
         localStorage.setItem("davalos_google_user", JSON.stringify(this.currentUserProfile));
@@ -364,6 +366,45 @@ const AuthManager = {
             return { success: true };
         } catch (e) {
             console.error("[Auth] Error al actualizar usuario:", e);
+            return { success: false, reason: "error", error: e.message || String(e) };
+        }
+    },
+
+    // Actualiza el número de WhatsApp/teléfono de un miembro (solo el propio usuario o SUPER_ADMIN)
+    async updateUserPhone(uid, rawPhone) {
+        if (!window.db) return { success: false, reason: "no_db", error: "Firestore no está disponible." };
+        const currentUid = window.auth && window.auth.currentUser ? window.auth.currentUser.uid : null;
+        const isSelf = currentUid && currentUid === uid;
+        const isSuperAdmin = this.hasPermission(this.Permissions.MANAGE_USERS);
+
+        if (!isSelf && !isSuperAdmin) {
+            return { success: false, reason: "permission", error: "No tenés permisos para modificar los datos de este usuario." };
+        }
+
+        const inputStr = String(rawPhone || "").trim();
+        let cleanPhone = "";
+        if (inputStr) {
+            cleanPhone = window.normalizeWhatsappPhone
+                ? window.normalizeWhatsappPhone(inputStr)
+                : inputStr.replace(/\D/g, "");
+        }
+
+        const patch = {
+            phone: cleanPhone,
+            whatsapp: cleanPhone,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        try {
+            await window.db.collection("users").doc(uid).update(patch);
+            if (this.currentUserProfile && this.currentUserProfile.uid === uid) {
+                this.currentUserProfile.phone = cleanPhone;
+                this.currentUserProfile.whatsapp = cleanPhone;
+                localStorage.setItem("davalos_google_user", JSON.stringify(this.currentUserProfile));
+            }
+            return { success: true, phone: cleanPhone };
+        } catch (e) {
+            console.error("[Auth] Error al actualizar teléfono de usuario:", e);
             return { success: false, reason: "error", error: e.message || String(e) };
         }
     },

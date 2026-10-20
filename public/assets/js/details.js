@@ -103,6 +103,14 @@ function formatNumber(val) {
 }
 
 function getAgentPhone(prop) {
+    const directRaw = prop?.agentPhone || prop?.agentWhatsapp || prop?.agentUser?.phone || prop?.agentUser?.whatsapp;
+    if (directRaw) {
+        if (window.normalizeWhatsappPhone) {
+            return window.normalizeWhatsappPhone(directRaw);
+        }
+        const cleaned = String(directRaw).replace(/\D/g, "");
+        if (cleaned) return cleaned;
+    }
     const agent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
     if (window.normalizeWhatsappPhone) {
         return window.normalizeWhatsappPhone(agent?.whatsapp || agent?.phone || WHATSAPP_NUMBER);
@@ -1205,6 +1213,40 @@ if (lightboxClose) lightboxClose.onclick = closeLightbox;
         }
 
         currentProperty = property;
+        // Enriquecer con los datos actualizados del asesor desde Firestore (users)
+        if (window.db && (property.agentId || property.agentEmail)) {
+            try {
+                let agentDoc = null;
+                if (property.agentId) {
+                    const snap = await window.db.collection("users").doc(property.agentId).get();
+                    if (snap.exists) agentDoc = snap.data();
+                }
+                if (!agentDoc && property.agentEmail) {
+                    const snap = await window.db.collection("users").where("email", "==", String(property.agentEmail).toLowerCase().trim()).limit(1).get();
+                    if (!snap.empty) agentDoc = snap.docs[0].data();
+                }
+                if (agentDoc) {
+                    property.agentUser = agentDoc;
+                    const livePhone = agentDoc.phone || agentDoc.whatsapp;
+                    if (livePhone) {
+                        property.agentPhone = livePhone;
+                        property.agentWhatsapp = livePhone;
+                    }
+                    if (agentDoc.displayName && (!property.agent || property.agent === "Dávalos Propiedades")) {
+                        property.agent = agentDoc.displayName;
+                    }
+                    if (agentDoc.photoURL && !property.agentPhotoUrl) {
+                        property.agentPhotoUrl = agentDoc.photoURL;
+                    }
+                    if (agentDoc.email && !property.agentEmail) {
+                        property.agentEmail = agentDoc.email;
+                    }
+                }
+            } catch (err) {
+                console.warn("[details] No se pudo obtener el perfil de Firestore del asesor:", err);
+            }
+        }
+
         renderDetails(property);
 
         if (isPropUnavailable(property) && canManage) {

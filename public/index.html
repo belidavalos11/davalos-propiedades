@@ -43,7 +43,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=12">
+    <link rel="stylesheet" href="assets/css/style.css?v=13">
     <link rel="stylesheet" href="assets/css/loader.css?v=4">
     <!-- Leaflet & MarkerCluster CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -135,7 +135,7 @@
                             <option value="casa">Casas</option>
                             <option value="departamento">Departamentos</option>
                             <option value="terreno">Terrenos / Lotes</option>
-                            <option value="duplex">Dúplexs</option>
+                            <option value="duplex">Dúplex</option>
                             <option value="local">Locales comerciales</option>
                             <option value="oficina">Oficinas</option>
                             <option value="casaquinta">Casaquintas</option>
@@ -360,6 +360,42 @@
         </div>
     </div>
 
+    <!-- Modal Editar Teléfono / WhatsApp de Miembro -->
+    <div id="member-phone-modal" class="modal" style="display: none;">
+        <div class="modal-content team-phone-modal-content">
+            <button type="button" class="close-modal" id="btn-close-phone-modal" aria-label="Cerrar">&times;</button>
+            <div class="modal-header">
+                <h2 id="phone-modal-title">Editar Teléfono / WhatsApp</h2>
+                <p id="phone-modal-subtitle">Este número se utilizará para que los clientes consulten por WhatsApp en las propiedades asignadas.</p>
+            </div>
+            <form id="form-member-phone" class="standard-form">
+                <input type="hidden" id="phone-modal-uid" value="">
+                
+                <div class="form-group member-info-preview" id="phone-modal-user-preview" style="display: none;">
+                    <span class="member-preview-name"><strong>Miembro:</strong> <span id="phone-modal-user-name"></span></span>
+                    <span class="member-preview-email" id="phone-modal-user-email"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="input-member-phone">Número de WhatsApp / Celular</label>
+                    <div class="phone-input-wrap">
+                        <span class="phone-prefix">+54&nbsp;9</span>
+                        <input type="tel" id="input-member-phone" class="form-control" placeholder="387 415-5902" required autocomplete="tel">
+                    </div>
+                    <small class="form-help-text">Ingresá el código de área y el número (ej. Salta: 387 4155902). Se normalizará automáticamente con el prefijo internacional requerido para WhatsApp.</small>
+                </div>
+
+                <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" id="btn-cancel-phone-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-phone-modal">
+                        <span class="btn-text">Guardar teléfono</span>
+                        <span class="btn-spinner" style="display: none;">Guardando...</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
@@ -369,6 +405,7 @@
                 <p>Gestionar cuenta y sistema</p>
             </div>
             <div class="settings-actions">
+                <button type="button" id="btn-edit-my-phone" class="btn btn-outline btn-full" style="margin-bottom: 10px;">📱 Actualizar mi teléfono / WhatsApp</button>
                 <button id="btn-change-password" class="btn btn-outline btn-full">Cambiar contraseña</button>
                 <button id="btn-toggle-user-mgmt" class="btn btn-outline btn-full"
                     style="display: none; margin-top: 10px;">Gestión de Usuarios</button>
@@ -766,12 +803,12 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-    <script src="assets/js/config.js?v=8"></script>
+    <script src="assets/js/config.js?v=9"></script>
     <script src="assets/js/firebase-config.js"></script>
 
-    <script src="assets/js/auth.js?v=12"></script>
+    <script src="assets/js/auth.js?v=13"></script>
     <script src="assets/js/loader.js?v=4"></script>
-    <script src="assets/js/script.js?v=27"></script>
+    <script src="assets/js/script.js?v=28"></script>
     <script>
         const menuToggle = document.getElementById('mobile-menu-toggle');
         const navMain = document.querySelector('.nav-main');
