@@ -649,7 +649,7 @@ let currentEditingId = null;
 let currentEditingUsername = null;
 let selectedPropertyTypes = [];
 // Gestion de equipo (solo SUPER_ADMIN)
-const teamState = { users: [], tab: "pending", unsub: null, error: false };
+const teamState = { users: [], tab: "active", unsub: null, error: false };
 
 // Utility
 function escapeHtml(value) {
@@ -2071,7 +2071,14 @@ function renderTeam() {
         </div>`).join("")}</div>` : empty("No hay solicitudes pendientes."));
 
     setPanel("active", active.length ? `<div class="team-table-wrap"><table class="team-table">
-        <thead><tr><th>Miembro</th><th>Rol</th><th>Teléfono / WhatsApp</th><th>Desde</th><th></th></tr></thead>
+        <thead>
+            <tr>
+                <th class="team-th-user">Miembro</th>
+                <th class="team-th-role">Rol</th>
+                <th class="team-th-date">Desde</th>
+                <th class="team-th-actions"></th>
+            </tr>
+        </thead>
         <tbody>${active.map(u => {
             const locked = u.uid === me;
             const roleCell = locked
@@ -2081,36 +2088,40 @@ function renderTeam() {
                         <option value="ADMIN"${u.role === "ADMIN" ? " selected" : ""}>Admin</option>
                         <option value="SUPER_ADMIN"${u.role === "SUPER_ADMIN" ? " selected" : ""}>Super Admin</option>
                    </select>`;
-            const action = locked
-                ? `<span class="team-self-badge">Tu cuenta</span>`
-                : `<button type="button" class="btn-team-danger btn-team-icon-only" data-team-action="suspend" data-uid="${escapeHtml(u.uid)}" title="Suspender acceso">
-                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                   </button>`;
             const phoneVal = String(u.phone || u.whatsapp || "").trim();
-            const phoneCell = phoneVal
-                ? `<div class="team-phone-wrapper">
-                        <a href="https://wa.me/${escapeHtml(phoneVal.replace(/\D/g, ''))}" target="_blank" rel="noopener noreferrer" class="team-phone-link" title="Contactar por WhatsApp">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="#25D366" style="vertical-align: middle; margin-right: 4px;"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.625.846 5.059 2.284 7.033l-1.494 5.462 5.602-1.469c1.908 1.132 4.132 1.787 6.516 1.787 6.627 0 12-5.373 12-12s-5.373-12-12.908-12.813z"/></svg>
-                            <span>${escapeHtml(phoneVal)}</span>
-                        </a>
-                        <button type="button" class="btn-team-phone-edit" data-team-action="edit-phone" data-uid="${escapeHtml(u.uid)}" title="Modificar número">
-                            ✏️
-                        </button>
+            const phoneItem = `<button type="button" class="team-dropdown-item" data-team-action="edit-phone" data-uid="${escapeHtml(u.uid)}">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="color: #25D366; flex-shrink: 0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span class="team-dropdown-text">${phoneVal ? `Editar teléfono: <strong class="team-dropdown-phone">${escapeHtml(phoneVal)}</strong>` : "Cargar teléfono"}</span>
+            </button>`;
+            const suspendItem = locked
+                ? `<div class="team-dropdown-item disabled" title="No podés suspender tu propia cuenta">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="color: #94a3b8; flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    <span class="team-dropdown-text">Tu cuenta</span>
                    </div>`
-                : `<button type="button" class="btn-team-phone-add" data-team-action="edit-phone" data-uid="${escapeHtml(u.uid)}" title="Cargar número de teléfono/WhatsApp">
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Cargar teléfono
+                : `<button type="button" class="team-dropdown-item team-dropdown-item-danger" data-team-action="suspend" data-uid="${escapeHtml(u.uid)}">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    <span class="team-dropdown-text">Suspender usuario</span>
                    </button>`;
+            const moreAction = `
+                <div class="team-more-wrap">
+                    <button type="button" class="btn-team-more" data-team-more-trigger aria-label="Más opciones" title="Más opciones">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>
+                    </button>
+                    <div class="team-row-dropdown">
+                        ${phoneItem}
+                        ${suspendItem}
+                    </div>
+                </div>`;
             return `<tr>
                 <td class="team-col-user">${teamUserHtml(u)}</td>
                 <td class="team-col-role">${roleCell}</td>
-                <td class="team-col-phone">${phoneCell}</td>
                 <td class="team-col-date"><span class="team-date-label">Desde: </span>${formatTeamDate(u.createdAt)}</td>
-                <td class="team-col-actions team-actions-cell">${action}</td>
+                <td class="team-col-actions team-actions-cell">${moreAction}</td>
             </tr>`;
         }).join("")}</tbody></table></div>` : empty("Todavía no hay miembros activos."));
 
     setPanel("inactive", inactive.length ? `<div class="team-table-wrap"><table class="team-table">
-        <thead><tr><th>Miembro</th><th>Rol</th><th>Desde</th><th></th></tr></thead>
+        <thead><tr><th class="team-th-user">Miembro</th><th class="team-th-role">Rol</th><th class="team-th-date">Desde</th><th class="team-th-actions"></th></tr></thead>
         <tbody>${inactive.map(u => `
             <tr>
                 <td class="team-col-user">${teamUserHtml(u)}</td>
@@ -2333,22 +2344,90 @@ function initPhoneModalModule() {
     };
 }
 
+function closeAllTeamDropdowns() {
+    document.querySelectorAll(".team-row-dropdown.is-open").forEach(d => {
+        d.classList.remove("is-open");
+        d.style.top = "";
+        d.style.bottom = "";
+    });
+    document.querySelectorAll(".btn-team-more.active").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".team-table tr.dropdown-open").forEach(r => r.classList.remove("dropdown-open"));
+}
+
 function initTeamModule() {
     initPhoneModalModule();
     const btnTeam = document.getElementById("btn-team");
     const modal = document.getElementById("team-modal");
     if (!btnTeam || !modal) return;
-    btnTeam.onclick = () => { renderTeam(); openModal(modal); };
+    btnTeam.onclick = () => { closeAllTeamDropdowns(); teamState.tab = "active"; renderTeam(); openModal(modal); };
+
     modal.addEventListener("click", async e => {
-        if (e.target === modal) { closeModal(); return; }
-        const tabBtn = e.target.closest("[data-team-tab]");
-        if (tabBtn) { teamState.tab = tabBtn.dataset.teamTab; renderTeam(); return; }
+        if (e.target === modal) {
+            closeAllTeamDropdowns();
+            closeModal();
+            return;
+        }
+
+        const moreBtn = e.target.closest("[data-team-more-trigger]");
+        if (moreBtn) {
+            e.stopPropagation();
+            const wrap = moreBtn.closest(".team-more-wrap");
+            const dropdown = wrap ? wrap.querySelector(".team-row-dropdown") : null;
+            const tr = moreBtn.closest("tr");
+            const wasOpen = dropdown ? dropdown.classList.contains("is-open") : false;
+
+            closeAllTeamDropdowns();
+
+            if (!wasOpen && dropdown) {
+                dropdown.classList.add("is-open");
+                moreBtn.classList.add("active");
+                if (tr) tr.classList.add("dropdown-open");
+
+                // Check vertical room relative to modal content
+                const modalContent = modal.querySelector(".modal-content") || modal;
+                const dropRect = dropdown.getBoundingClientRect();
+                const modalRect = modalContent.getBoundingClientRect();
+                if (dropRect.bottom > modalRect.bottom - 12) {
+                    dropdown.style.top = "auto";
+                    dropdown.style.bottom = "calc(100% + 6px)";
+                } else {
+                    dropdown.style.top = "calc(100% + 6px)";
+                    dropdown.style.bottom = "auto";
+                }
+            }
+            return;
+        }
+
         const actionBtn = e.target.closest("[data-team-action]");
-        if (actionBtn) await handleTeamAction(actionBtn.dataset.teamAction, actionBtn.dataset.uid, actionBtn);
+        if (actionBtn) {
+            closeAllTeamDropdowns();
+            await handleTeamAction(actionBtn.dataset.teamAction, actionBtn.dataset.uid, actionBtn);
+            return;
+        }
+
+        const insideDropdown = e.target.closest(".team-row-dropdown");
+        if (!insideDropdown) {
+            closeAllTeamDropdowns();
+        }
+
+        const tabBtn = e.target.closest("[data-team-tab]");
+        if (tabBtn) {
+            closeAllTeamDropdowns();
+            teamState.tab = tabBtn.dataset.teamTab;
+            renderTeam();
+            return;
+        }
     });
+
     modal.addEventListener("change", async e => {
         const select = e.target.closest("select[data-team-role]");
         if (select) await handleTeamRoleChange(select.dataset.uid, select.value, select);
+    });
+
+    document.addEventListener("click", e => {
+        if (!e.target.closest(".team-more-wrap")) {
+            closeAllTeamDropdowns();
+        }
     });
 }
 

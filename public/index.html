@@ -43,7 +43,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=13">
+    <link rel="stylesheet" href="assets/css/style.css?v=14">
     <link rel="stylesheet" href="assets/css/loader.css?v=4">
     <!-- Leaflet & MarkerCluster CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -350,12 +350,12 @@
                 <p>Aprobá solicitudes, asigná roles y suspendé accesos.</p>
             </div>
             <div class="team-tabs" role="tablist">
-                <button type="button" class="team-tab active" data-team-tab="pending">Solicitudes pendientes <span class="team-tab-count">0</span></button>
-                <button type="button" class="team-tab" data-team-tab="active">Miembros activos <span class="team-tab-count">0</span></button>
+                <button type="button" class="team-tab active" data-team-tab="active">Miembros activos <span class="team-tab-count">0</span></button>
+                <button type="button" class="team-tab" data-team-tab="pending">Solicitudes pendientes <span class="team-tab-count">0</span></button>
                 <button type="button" class="team-tab" data-team-tab="inactive">Inactivos <span class="team-tab-count">0</span></button>
             </div>
-            <div id="team-panel-pending" class="team-panel"></div>
-            <div id="team-panel-active" class="team-panel" hidden></div>
+            <div id="team-panel-active" class="team-panel"></div>
+            <div id="team-panel-pending" class="team-panel" hidden></div>
             <div id="team-panel-inactive" class="team-panel" hidden></div>
         </div>
     </div>
@@ -808,7 +808,7 @@
 
     <script src="assets/js/auth.js?v=13"></script>
     <script src="assets/js/loader.js?v=4"></script>
-    <script src="assets/js/script.js?v=28"></script>
+    <script src="assets/js/script.js?v=29"></script>
     <script>
         const menuToggle = document.getElementById('mobile-menu-toggle');
         const navMain = document.querySelector('.nav-main');
