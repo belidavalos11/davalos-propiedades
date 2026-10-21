@@ -1995,7 +1995,7 @@ function formatTeamDate(ts) {
 function teamUserHtml(u) {
     const isLegacy = !u.status || (!u.email && u.username);
     const name = u.displayName || u.username || u.email || "Usuario sin nombre";
-    const subtext = u.email ? u.email : (u.username ? `@${u.username} (Cuenta anterior)` : "Perfil legado de Firestore");
+    const subtext = u.email ? u.email : (u.username ? `@${u.username} (Cuenta anterior)` : "Perfil anterior");
     const initial = escapeHtml(String(name).trim().charAt(0).toUpperCase() || "?");
     const photo = safeImageUrl(u.photoURL || "");
     const img = photo
@@ -2127,7 +2127,7 @@ function renderTeam() {
         <div class="team-legacy-banner" style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
             <div style="font-size: 0.84rem; color: #92400e; display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 1.1rem;">ℹ️</span>
-                <span>Se detectaron <strong>${legacyUsers.length} perfil(es) antiguo(s)</strong> en Firestore (sin Google). Podés eliminarlos uno a uno o todos juntos.</span>
+                <span>Se detectaron <strong>${legacyUsers.length} perfil(es) antiguo(s)</strong>. Podés eliminarlos uno a uno o todos juntos.</span>
             </div>
             <button type="button" class="btn btn-small" data-team-action="delete-all-legacy" style="background: #dc2626; color: #fff; border: none; font-size: 0.8rem; font-weight: 600; padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: opacity 0.2s;">
                 Eliminar todos los antiguos
@@ -2148,8 +2148,8 @@ function renderTeam() {
                 <td class="team-col-actions team-actions-cell">
                     <div class="team-actions-inline">
                         ${reactivateBtn}
-                        <button type="button" class="btn-team-danger btn-small" data-team-action="delete" data-uid="${escapeHtml(u.uid)}" title="Eliminar definitivamente de Firestore">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Eliminar
+                        <button type="button" class="btn-team-danger btn-team-icon-only" data-team-action="delete" data-uid="${escapeHtml(u.uid)}" title="Eliminar definitivamente" aria-label="Eliminar">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                         </button>
                     </div>
                 </td>
@@ -2177,7 +2177,7 @@ async function handleTeamAction(action, uid, btn) {
         }
         const legacyList = teamState.users.filter(u => !u.status || (!u.email && u.username));
         if (!legacyList.length) return;
-        if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente los ${legacyList.length} perfiles antiguos de Firestore? Esta acción no se puede deshacer.`)) {
+        if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente los ${legacyList.length} perfiles antiguos? Esta acción no se puede deshacer.`)) {
             return;
         }
         btn.disabled = true;
@@ -2188,9 +2188,9 @@ async function handleTeamAction(action, uid, btn) {
             if (res.success) deleted++;
         }
         if (typeof showToast === "function") {
-            showToast(`Se eliminaron ${deleted} perfiles antiguos de Firestore`, "success");
+            showToast(`Se eliminaron ${deleted} perfiles antiguos`, "success");
         } else {
-            alert(`Se eliminaron ${deleted} perfiles antiguos de Firestore.`);
+            alert(`Se eliminaron ${deleted} perfiles antiguos.`);
         }
         teamState.users = teamState.users.filter(u => !legacyList.some(l => l.uid === u.uid));
         renderTeam();
@@ -2206,14 +2206,14 @@ async function handleTeamAction(action, uid, btn) {
             alert("Solo un usuario con rol Super Admin puede eliminar miembros del equipo.");
             return;
         }
-        if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente a "${name}" de Firestore? Esta acción no se puede deshacer.`)) {
+        if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente a "${name}"? Esta acción no se puede deshacer.`)) {
             return;
         }
         btn.disabled = true;
         const res = await window.AuthManager.deleteUser(uid);
         if (res.success) {
             if (typeof showToast === "function") {
-                showToast("Usuario eliminado correctamente de Firestore", "success");
+                showToast("Usuario eliminado correctamente", "success");
             } else {
                 alert("Usuario eliminado correctamente");
             }
