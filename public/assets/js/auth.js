@@ -334,11 +334,11 @@ const AuthManager = {
     },
 
     // ---- Gestion de equipo (solo SUPER_ADMIN) ----
-    // Escucha en tiempo real la coleccion `users` (ignora documentos legados sin email).
+    // Escucha en tiempo real la coleccion `users` (incluye todos los documentos de Firestore).
     watchTeam(onData, onError) {
         if (!this.hasPermission(this.Permissions.MANAGE_USERS) || !window.db) return () => {};
         return window.db.collection("users").onSnapshot(
-            snap => onData(snap.docs.map(d => ({ uid: d.id, ...d.data() })).filter(u => u.email)),
+            snap => onData(snap.docs.map(d => ({ uid: d.id, ...d.data() }))),
             err => {
                 console.error("[Auth] Error al escuchar usuarios:", err);
                 if (onError) onError(err);

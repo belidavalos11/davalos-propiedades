@@ -1993,7 +1993,9 @@ function formatTeamDate(ts) {
 }
 
 function teamUserHtml(u) {
-    const name = u.displayName || u.email;
+    const isLegacy = !u.status || (!u.email && u.username);
+    const name = u.displayName || u.username || u.email || "Usuario sin nombre";
+    const subtext = u.email ? u.email : (u.username ? `@${u.username} (Cuenta anterior)` : "Perfil legado de Firestore");
     const initial = escapeHtml(String(name).trim().charAt(0).toUpperCase() || "?");
     const photo = safeImageUrl(u.photoURL || "");
     const img = photo
@@ -2004,7 +2006,7 @@ function teamUserHtml(u) {
             <span class="team-avatar"><span class="team-avatar-fallback">${initial}</span>${img}</span>
             <div class="team-user-text">
                 <strong>${escapeHtml(name)}</strong>
-                <span>${escapeHtml(u.email)}</span>
+                <span>${escapeHtml(subtext)}</span>
             </div>
         </div>`;
 }
@@ -2021,7 +2023,8 @@ function renderTeam() {
 
     const pending = teamState.users.filter(u => u.status === "pending").sort(teamSortByDate);
     const active = teamState.users.filter(u => u.status === "active").sort(teamSortByDate);
-    const inactive = teamState.users.filter(u => u.status === "inactive").sort(teamSortByDate);
+    const inactive = teamState.users.filter(u => u.status === "inactive" || (!["active", "pending"].includes(u.status))).sort(teamSortByDate);
+    const legacyUsers = inactive.filter(u => !u.status || (!u.email && u.username));
 
     if (btnTeam) {
         let badge = btnTeam.querySelector(".team-badge");
@@ -2120,22 +2123,38 @@ function renderTeam() {
             </tr>`;
         }).join("")}</tbody></table></div>` : empty("Todavía no hay miembros activos."));
 
-    setPanel("inactive", inactive.length ? `<div class="team-table-wrap"><table class="team-table">
+    const legacyBanner = legacyUsers.length ? `
+        <div class="team-legacy-banner" style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="font-size: 0.84rem; color: #92400e; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.1rem;">ℹ️</span>
+                <span>Se detectaron <strong>${legacyUsers.length} perfil(es) antiguo(s)</strong> en Firestore (sin Google). Podés eliminarlos uno a uno o todos juntos.</span>
+            </div>
+            <button type="button" class="btn btn-small" data-team-action="delete-all-legacy" style="background: #dc2626; color: #fff; border: none; font-size: 0.8rem; font-weight: 600; padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: opacity 0.2s;">
+                Eliminar todos los antiguos
+            </button>
+        </div>` : "";
+
+    setPanel("inactive", inactive.length ? `${legacyBanner}<div class="team-table-wrap"><table class="team-table">
         <thead><tr><th class="team-th-user">Miembro</th><th class="team-th-role">Rol</th><th class="team-th-date">Desde</th><th class="team-th-actions"></th></tr></thead>
-        <tbody>${inactive.map(u => `
-            <tr>
+        <tbody>${inactive.map(u => {
+            const isLegacy = !u.status || (!u.email && u.username);
+            const reactivateBtn = isLegacy
+                ? ""
+                : `<button type="button" class="btn btn-outline btn-small" data-team-action="reactivate" data-uid="${escapeHtml(u.uid)}">Reactivar</button>`;
+            return `<tr>
                 <td class="team-col-user">${teamUserHtml(u)}</td>
-                <td class="team-col-role"><span class="team-role-tag">${TEAM_ROLE_LABELS[u.role] || escapeHtml(u.role || "")}</span></td>
+                <td class="team-col-role"><span class="team-role-tag">${TEAM_ROLE_LABELS[u.role] || escapeHtml(u.role || (isLegacy ? "Cuenta previa" : ""))}</span></td>
                 <td class="team-col-date"><span class="team-date-label">Desde: </span>${formatTeamDate(u.createdAt)}</td>
                 <td class="team-col-actions team-actions-cell">
                     <div class="team-actions-inline">
-                        <button type="button" class="btn btn-outline btn-small" data-team-action="reactivate" data-uid="${escapeHtml(u.uid)}">Reactivar</button>
-                        <button type="button" class="btn-team-danger btn-small" data-team-action="delete" data-uid="${escapeHtml(u.uid)}" title="Eliminar definitivamente">
+                        ${reactivateBtn}
+                        <button type="button" class="btn-team-danger btn-small" data-team-action="delete" data-uid="${escapeHtml(u.uid)}" title="Eliminar definitivamente de Firestore">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Eliminar
                         </button>
                     </div>
                 </td>
-            </tr>`).join("")}
+            </tr>`;
+        }).join("")}
         </tbody></table></div>` : empty("No hay usuarios inactivos."));
 }
 
@@ -2150,22 +2169,54 @@ async function handleTeamAction(action, uid, btn) {
         openPhoneModal(uid);
         return;
     }
+
+    if (action === "delete-all-legacy") {
+        if (!window.AuthManager || window.AuthManager.getUserRole() !== "SUPER_ADMIN") {
+            alert("Solo un usuario con rol Super Admin puede eliminar miembros del equipo.");
+            return;
+        }
+        const legacyList = teamState.users.filter(u => !u.status || (!u.email && u.username));
+        if (!legacyList.length) return;
+        if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente los ${legacyList.length} perfiles antiguos de Firestore? Esta acción no se puede deshacer.`)) {
+            return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Eliminando...";
+        let deleted = 0;
+        for (const u of legacyList) {
+            const res = await window.AuthManager.deleteUser(u.uid);
+            if (res.success) deleted++;
+        }
+        if (typeof showToast === "function") {
+            showToast(`Se eliminaron ${deleted} perfiles antiguos de Firestore`, "success");
+        } else {
+            alert(`Se eliminaron ${deleted} perfiles antiguos de Firestore.`);
+        }
+        teamState.users = teamState.users.filter(u => !legacyList.some(l => l.uid === u.uid));
+        renderTeam();
+        return;
+    }
+
     const user = teamState.users.find(u => u.uid === uid);
     if (!user) return;
-    const name = user.displayName || user.email;
+    const name = user.displayName || user.username || user.email || "este usuario";
 
     if (action === "delete") {
         if (!window.AuthManager || window.AuthManager.getUserRole() !== "SUPER_ADMIN") {
             alert("Solo un usuario con rol Super Admin puede eliminar miembros del equipo.");
             return;
         }
-        if (!confirm("¿Estás seguro de que deseas eliminar permanentemente a este usuario? Esta acción no se puede deshacer.")) {
+        if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente a "${name}" de Firestore? Esta acción no se puede deshacer.`)) {
             return;
         }
         btn.disabled = true;
         const res = await window.AuthManager.deleteUser(uid);
         if (res.success) {
-            alert("Usuario eliminado correctamente");
+            if (typeof showToast === "function") {
+                showToast("Usuario eliminado correctamente de Firestore", "success");
+            } else {
+                alert("Usuario eliminado correctamente");
+            }
             // Actualización inmediata del estado local para feedback instantáneo; watchTeam también sincronizará vía onSnapshot
             teamState.users = teamState.users.filter(u => u.uid !== uid);
             renderTeam();
