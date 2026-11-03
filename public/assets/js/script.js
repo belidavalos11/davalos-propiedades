@@ -2890,7 +2890,8 @@ function openEditModal(id, evt) {
 
         const resolvedAgent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
         const agentSelect = document.getElementById("prop-agent");
-        const canReassignAgent = Boolean(manager.isSuperAdmin() || manager.isAdmin());
+        const userRole = (manager?.getUserRole ? manager.getUserRole() : (manager?.currentUserProfile?.role || "")).toUpperCase();
+        const canReassignAgent = Boolean(userRole === "SUPER_ADMIN" || userRole === "ADMIN" || (typeof manager?.isAdmin === "function" && manager.isAdmin()));
         if (agentSelect) {
             const candidateId = prop.agentId || (resolvedAgent && resolvedAgent.id !== "agente-default" ? resolvedAgent.id : "") || prop.agent || "";
             agentSelect.value = candidateId;
@@ -3040,7 +3041,8 @@ async function openPropertyModal() {
             if (ownerAddress) ownerAddress.value = "";
         }
 
-        const canReassignAgent = Boolean(manager.isSuperAdmin() || manager.isAdmin());
+        const userRole = (manager?.getUserRole ? manager.getUserRole() : (manager?.currentUserProfile?.role || "")).toUpperCase();
+        const canReassignAgent = Boolean(userRole === "SUPER_ADMIN" || userRole === "ADMIN" || (typeof manager?.isAdmin === "function" && manager.isAdmin()));
         const agentSelect = document.getElementById("prop-agent");
         if (agentSelect) {
             if (!canReassignAgent) {
@@ -3443,7 +3445,8 @@ function bindEvents() {
                 const currentName = manager?.getDisplayName ? manager.getDisplayName() : "";
                 const currentEmail = currentUserData?.email || window.auth?.currentUser?.email || "";
                 const canViewPrivate = Boolean(manager && manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
-                const canReassignAgent = Boolean(manager && (manager.isSuperAdmin() || manager.isAdmin()));
+                const currentRole = (manager?.getUserRole ? manager.getUserRole() : (manager?.currentUserProfile?.role || "")).toUpperCase();
+                const canReassignAgent = Boolean(currentRole === "SUPER_ADMIN" || currentRole === "ADMIN" || (typeof manager?.isAdmin === "function" && manager.isAdmin()));
 
                 const featuresContainer = document.getElementById("custom-features-container");
                 const customFeatures = featuresContainer ? Array.from(featuresContainer.querySelectorAll(".feature-data")).map(i => JSON.parse(i.value)) : [];

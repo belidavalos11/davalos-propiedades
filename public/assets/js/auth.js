@@ -498,6 +498,15 @@ const AuthManager = {
         return user ? user.role : null;
     },
 
+    isSuperAdmin() {
+        return this.getUserRole() === this.Roles.SUPER_ADMIN;
+    },
+
+    isAdmin() {
+        const role = this.getUserRole();
+        return role === this.Roles.ADMIN || role === this.Roles.SUPER_ADMIN;
+    },
+
     hasPermission(permission) {
         if (!this.isLoggedIn()) return false;
         const role = this.getUserRole();
