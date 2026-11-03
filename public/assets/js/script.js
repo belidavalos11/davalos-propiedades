@@ -3851,15 +3851,18 @@ async function init() {
     }
 
     // Check for edit parameter to auto-open modal from details page
-    const editId = urlParams.get('edit');
+    let pendingEdit = null;
+    try {
+        pendingEdit = sessionStorage.getItem("davalos_pending_edit");
+        sessionStorage.removeItem("davalos_pending_edit");
+    } catch (_) {}
+    const editId = urlParams.get('edit') || pendingEdit;
     if (editId) {
         (async () => {
+            // Esperar obligatoriamente a que onAuthStateChanged + perfil de Firestore estén resueltos
             if (window.AuthManager && window.AuthManager._readyPromise) {
                 try {
-                    await Promise.race([
-                        window.AuthManager._readyPromise,
-                        new Promise(resolve => setTimeout(resolve, 2500))
-                    ]);
+                    await window.AuthManager._readyPromise;
                 } catch (_) {}
             }
 
@@ -3876,11 +3879,15 @@ async function init() {
                     } catch (_) {}
                 } else if (!manager || !manager.isLoggedIn()) {
                     console.warn("[init] Usuario no autenticado para editar publicación.");
+                    alert("Tu sesión no está activa. Iniciá sesión para editar la publicación.");
+                    if (loginModal) openModal(loginModal);
                 } else {
                     console.warn("[init] Usuario sin permisos para editar esta publicación.");
+                    alert("No tienes permisos para editar esta publicación.");
                 }
             } else {
                 console.warn("[init] No se encontró la propiedad indicada en parámetro edit:", editId);
+                alert("No se encontró la publicación a editar.");
             }
         })();
     }

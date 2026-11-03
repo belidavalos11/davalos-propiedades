@@ -1,10 +1,14 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=public/index.html">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DAVALOS PROPIEDADES</title>
+    <script>
+        // Conserva query string (?edit=, ?type=) y hash al redirigir; el meta refresh los descartaba.
+        window.location.replace("public/index.html" + window.location.search + window.location.hash);
+    </script>
+    <noscript><meta http-equiv="refresh" content="0; url=public/index.html"></noscript>
 </head>
 <body>
     <p>Redirigiendo a <a href="public/index.html">public/index.html</a>...</p>

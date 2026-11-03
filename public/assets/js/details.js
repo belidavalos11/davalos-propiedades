@@ -57,6 +57,8 @@ window.handleEditPropertyFromDetails = function(propId, evt) {
         console.warn("[details] No se encontró el ID de la propiedad para editar.");
         return;
     }
+    // Respaldo: si alguna redirección (stub raíz, cleanUrls) descarta el ?edit=, index.html lo recupera de aquí
+    try { sessionStorage.setItem("davalos_pending_edit", String(targetId)); } catch (_) {}
     const targetUrl = `index.html?edit=${encodeURIComponent(targetId)}`;
     if (window.triggerLoader) {
         window.triggerLoader(targetUrl);
