@@ -37,13 +37,33 @@ function safeImageUrl(value) {
     return null;
 }
 
-function safeUrl(url) {
 
+function safeUrl(url) {
     if (!url || typeof url !== "string") return "";
     const trimmed = url.trim();
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
     return "";
 }
+
+window.handleEditPropertyFromDetails = function(propId, evt) {
+    if (evt) {
+        try {
+            evt.preventDefault();
+            evt.stopPropagation();
+        } catch (_) {}
+    }
+    const targetId = propId || (window.currentProperty ? (window.currentProperty.id || window.currentProperty.firebaseId) : "");
+    if (!targetId) {
+        console.warn("[details] No se encontró el ID de la propiedad para editar.");
+        return;
+    }
+    const targetUrl = `index.html?edit=${encodeURIComponent(targetId)}`;
+    if (window.triggerLoader) {
+        window.triggerLoader(targetUrl);
+    } else {
+        window.location.href = targetUrl;
+    }
+};
 
 function normalizeProperty(prop) {
     if (!prop || typeof prop !== "object") return null;
@@ -203,13 +223,6 @@ function extractCoordsFromGoogleMaps(input) {
     return null;
 }
 
-function safeUrl(url) {
-
-    if (!url || typeof url !== "string") return "";
-    const trimmed = url.trim();
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    return "";
-}
 
 function renderDetails(prop) {
     // 4. Manejo de Coordenadas: convertir a Float numéricos con parseFloat
@@ -580,7 +593,7 @@ function renderDetails(prop) {
                             <span>Imprimir</span>
                         </button>
                         ${canEditCurrentProp ? `
-                            <button type="button" class="btn-util-action btn-util-edit" onclick="window.location.href='index.html?edit=${prop.id}'" title="Editar propiedad">
+                            <button type="button" class="btn-util-action btn-util-edit" onclick="event.preventDefault(); event.stopPropagation(); handleEditPropertyFromDetails('${escapeHtml(String(prop.id || prop.firebaseId || ''))}', event);" title="Editar propiedad">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 <span>Editar</span>
                             </button>

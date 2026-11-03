@@ -843,6 +843,7 @@ function closeModal() {
     if (ownerSection) {
         ownerSection.style.display = "";
     }
+    currentEditingId = null;
     document.body.style.overflow = "auto";
 }
 
@@ -1651,14 +1652,14 @@ function createPropertyCardElement(prop) {
                             </svg>
                         </button>
                         <div class="property-settings-menu" onclick="event.stopPropagation()">
-                            <button type="button" class="property-settings-item" onclick="togglePropertyAvailability(${prop.id})">
+                            <button type="button" class="property-settings-item" onclick="event.preventDefault(); event.stopPropagation(); togglePropertyAvailability('${escapeHtml(String(prop.id))}');">
                                 ${isUnavailable ? "✓ Marcar como disponible" : "🚫 Marcar como no disponible"}
                             </button>
-                            <button type="button" class="property-settings-item" onclick="openEditModal(${prop.id})">
+                            <button type="button" class="property-settings-item" onclick="event.preventDefault(); event.stopPropagation(); openEditModal('${escapeHtml(String(prop.id))}', event);">
                                 Editar publicación
                             </button>
                             ${canDelete ? `
-                                <button type="button" class="property-settings-item danger" onclick="deleteProperty(${prop.id})">
+                                <button type="button" class="property-settings-item danger" onclick="event.preventDefault(); event.stopPropagation(); deleteProperty('${escapeHtml(String(prop.id))}');">
                                     Eliminar publicación
                                 </button>
                             ` : ""}
@@ -2791,143 +2792,175 @@ function updateCreditVisibility() {
     }
 }
 
-function openEditModal(id) {
-    const prop = properties.find(p => p.id === id);
-    if (!prop) return;
-
-    const manager = window.AuthManager;
-    if (!manager || !manager.isLoggedIn()) {
-        alert("Debes iniciar sesión para editar publicaciones.");
-        return;
-    }
-    if (!manager.canUserEditProperty(prop)) {
-        alert("No tienes permisos para editar esta propiedad.");
-        return;
-    }
-
-    currentEditingId = id;
-
-    // Repopulate agents just in case
-    populateAgentDropdown();
-
-    // Fill fields
-    document.getElementById("prop-title").value = prop.title || "";
-    document.getElementById("prop-category").value = prop.category || "venta";
-    document.getElementById("prop-type").value = prop.type || "casa";
-    document.getElementById("prop-desc").value = prop.description || "";
-    document.getElementById("prop-price").value = formatNumber(prop.price);
-    document.getElementById("prop-currency").value = prop.currency || "USD";
-
-    // Owner data visibility according to permissions
-    const canViewPrivate = manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA);
-    const ownerSection = document.getElementById("section-prop-owner");
-    if (ownerSection) {
-        ownerSection.style.display = canViewPrivate ? "block" : "none";
-    }
-    if (canViewPrivate) {
-        document.getElementById("prop-owner-name").value = prop.ownerName || "";
-        document.getElementById("prop-owner-phone").value = prop.ownerPhone || "";
-        document.getElementById("prop-owner-address").value = prop.ownerAddress || "";
-
-        // Consultar subcolección privada aislada (/private/owner_info)
-        if (window.db && prop.firebaseId) {
-            window.db.collection("properties").doc(prop.firebaseId)
-                .collection("private").doc("owner_info").get()
-                .then(docSnap => {
-                    if (docSnap.exists) {
-                        const oData = docSnap.data();
-                        const n = document.getElementById("prop-owner-name");
-                        const p = document.getElementById("prop-owner-phone");
-                        const a = document.getElementById("prop-owner-address");
-                        if (n && oData.ownerName !== undefined) n.value = oData.ownerName;
-                        if (p && oData.ownerPhone !== undefined) p.value = oData.ownerPhone;
-                        if (a && oData.ownerAddress !== undefined) a.value = oData.ownerAddress;
-                    }
-                })
-                .catch(err => {
-                    console.warn("[openEditModal] Consulta de datos privados aislados:", err.message);
-                });
-        }
-    } else {
-        document.getElementById("prop-owner-name").value = "";
-        document.getElementById("prop-owner-phone").value = "";
-        document.getElementById("prop-owner-address").value = "";
-    }
-
-    const resolvedAgent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
-    const agentSelect = document.getElementById("prop-agent");
-    const canReassignAgent = Boolean(manager.isSuperAdmin() || manager.isAdmin());
-    if (agentSelect) {
-        const candidateId = prop.agentId || (resolvedAgent && resolvedAgent.id !== "agente-default" ? resolvedAgent.id : "") || prop.agent || "";
-        agentSelect.value = candidateId;
-        agentSelect.disabled = !canReassignAgent;
-        if (!canReassignAgent) {
-            agentSelect.title = "Solo administradores pueden reasignar el asesor a cargo.";
-        } else {
-            agentSelect.removeAttribute("title");
-        }
-    }
-    document.getElementById("prop-credit").checked = !!prop.creditEligible;
-    document.getElementById("prop-map-link").value = prop.mapLink || "";
-
-    // Memoria Descriptiva
-    const hasMemory = !!prop.memoryDescription;
-    document.getElementById("prop-has-memory").checked = hasMemory;
-    const memoryWrapper = document.getElementById("memory-description-wrapper");
-    memoryWrapper.style.display = hasMemory ? "block" : "none";
-    document.getElementById("prop-memory-desc").value = prop.memoryDescription || "";
-
-    // Expensas
-    const hasExpensas = !!prop.expensasAmount;
-    document.getElementById("prop-has-expensas").checked = hasExpensas;
-    const expensasWrapper = document.getElementById("expensas-wrapper");
-    expensasWrapper.style.display = hasExpensas ? "flex" : "none";
-    document.getElementById("prop-expensas-amount").value = formatNumber(prop.expensasAmount);
-    document.getElementById("prop-expensas-currency").value = prop.expensasCurrency || "ARS";
-
-    // Sync visibility
-    updateCreditVisibility();
-
-    // Surfaces
-    document.getElementById("prop-area-total").value = formatNumber(prop.areaTotal);
-    document.getElementById("prop-area-built").value = formatNumber(prop.areaBuilt);
-
-    // Images
-    uploadedImages = [...prop.images];
-    renderThumbnails();
-
-    // Custom Features (Details)
-    const container = document.getElementById("custom-features-container");
-    container.innerHTML = "";
-    if (prop.customFeatures) {
-        prop.customFeatures.forEach(feat => {
-            if (typeof feat === 'string') {
-                renderStructuredFeature({ name: feat, icon: "✨", qty: "" });
-            } else {
-                renderStructuredFeature(feat);
-            }
-        });
-    }
-
-    // Coordinates and picker mini-map
-    const latVal = (prop.lat !== undefined && prop.lat !== null) ? prop.lat : "";
-    const lngVal = (prop.lng !== undefined && prop.lng !== null) ? prop.lng : "";
-    const propLatInput = document.getElementById("prop-lat");
-    const propLngInput = document.getElementById("prop-lng");
-    if (propLatInput) propLatInput.value = latVal;
-    if (propLngInput) propLngInput.value = lngVal;
-    // Change modal title
-    const modalHeader = propertyModal.querySelector(".modal-header h2");
-    if (modalHeader) modalHeader.textContent = "Editar propiedad";
-
-    openModal(propertyModal);
-    updatePickerMapPosition(latVal, lngVal);
-    setTimeout(() => {
+function openEditModal(id, evt) {
+    if (evt) {
         try {
-            if (pickerMapInstance) pickerMapInstance.invalidateSize();
+            evt.preventDefault();
+            evt.stopPropagation();
         } catch (_) {}
-    }, 200);
+    }
+
+    try {
+        const idStr = String(id != null ? id : "").trim();
+        const prop = properties.find(p => String(p.id) === idStr || (p.firebaseId && String(p.firebaseId) === idStr) || p.id === Number(id));
+        if (!prop) {
+            console.warn("[openEditModal] No se encontró la propiedad con ID:", id);
+            return;
+        }
+
+        const manager = window.AuthManager;
+        if (!manager || !manager.isLoggedIn()) {
+            alert("Debes iniciar sesión para editar publicaciones.");
+            return;
+        }
+        if (!manager.canUserEditProperty(prop)) {
+            alert("No tienes permisos para editar esta propiedad.");
+            return;
+        }
+
+        currentEditingId = prop.id;
+
+        // Repopulate agents just in case
+        populateAgentDropdown();
+
+        // Helper seguro para asignar valores sin romper si el elemento no existe
+        const setVal = (elemId, val) => {
+            const el = document.getElementById(elemId);
+            if (el) el.value = val !== undefined && val !== null ? val : "";
+        };
+
+        // Fill basic fields
+        setVal("prop-title", prop.title);
+        setVal("prop-category", prop.category || "venta");
+        setVal("prop-type", prop.type || "casa");
+        setVal("prop-desc", prop.description);
+        setVal("prop-price", formatNumber(prop.price));
+        setVal("prop-currency", prop.currency || "USD");
+
+        // Owner data visibility according to permissions
+        const canViewPrivate = Boolean(manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
+        const ownerSection = document.getElementById("section-prop-owner");
+        if (ownerSection) {
+            ownerSection.style.display = canViewPrivate ? "block" : "none";
+        }
+        if (canViewPrivate) {
+            setVal("prop-owner-name", prop.ownerName);
+            setVal("prop-owner-phone", prop.ownerPhone);
+            setVal("prop-owner-address", prop.ownerAddress);
+
+            // Consultar subcolección privada aislada (/private/owner_info) de forma asíncrona y segura
+            if (window.db && prop.firebaseId) {
+                window.db.collection("properties").doc(prop.firebaseId)
+                    .collection("private").doc("owner_info").get()
+                    .then(docSnap => {
+                        if (docSnap && docSnap.exists) {
+                            const oData = docSnap.data() || {};
+                            if (oData.ownerName !== undefined) setVal("prop-owner-name", oData.ownerName);
+                            if (oData.ownerPhone !== undefined) setVal("prop-owner-phone", oData.ownerPhone);
+                            if (oData.ownerAddress !== undefined) setVal("prop-owner-address", oData.ownerAddress);
+                        }
+                    })
+                    .catch(err => {
+                        console.warn("[openEditModal] Consulta de datos privados aislados:", err.message);
+                    });
+            }
+        } else {
+            setVal("prop-owner-name", "");
+            setVal("prop-owner-phone", "");
+            setVal("prop-owner-address", "");
+        }
+
+        const resolvedAgent = window.getPropertyAgent ? window.getPropertyAgent(prop) : null;
+        const agentSelect = document.getElementById("prop-agent");
+        const canReassignAgent = Boolean(manager.isSuperAdmin() || manager.isAdmin());
+        if (agentSelect) {
+            const candidateId = prop.agentId || (resolvedAgent && resolvedAgent.id !== "agente-default" ? resolvedAgent.id : "") || prop.agent || "";
+            agentSelect.value = candidateId;
+            agentSelect.disabled = !canReassignAgent;
+            if (!canReassignAgent) {
+                agentSelect.title = "Solo administradores pueden reasignar el asesor a cargo.";
+            } else {
+                agentSelect.removeAttribute("title");
+            }
+        }
+
+        const creditCheck = document.getElementById("prop-credit");
+        if (creditCheck) creditCheck.checked = !!prop.creditEligible;
+
+        setVal("prop-map-link", prop.mapLink);
+
+        // Memoria Descriptiva
+        const hasMemory = !!prop.memoryDescription;
+        const memCheck = document.getElementById("prop-has-memory");
+        if (memCheck) memCheck.checked = hasMemory;
+        const memoryWrapper = document.getElementById("memory-description-wrapper");
+        if (memoryWrapper) memoryWrapper.style.display = hasMemory ? "block" : "none";
+        setVal("prop-memory-desc", prop.memoryDescription);
+
+        // Expensas
+        const hasExpensas = !!prop.expensasAmount;
+        const expCheck = document.getElementById("prop-has-expensas");
+        if (expCheck) expCheck.checked = hasExpensas;
+        const expensasWrapper = document.getElementById("expensas-wrapper");
+        if (expensasWrapper) expensasWrapper.style.display = hasExpensas ? "flex" : "none";
+        setVal("prop-expensas-amount", formatNumber(prop.expensasAmount));
+        setVal("prop-expensas-currency", prop.expensasCurrency || "ARS");
+
+        // Sync visibility
+        updateCreditVisibility();
+
+        // Surfaces
+        setVal("prop-area-total", formatNumber(prop.areaTotal));
+        setVal("prop-area-built", formatNumber(prop.areaBuilt));
+
+        // Images
+        uploadedImages = Array.isArray(prop.images) ? [...prop.images] : [];
+        renderThumbnails();
+
+        // Custom Features (Details)
+        const container = document.getElementById("custom-features-container");
+        if (container) {
+            container.innerHTML = "";
+            if (prop.customFeatures && Array.isArray(prop.customFeatures)) {
+                prop.customFeatures.forEach(feat => {
+                    if (typeof feat === 'string') {
+                        renderStructuredFeature({ name: feat, icon: "✨", qty: "" });
+                    } else {
+                        renderStructuredFeature(feat);
+                    }
+                });
+            }
+        }
+
+        // Coordinates and picker mini-map
+        const latVal = (prop.lat !== undefined && prop.lat !== null) ? prop.lat : "";
+        const lngVal = (prop.lng !== undefined && prop.lng !== null) ? prop.lng : "";
+        setVal("prop-lat", latVal);
+        setVal("prop-lng", lngVal);
+
+        // Change modal title and submit button
+        const targetModal = propertyModal || document.getElementById("property-modal");
+        if (targetModal) {
+            const modalHeader = targetModal.querySelector(".modal-header h2");
+            if (modalHeader) modalHeader.textContent = "Editar propiedad";
+            const submitBtn = targetModal.querySelector("button[type='submit']");
+            if (submitBtn) submitBtn.textContent = "Guardar cambios";
+
+            openModal(targetModal);
+        }
+
+        updatePickerMapPosition(latVal, lngVal);
+        setTimeout(() => {
+            try {
+                if (pickerMapInstance) pickerMapInstance.invalidateSize();
+            } catch (_) {}
+        }, 200);
+
+    } catch (err) {
+        console.error("Error al abrir modal de edición:", err);
+    }
 }
+window.openEditModal = openEditModal;
 
 // ==========================================================================
 // Modal de Carga de Propiedad (Crear / Publicar) & Event Listeners
@@ -3043,6 +3076,8 @@ async function openPropertyModal() {
         const targetModal = propertyModal || document.getElementById("property-modal");
         const modalHeader = targetModal?.querySelector(".modal-header h2");
         if (modalHeader) modalHeader.textContent = "Cargar nueva propiedad";
+        const submitBtn = targetModal?.querySelector("button[type='submit']");
+        if (submitBtn) submitBtn.textContent = "Publicar Propiedad";
         openModal(targetModal);
 
         // 5. Inicializar / centrar mini-mapa selector de ubicación DESPUÉS de abrir modal
@@ -3376,7 +3411,7 @@ function bindEvents() {
 
             try {
                 const manager = window.AuthManager;
-                const existing = currentEditingId ? properties.find(p => p.id === currentEditingId) : null;
+                const existing = currentEditingId ? properties.find(p => String(p.id) === String(currentEditingId) || (p.firebaseId && String(p.firebaseId) === String(currentEditingId)) || p.id === Number(currentEditingId)) : null;
 
                 if (currentEditingId && existing && manager && !manager.canUserEditProperty(existing)) {
                     alert("No tienes permisos para editar esta publicación.");
@@ -3818,13 +3853,36 @@ async function init() {
     // Check for edit parameter to auto-open modal from details page
     const editId = urlParams.get('edit');
     if (editId) {
-        const numId = Number(editId);
-        const prop = properties.find(p => p.id === numId || String(p.id) === editId);
-        if (prop && window.AuthManager && window.AuthManager.hasPermission(window.AuthManager.Permissions.EDIT_PROPERTY)) {
-            openEditModal(prop.id);
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
+        (async () => {
+            if (window.AuthManager && window.AuthManager._readyPromise) {
+                try {
+                    await Promise.race([
+                        window.AuthManager._readyPromise,
+                        new Promise(resolve => setTimeout(resolve, 2500))
+                    ]);
+                } catch (_) {}
+            }
+
+            const idStr = String(editId).trim();
+            const prop = properties.find(p => String(p.id) === idStr || (p.firebaseId && String(p.firebaseId) === idStr) || p.id === Number(editId));
+            if (prop) {
+                const manager = window.AuthManager;
+                if (manager && manager.canUserEditProperty(prop)) {
+                    openEditModal(prop.id);
+                    try {
+                        const cleanUrl = new URL(window.location.href);
+                        cleanUrl.searchParams.delete('edit');
+                        window.history.replaceState({}, document.title, cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : "") + cleanUrl.hash);
+                    } catch (_) {}
+                } else if (!manager || !manager.isLoggedIn()) {
+                    console.warn("[init] Usuario no autenticado para editar publicación.");
+                } else {
+                    console.warn("[init] Usuario sin permisos para editar esta publicación.");
+                }
+            } else {
+                console.warn("[init] No se encontró la propiedad indicada en parámetro edit:", editId);
+            }
+        })();
     }
 }
 
