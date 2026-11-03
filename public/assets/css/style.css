@@ -1484,6 +1484,11 @@ textarea {
     white-space: nowrap;
 }
 
+.property-settings-item {
+    pointer-events: auto;
+    opacity: 1;
+}
+
 .property-settings-item:hover {
     background: #f8fafc;
 }

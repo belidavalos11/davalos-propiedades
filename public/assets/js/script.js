@@ -1651,15 +1651,15 @@ function createPropertyCardElement(prop) {
                                 <circle cx="12" cy="19" r="2"></circle>
                             </svg>
                         </button>
-                        <div class="property-settings-menu" onclick="event.stopPropagation()">
-                            <button type="button" class="property-settings-item" onclick="event.preventDefault(); event.stopPropagation(); togglePropertyAvailability('${escapeHtml(String(prop.id))}');">
+                        <div class="property-settings-menu" data-settings-menu>
+                            <button type="button" class="property-settings-item" data-prop-action="toggle">
                                 ${isUnavailable ? "✓ Marcar como disponible" : "🚫 Marcar como no disponible"}
                             </button>
-                            <button type="button" class="property-settings-item" onclick="event.preventDefault(); event.stopPropagation(); openEditModal('${escapeHtml(String(prop.id))}', event);">
+                            <button type="button" class="property-settings-item" data-prop-action="edit">
                                 Editar publicación
                             </button>
                             ${canDelete ? `
-                                <button type="button" class="property-settings-item danger" onclick="event.preventDefault(); event.stopPropagation(); deleteProperty('${escapeHtml(String(prop.id))}');">
+                                <button type="button" class="property-settings-item danger" data-prop-action="delete">
                                     Eliminar publicación
                                 </button>
                             ` : ""}
@@ -1685,6 +1685,24 @@ function createPropertyCardElement(prop) {
             </div>
         </div>
     `;
+    // Menú de 3 puntos: listeners directos (sin onclick inline) que llaman a las acciones con el ID real
+    const settingsMenu = card.querySelector("[data-settings-menu]");
+    if (settingsMenu) {
+        settingsMenu.addEventListener("click", (ev) => ev.stopPropagation());
+        settingsMenu.querySelectorAll("[data-prop-action]").forEach(btn => {
+            btn.disabled = false;
+            btn.removeAttribute("disabled");
+            btn.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                settingsMenu.classList.remove("show");
+                const action = btn.getAttribute("data-prop-action");
+                if (action === "edit") openEditModal(prop.id);
+                else if (action === "toggle") togglePropertyAvailability(prop.id);
+                else if (action === "delete") deleteProperty(prop.id);
+            });
+        });
+    }
     card.onclick = () => {
         if (featuredSwipeJustHappened) return;
         if (window.triggerLoader) {
@@ -3859,11 +3877,28 @@ async function init() {
     const editId = urlParams.get('edit') || pendingEdit;
     if (editId) {
         (async () => {
-            // Esperar obligatoriamente a que onAuthStateChanged + perfil de Firestore estén resueltos
+            // Ejecutar la logica de ?edit= SOLO cuando auth.onAuthStateChanged resolvio el usuario y su rol esta cargado
+            const firebaseUser = await new Promise(resolve => {
+                if (!window.auth || typeof window.auth.onAuthStateChanged !== "function") return resolve(null);
+                let done = false;
+                const unsub = window.auth.onAuthStateChanged(u => {
+                    if (done) return;
+                    done = true;
+                    try { unsub(); } catch (_) {}
+                    resolve(u);
+                });
+                setTimeout(() => { if (!done) { done = true; resolve(window.auth.currentUser || null); } }, 8000);
+            });
             if (window.AuthManager && window.AuthManager._readyPromise) {
                 try {
                     await window.AuthManager._readyPromise;
                 } catch (_) {}
+            }
+            // Si hay usuario real (no anonimo), esperar a que el rol este disponible en AuthManager
+            if (firebaseUser && !firebaseUser.isAnonymous) {
+                for (let i = 0; i < 50 && !(window.AuthManager && window.AuthManager.getUserRole()); i++) {
+                    await new Promise(r => setTimeout(r, 100));
+                }
             }
 
             const idStr = String(editId).trim();
