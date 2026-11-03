@@ -1,0 +1,40 @@
+# Dependency directories
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# Firebase service accounts and secret keys
+*serviceAccount*.json
+*firebase-adminsdk*.json
+*credential*.json
+*.pem
+*.key
+*.p12
+
+# Vercel deployment cache
+.vercel/
+.output/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE directories
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj

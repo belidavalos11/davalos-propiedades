@@ -696,12 +696,33 @@ const teamState = { users: [], tab: "active", unsub: null, error: false };
 
 // Utility
 function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
     return String(value)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+}
+
+function safeUrl(url) {
+    if (!url || typeof url !== "string") return "";
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return "";
+}
+
+function sanitizeTextInput(val) {
+    if (typeof val !== "string") return "";
+    return val
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+        .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "")
+        .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, "")
+        .replace(/\bon\w+\s*=\s*(['"]).*?\1/gi, "")
+        .replace(/\bon\w+\s*=\s*[^>\s]+/gi, "")
+        .replace(/javascript:/gi, "")
+        .trim();
 }
 
 function formatPrice(price) {
@@ -1604,7 +1625,7 @@ function createPropertyCardElement(prop) {
         <div class="property-image-container">
             <div class="operation-badge badge-${(prop.operation || prop.category || 'venta').toLowerCase()}">${escapeHtml(prop.operation || prop.category || 'Venta')}</div>
             ${isUnavailable ? '<div class="unavailable-ribbon">🚫 No disponible</div>' : ''}
-            <img src="${prop.images && prop.images.length > 0 ? prop.images[0] : PLACEHOLDER_IMAGE}" alt="${escapeHtml(prop.title)}" class="property-image">
+            <img src="${escapeHtml(safeImageUrl(prop.images && prop.images.length > 0 ? prop.images[0] : null) || PLACEHOLDER_IMAGE)}" alt="${escapeHtml(prop.title)}" class="property-image">
             <img src="${window.SITE_CONFIG?.assets?.logoSeal || 'assets/images/logo-seal.svg'}" class="property-seal" alt="Dávalos Propiedades" aria-hidden="true">
         </div>
         <div class="property-info">
@@ -2652,7 +2673,7 @@ function renderThumbnails() {
 
         const displaySrc = typeof img === 'string' ? img : img.preview;
         thumb.innerHTML = `
-            <img src="${displaySrc}">
+            <img src="${escapeHtml(safeImageUrl(displaySrc) || displaySrc || PLACEHOLDER_IMAGE)}">
             <button type="button" class="btn-set-cover" onclick="setAsCover(${index})" title="Poner como portada">✨</button>
             <button type="button" class="btn-remove-preview" onclick="removeThumbnail(${index})">&times;</button>
         `;
@@ -2708,8 +2729,8 @@ function renderStructuredFeature(feat) {
     const displayLabel = feat.qty ? `${feat.qty} ${feat.name}` : feat.name;
 
     div.innerHTML = `
-        <span>${feat.icon}</span>
-        <strong>${displayLabel}</strong>
+        <span>${escapeHtml(feat.icon || "✨")}</span>
+        <strong>${escapeHtml(displayLabel)}</strong>
         <button type="button" class="btn-remove-feature" style="background:none; border:none; color:#999; cursor:pointer; font-size:1.1rem; padding:0 0 0 5px; line-height:1;">&times;</button>
         <input type="hidden" class="feature-data" value='${JSON.stringify(feat).replace(/'/g, "&apos;")}'>
     `;
@@ -2807,6 +2828,26 @@ function openEditModal(id) {
         document.getElementById("prop-owner-name").value = prop.ownerName || "";
         document.getElementById("prop-owner-phone").value = prop.ownerPhone || "";
         document.getElementById("prop-owner-address").value = prop.ownerAddress || "";
+
+        // Consultar subcolección privada aislada (/private/owner_info)
+        if (window.db && prop.firebaseId) {
+            window.db.collection("properties").doc(prop.firebaseId)
+                .collection("private").doc("owner_info").get()
+                .then(docSnap => {
+                    if (docSnap.exists) {
+                        const oData = docSnap.data();
+                        const n = document.getElementById("prop-owner-name");
+                        const p = document.getElementById("prop-owner-phone");
+                        const a = document.getElementById("prop-owner-address");
+                        if (n && oData.ownerName !== undefined) n.value = oData.ownerName;
+                        if (p && oData.ownerPhone !== undefined) p.value = oData.ownerPhone;
+                        if (a && oData.ownerAddress !== undefined) a.value = oData.ownerAddress;
+                    }
+                })
+                .catch(err => {
+                    console.warn("[openEditModal] Consulta de datos privados aislados:", err.message);
+                });
+        }
     } else {
         document.getElementById("prop-owner-name").value = "";
         document.getElementById("prop-owner-phone").value = "";
@@ -3383,10 +3424,10 @@ function bindEvents() {
                     agentEmail = (resolvedAgent && resolvedAgent.email) ? resolvedAgent.email : (existing?.agentEmail || "");
                 }
 
-                // Preservar datos privados del propietario si el usuario no tiene permisos de verlos
-                const ownerName = canViewPrivate ? document.getElementById("prop-owner-name").value : (existing?.ownerName || "");
-                const ownerPhone = canViewPrivate ? document.getElementById("prop-owner-phone").value : (existing?.ownerPhone || "");
-                const ownerAddress = canViewPrivate ? document.getElementById("prop-owner-address").value : (existing?.ownerAddress || "");
+                // Capturar datos del propietario si tiene permisos (solo ADMIN / SUPER_ADMIN)
+                const ownerNameVal = canViewPrivate ? (document.getElementById("prop-owner-name")?.value || "").trim() : "";
+                const ownerPhoneVal = canViewPrivate ? (document.getElementById("prop-owner-phone")?.value || "").trim() : "";
+                const ownerAddressVal = canViewPrivate ? (document.getElementById("prop-owner-address")?.value || "").trim() : "";
 
                 const areaTotal = unformatNumber(document.getElementById("prop-area-total").value);
                 const areaBuilt = unformatNumber(document.getElementById("prop-area-built").value);
@@ -3407,22 +3448,20 @@ function bindEvents() {
                     }
                 }
 
+                // El documento público /properties/{id} NUNCA almacena datos privados del dueño
                 const propertyData = {
                     id: currentEditingId || Date.now(),
-                    title: document.getElementById("prop-title").value,
-                    description: document.getElementById("prop-desc").value,
+                    title: sanitizeTextInput(document.getElementById("prop-title").value),
+                    description: sanitizeTextInput(document.getElementById("prop-desc").value),
                     price: price,
                     currency: currency,
                     category: category,
                     type: type,
-                    ownerName: ownerName,
-                    ownerPhone: ownerPhone,
-                    ownerAddress: ownerAddress,
                     agentId: agentId,
                     agent: agentName,
                     agentEmail: agentEmail,
                     creditEligible: (category === "venta") ? document.getElementById("prop-credit").checked : false,
-                    mapLink: document.getElementById("prop-map-link").value,
+                    mapLink: safeUrl(document.getElementById("prop-map-link").value),
                     lat: (() => {
                         const v = document.getElementById("prop-lat")?.value;
                         return (v !== "" && v !== null && !isNaN(Number(v))) ? Number(v) : null;
@@ -3435,26 +3474,67 @@ function bindEvents() {
                     createdBy: currentEditingId ? (existing?.createdBy || currentUid) : currentUid,
                     creatorEmail: currentEditingId ? (existing?.creatorEmail || currentEmail) : currentEmail,
                     images: finalImageUrls,
-                    customFeatures,
+                    customFeatures: (customFeatures || []).map(f => {
+                        if (typeof f === 'string') return sanitizeTextInput(f);
+                        return {
+                            name: sanitizeTextInput(f.name || ""),
+                            icon: sanitizeTextInput(f.icon || "✨"),
+                            qty: sanitizeTextInput(String(f.qty || ""))
+                        };
+                    }),
                     areaTotal: areaTotal || null,
                     areaBuilt: areaBuilt || null,
-                    memoryDescription: document.getElementById("prop-has-memory").checked ? document.getElementById("prop-memory-desc").value : "",
+                    memoryDescription: document.getElementById("prop-has-memory").checked ? sanitizeTextInput(document.getElementById("prop-memory-desc").value) : "",
                     expensasAmount: document.getElementById("prop-has-expensas").checked ? unformatNumber(document.getElementById("prop-expensas-amount").value) : null,
                     expensasCurrency: document.getElementById("prop-expensas-currency").value
                 };
 
                 if (window.showLoader) window.showLoader();
 
+                let targetFirebaseId = null;
+
                 if (currentEditingId) {
                     const existing = properties.find(p => p.id === currentEditingId);
                     if (existing && existing.firebaseId) {
-                        await window.db.collection("properties").doc(existing.firebaseId).update(propertyData);
+                        targetFirebaseId = existing.firebaseId;
+                        // Saneamiento activo: eliminar campos legacy de owner del documento público raíz
+                        const updatePayload = {
+                            ...propertyData,
+                            ownerName: firebase.firestore.FieldValue.delete(),
+                            ownerPhone: firebase.firestore.FieldValue.delete(),
+                            ownerAddress: firebase.firestore.FieldValue.delete()
+                        };
+                        await window.db.collection("properties").doc(existing.firebaseId).update(updatePayload);
                     } else {
-                        // It was a base property or local, now moving to cloud
-                        await window.db.collection("properties").add(propertyData);
+                        // Era propiedad base o local, subiendo a Firestore
+                        const docRef = await window.db.collection("properties").add(propertyData);
+                        targetFirebaseId = docRef.id;
                     }
                 } else {
-                    await window.db.collection("properties").add(propertyData);
+                    const docRef = await window.db.collection("properties").add(propertyData);
+                    targetFirebaseId = docRef.id;
+                }
+
+                // Guardar / migrar datos privados del propietario en la subcolección privada
+                if (canViewPrivate && targetFirebaseId && window.db) {
+                    const finalOwnerName = ownerNameVal || (existing?.ownerName || "");
+                    const finalOwnerPhone = ownerPhoneVal || (existing?.ownerPhone || "");
+                    const finalOwnerAddress = ownerAddressVal || (existing?.ownerAddress || "");
+
+                    if (finalOwnerName || finalOwnerPhone || finalOwnerAddress) {
+                        try {
+                            await window.db.collection("properties").doc(targetFirebaseId)
+                                .collection("private").doc("owner_info").set({
+                                    ownerName: finalOwnerName,
+                                    ownerPhone: finalOwnerPhone,
+                                    ownerAddress: finalOwnerAddress,
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                    updatedBy: currentUid || currentEmail || "admin"
+                                }, { merge: true });
+                        } catch (subErr) {
+                            console.warn("[Seguridad] Advertencia guardando subcolección privada:", subErr.message);
+                        }
+                    }
                 }
 
                 closeModal();
@@ -3485,12 +3565,6 @@ function toBase64(file) {
 }
 
 // User Management Helpers
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 async function renderUserList() {
     const container = document.getElementById("user-list");
     if (!container) return;
@@ -3501,19 +3575,20 @@ async function renderUserList() {
 
     container.innerHTML = users.map(u => {
         const isProtected = u.username === "admin" || u.username === currentUser;
+        const safeUname = escapeHtml(u.username).replace(/'/g, "\\'");
         
         return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
                 <div>
-                    <strong>${escapeHtml(u.displayName)}</strong> (${u.username})<br>
-                    <small style="color: #666;">${u.role}</small>
+                    <strong>${escapeHtml(u.displayName)}</strong> (${escapeHtml(u.username)})<br>
+                    <small style="color: #666;">${escapeHtml(u.role)}</small>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     ${u.username !== "admin" ? `
-                        <button class="btn btn-outline btn-small" style="color: #3498db; border-color: #3498db;" onclick="handleStartEditUser('${u.username}')">Editar</button>
+                        <button class="btn btn-outline btn-small" style="color: #3498db; border-color: #3498db;" onclick="handleStartEditUser('${safeUname}')">Editar</button>
                     ` : ""}
                     ${!isProtected ? `
-                        <button class="btn btn-outline btn-small" style="color: #e74c3c; border-color: #e74c3c;" onclick="handleRemoveUser('${u.username}')">Eliminar</button>
+                        <button class="btn btn-outline btn-small" style="color: #e74c3c; border-color: #e74c3c;" onclick="handleRemoveUser('${safeUname}')">Eliminar</button>
                     ` : ""}
                 </div>
             </div>

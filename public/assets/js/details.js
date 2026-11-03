@@ -37,6 +37,14 @@ function safeImageUrl(value) {
     return null;
 }
 
+function safeUrl(url) {
+
+    if (!url || typeof url !== "string") return "";
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return "";
+}
+
 function normalizeProperty(prop) {
     if (!prop || typeof prop !== "object") return null;
     const id = prop.id;
@@ -195,6 +203,14 @@ function extractCoordsFromGoogleMaps(input) {
     return null;
 }
 
+function safeUrl(url) {
+
+    if (!url || typeof url !== "string") return "";
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return "";
+}
+
 function renderDetails(prop) {
     // 4. Manejo de Coordenadas: convertir a Float numéricos con parseFloat
     let rawLat = prop.lat;
@@ -221,7 +237,7 @@ function renderDetails(prop) {
     const canEditCurrentProp = Boolean(logged && window.AuthManager && window.AuthManager.canUserEditProperty(prop));
     const safeTitle = escapeHtml(prop.title);
     const safeCategory = escapeHtml(prop.category);
-    const safeDescription = escapeHtml(prop.description || "");
+    const safeDescription = escapeHtml(prop.description || "").replace(/\n/g, "<br>");
     const assignedAgent = window.getPropertyAgent ? window.getPropertyAgent(prop) : {
         name: prop.agent || window.SITE_CONFIG?.brand?.name || "Dávalos Propiedades",
         role: "Asesor Inmobiliario",
@@ -364,8 +380,8 @@ function renderDetails(prop) {
                     <div class="property-location-line">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
                         <span>${escapeHtml(prop.location || window.SITE_CONFIG?.contact?.city || "Salta, Argentina")}</span>
-                        ${prop.mapLink ? `
-                            <a href="${escapeHtml(prop.mapLink)}" target="_blank" rel="noopener noreferrer" class="link-open-map">
+                        ${prop.mapLink && safeUrl(prop.mapLink) ? `
+                            <a href="${escapeHtml(safeUrl(prop.mapLink))}" target="_blank" rel="noopener noreferrer" class="link-open-map">
                                 <span>Ver en mapa ↗</span>
                             </a>
                         ` : ''}
@@ -384,7 +400,7 @@ function renderDetails(prop) {
                         <div class="carousel-inner" id="carousel-inner">
                             ${prop.images.map((img, index) => `
                                 <div class="carousel-item ${index === 0 ? "active" : ""}">
-                                    <img loading="${index === 0 ? 'eager' : 'lazy'}" src="${img}" alt="${safeTitle}" class="carousel-img">
+                                    <img loading="${index === 0 ? 'eager' : 'lazy'}" src="${escapeHtml(safeImageUrl(img) || PLACEHOLDER_IMAGE)}" alt="${safeTitle}" class="carousel-img">
                                 </div>
                             `).join("")}
                         </div>
@@ -413,7 +429,7 @@ function renderDetails(prop) {
                         <div class="gallery-thumbnails-row" id="carousel-thumbnails">
                             ${prop.images.map((img, index) => `
                                 <div class="thumb-item ${index === 0 ? "active" : ""}" onclick="setCarousel(${index})">
-                                    <img src="${img}" alt="Foto ${index + 1}" loading="lazy">
+                                    <img src="${escapeHtml(safeImageUrl(img) || PLACEHOLDER_IMAGE)}" alt="Foto ${index + 1}" loading="lazy">
                                 </div>
                             `).join("")}
                         </div>
@@ -454,8 +470,8 @@ function renderDetails(prop) {
                                     const qty = (isObj && feat.qty) ? `${feat.qty} ` : "";
                                     return `
                                         <div class="amenity-chip">
-                                            <span class="amenity-icon">${icon}</span>
-                                            <span class="amenity-text">${qty ? '<strong>' + formatNumber(qty) + '</strong> ' : ''}${escapeHtml(name)}</span>
+                                            <span class="amenity-icon">${escapeHtml(icon || "✨")}</span>
+                                            <span class="amenity-text">${qty ? '<strong>' + escapeHtml(formatNumber(qty)) + '</strong> ' : ''}${escapeHtml(name)}</span>
                                         </div>
                                     `;
                                 }).join("")}
@@ -467,7 +483,7 @@ function renderDetails(prop) {
                         <div class="memory-subsection">
                             <h3 class="subsection-title">Memoria Descriptiva</h3>
                             <div class="memory-box">
-                                ${escapeHtml(prop.memoryDescription)}
+                                ${escapeHtml(prop.memoryDescription).replace(/\n/g, "<br>")}
                             </div>
                         </div>
                     ` : ""}
@@ -484,7 +500,7 @@ function renderDetails(prop) {
                                     <span>${escapeHtml(prop.location || "Salta, Argentina")}</span>
                                 </div>
                             </div>
-                            <a href="${prop.mapLink || `https://www.google.com/maps?q=${lat},${lng}`}" target="_blank" rel="noopener noreferrer" class="btn-external-gmaps">
+                            <a href="${escapeHtml(safeUrl(prop.mapLink) || `https://www.google.com/maps?q=${lat},${lng}`)}" target="_blank" rel="noopener noreferrer" class="btn-external-gmaps">
                                 <span>Abrir en Google Maps ↗</span>
                             </a>
                         </div>
@@ -573,10 +589,11 @@ function renderDetails(prop) {
 
                     <!-- 5. Datos Privados (Admin) -->
                     ${(logged && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) ? `
-                        <div class="admin-private-data-card">
+                        <div class="admin-private-data-card" id="admin-private-data-card">
                             <div class="admin-data-title">🔒 Datos Privados (Admin)</div>
-                            <p><strong>Propietario:</strong> ${escapeHtml(prop.ownerName || "No registrado")}</p>
-                            <p><strong>Teléfono:</strong> ${escapeHtml(prop.ownerPhone || "No registrado")}</p>
+                            <p><strong>Propietario:</strong> <span id="private-owner-name">${escapeHtml(prop.ownerName || "Cargando...")}</span></p>
+                            <p><strong>Teléfono:</strong> <span id="private-owner-phone">${escapeHtml(prop.ownerPhone || "Cargando...")}</span></p>
+                            <p id="private-owner-address-wrapper" style="${prop.ownerAddress ? '' : 'display:none;'}"><strong>Dirección:</strong> <span id="private-owner-address">${escapeHtml(prop.ownerAddress || "")}</span></p>
                         </div>
                     ` : ""}
                 </div>
@@ -688,6 +705,73 @@ function renderDetails(prop) {
 
     if (hasCoords) {
         initDetailsMap(lat, lng, prop);
+    }
+
+    if (logged && window.AuthManager && window.AuthManager.hasPermission(window.AuthManager.Permissions.VIEW_PRIVATE_DATA)) {
+        fetchAndMigratePrivateOwnerInfo(prop);
+    }
+}
+
+async function fetchAndMigratePrivateOwnerInfo(prop) {
+    if (!window.db || !prop || !prop.firebaseId) return;
+    try {
+        const privateRef = window.db.collection("properties").doc(prop.firebaseId).collection("private").doc("owner_info");
+        const snap = await privateRef.get();
+
+        let ownerName = "";
+        let ownerPhone = "";
+        let ownerAddress = "";
+
+        if (snap.exists) {
+            const data = snap.data();
+            ownerName = data.ownerName || "";
+            ownerPhone = data.ownerPhone || "";
+            ownerAddress = data.ownerAddress || "";
+        } else if (prop.ownerName || prop.ownerPhone || prop.ownerAddress) {
+            // Migración automática transparente: propiedad antigua con datos en raíz
+            ownerName = prop.ownerName || "";
+            ownerPhone = prop.ownerPhone || "";
+            ownerAddress = prop.ownerAddress || "";
+
+            try {
+                // Trasladar a /private/owner_info
+                await privateRef.set({
+                    ownerName,
+                    ownerPhone,
+                    ownerAddress,
+                    migratedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                // Eliminar campos del documento raíz público para sanearlo
+                await window.db.collection("properties").doc(prop.firebaseId).update({
+                    ownerName: firebase.firestore.FieldValue.delete(),
+                    ownerPhone: firebase.firestore.FieldValue.delete(),
+                    ownerAddress: firebase.firestore.FieldValue.delete()
+                });
+                console.log(`[Seguridad] Propiedad ${prop.firebaseId} saneada y migrada a /private/owner_info.`);
+            } catch (migErr) {
+                console.warn("[Seguridad] Migración automática diferida:", migErr.message);
+            }
+        }
+
+        const nameEl = document.getElementById("private-owner-name");
+        const phoneEl = document.getElementById("private-owner-phone");
+        const addrEl = document.getElementById("private-owner-address");
+        const addrWrap = document.getElementById("private-owner-address-wrapper");
+
+        if (nameEl) nameEl.textContent = ownerName || "No registrado";
+        if (phoneEl) phoneEl.textContent = ownerPhone || "No registrado";
+        if (addrEl && addrWrap) {
+            if (ownerAddress) {
+                addrEl.textContent = ownerAddress;
+                addrWrap.style.display = "block";
+            } else {
+                addrWrap.style.display = "none";
+            }
+        }
+    } catch (err) {
+        // Manejo silencioso: jamás debe romper la ficha de detalles ni arrojar alertas rojas al usuario
+        console.warn("[details.js] Consulta de datos privados aislada:", err.message);
     }
 }
 

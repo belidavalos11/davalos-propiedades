@@ -38,25 +38,25 @@ service cloud.firestore {
       return isActiveMember() && myProfile().role in ['SUPER_ADMIN', 'ADMIN'];
     }
 
-    function canManageProperties() {
-      return isActiveMember() && myProfile().role in ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
-    }
-
     function canDeleteProperties() {
       return isAdminOrSuperAdmin();
     }
 
-    function isPropertyOwnerOrAssigned(data) {
+    function isPropertyOwner(data) {
       return (data.agentId != null && data.agentId == request.auth.uid)
-        || (data.createdBy != null && data.createdBy == request.auth.uid)
-        || (data.agentEmail != null && data.agentEmail.lower() == request.auth.token.email.lower())
-        || (data.creatorEmail != null && data.creatorEmail.lower() == request.auth.token.email.lower())
-        || (data.agent != null && myProfile().displayName != null && data.agent == myProfile().displayName);
+        || (data.createdBy != null && data.createdBy == request.auth.uid);
+    }
+
+    function canCreateProperty() {
+      return isAdminOrSuperAdmin()
+        || (isActiveMember() && myProfile().role == 'AGENT' && request.resource.data.agentId == request.auth.uid);
     }
 
     function canUpdateProperty(resourceData) {
       return isAdminOrSuperAdmin()
-        || (isActiveMember() && myProfile().role == 'AGENT' && isPropertyOwnerOrAssigned(resourceData));
+        || (isActiveMember() && myProfile().role == 'AGENT' 
+            && isPropertyOwner(resourceData) 
+            && (request.resource.data.agentId == resourceData.agentId || request.resource.data.agentId == request.auth.uid));
     }
 
     // Perfil nuevo propio, con el rol/estado indicados.
@@ -71,7 +71,7 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
-    // Cada persona solo puede refrescar su nombre/foto; nunca su rol ni su estado.
+    // Cada persona solo puede refrescar su nombre/foto/contacto; nunca su rol ni su estado.
     function onlyProfileFieldsChanged() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['displayName', 'photoURL', 'phone', 'whatsapp', 'updatedAt']);
@@ -85,9 +85,14 @@ service cloud.firestore {
     // ---------- Catalogo ----------
     match /properties/{docId} {
       allow read: if true;
-      allow create: if canManageProperties();
+      allow create: if canCreateProperty();
       allow update: if canUpdateProperty(resource.data);
       allow delete: if canDeleteProperties();
+
+      // FASE 2: Subcoleccion privada para datos sensibles de propietarios (exclusiva ADMIN y SUPER_ADMIN)
+      match /private/{privateDocId} {
+        allow read, write: if isAdminOrSuperAdmin();
+      }
     }
 
     match /deleted_properties/{docId} {
@@ -97,8 +102,8 @@ service cloud.firestore {
 
     // ---------- Usuarios y roles ----------
     match /users/{userId} {
-      // Cada persona lee su propio perfil; el SUPER_ADMIN activo lee y lista todos.
-      allow get: if (resource.data.status == 'active') || (signedInWithGoogle() && (request.auth.uid == userId || isSuperAdmin()));
+      // Cada persona lee su propio perfil; el ADMIN o SUPER_ADMIN activo lee todos; activos leen asesores
+      allow get: if (resource.data.status == 'active') || (signedInWithGoogle() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
       allow list: if isSuperAdmin();
 
       // Solicitud propia (AGENT / pending) o reclamo de arranque (SUPER_ADMIN / active) si nadie lo reclamo aun.
