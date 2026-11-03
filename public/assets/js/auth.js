@@ -186,6 +186,9 @@ const AuthManager = {
         localStorage.setItem(this._sessionKey(), JSON.stringify({ logged: true, timestamp, provider: "google" }));
         this._applyProfile(user.uid, { ...profile, email: profile.email || user.email });
         this._startProfileWatch(user.uid);
+        if (typeof window.updateAuthUI === "function") {
+            try { window.updateAuthUI(); } catch (_) {}
+        }
     },
 
     // Escucha en vivo el propio perfil: si cambia el rol se actualiza la UI; si se suspende, se cierra la sesion.
@@ -202,7 +205,7 @@ const AuthManager = {
                 }
                 const prev = this.currentUserProfile;
                 this._applyProfile(uid, data);
-                if (prev && prev.role !== data.role && typeof window.updateAuthUI === "function") {
+                if (typeof window.updateAuthUI === "function") {
                     window.updateAuthUI();
                 }
             },
@@ -229,8 +232,9 @@ const AuthManager = {
     _getGoogleSession() {
         try {
             const g = JSON.parse(localStorage.getItem("davalos_google_user") || "null");
-            const validRole = g && ["AGENT", "ADMIN", "SUPER_ADMIN"].includes(g.role);
-            return g && g.email && validRole && g.status === "active" ? g : null;
+            const validRole = g && ["AGENT", "ADMIN", "SUPER_ADMIN", "EDITOR"].includes(g.role);
+            const isActive = g && (!g.status || g.status === "active");
+            return g && g.email && validRole && isActive ? g : null;
         } catch (e) {
             return null;
         }
@@ -471,7 +475,7 @@ const AuthManager = {
     },
 
     getUserData() {
-        const live = this.currentUserProfile && this.currentUserProfile.status === "active" ? this.currentUserProfile : null;
+        const live = this.currentUserProfile && (!this.currentUserProfile.status || this.currentUserProfile.status === "active") ? this.currentUserProfile : null;
         const google = live || this._getGoogleSession();
         if (google) {
             return {

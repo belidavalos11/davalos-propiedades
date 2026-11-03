@@ -332,11 +332,45 @@ function renderCatalogMap(propsToDisplay) {
 }
 
 // Mini-map Location Picker for Property Modal (Create / Edit)
+function resetPropertyPickerMap() {
+    const container = document.getElementById("property-picker-map");
+    if (pickerMapInstance) {
+        try {
+            pickerMapInstance.remove();
+        } catch (_) {}
+        pickerMapInstance = null;
+        pickerMarkerInstance = null;
+    }
+    if (container && container._leaflet_id) {
+        try {
+            delete container._leaflet_id;
+        } catch (_) {
+            container._leaflet_id = null;
+        }
+    }
+}
+window.resetPropertyPickerMap = resetPropertyPickerMap;
+
 function initPropertyPickerMap() {
     const container = document.getElementById("property-picker-map");
     if (!container || !window.L) return;
 
-    if (!pickerMapInstance) {
+    if (pickerMapInstance) {
+        try {
+            pickerMapInstance.invalidateSize();
+        } catch (_) {}
+        return pickerMapInstance;
+    }
+
+    if (container._leaflet_id) {
+        try {
+            delete container._leaflet_id;
+        } catch (_) {
+            container._leaflet_id = null;
+        }
+    }
+
+    try {
         pickerMapInstance = L.map("property-picker-map", {
             center: SALTA_DEFAULT_COORDS,
             zoom: 13,
@@ -412,6 +446,9 @@ function initPropertyPickerMap() {
                 dropdown.style.display = "none";
             }
         });
+        window.propertyPickerMap = pickerMapInstance;
+    } catch (err) {
+        console.error("[initPropertyPickerMap] Error inicializando selector de ubicación Leaflet:", err);
     }
 }
 
@@ -602,27 +639,33 @@ function resetPickerHelpers() {
 }
 
 function updatePickerMapPosition(lat, lng, preserveFeedback = false) {
-    initPropertyPickerMap();
-    if (!preserveFeedback) resetPickerHelpers();
-    if (!pickerMapInstance || !pickerMarkerInstance) return;
+    try {
+        initPropertyPickerMap();
+        if (!preserveFeedback) resetPickerHelpers();
+        if (!pickerMapInstance || !pickerMarkerInstance) return;
 
-    const numLat = Number(lat);
-    const numLng = Number(lng);
-    const hasValidCoords = !isNaN(numLat) && !isNaN(numLng) && lat !== null && lng !== null && lat !== "" && lng !== "";
+        const numLat = Number(lat);
+        const numLng = Number(lng);
+        const hasValidCoords = !isNaN(numLat) && !isNaN(numLng) && lat !== null && lng !== null && lat !== "" && lng !== "";
 
-    const targetPos = hasValidCoords ? [numLat, numLng] : SALTA_DEFAULT_COORDS;
-    const targetZoom = hasValidCoords ? 15 : 13;
+        const targetPos = hasValidCoords ? [numLat, numLng] : SALTA_DEFAULT_COORDS;
+        const targetZoom = hasValidCoords ? 15 : 13;
 
-    pickerMarkerInstance.setLatLng(targetPos);
-    pickerMapInstance.setView(targetPos, targetZoom);
+        pickerMarkerInstance.setLatLng(targetPos);
+        pickerMapInstance.setView(targetPos, targetZoom);
 
-    if (hasValidCoords) {
-        syncPickerInputs(numLat, numLng);
+        if (hasValidCoords) {
+            syncPickerInputs(numLat, numLng);
+        }
+
+        setTimeout(() => {
+            try {
+                pickerMapInstance?.invalidateSize();
+            } catch (_) {}
+        }, 200);
+    } catch (err) {
+        console.error("[updatePickerMapPosition] Error posicionando mapa selector:", err);
     }
-
-    setTimeout(() => {
-        pickerMapInstance?.invalidateSize();
-    }, 200);
 }
 
 // Pill Search Elements
@@ -709,8 +752,18 @@ function updateAuthUI() {
         }
     }
 
-    if (btnAddProperty) {
-        btnAddProperty.style.display = (logged && manager.hasPermission(manager.Permissions.UPLOAD_PROPERTY)) ? "block" : "none";
+    const canUpload = Boolean(
+        logged && (
+            manager.hasPermission(manager.Permissions.UPLOAD_PROPERTY) ||
+            ["SUPER_ADMIN", "ADMIN", "AGENT", "EDITOR"].includes(manager.getUserRole())
+        )
+    );
+    const publishButtons = document.querySelectorAll("#btn-add-property, #btn-create-property, #btn-new-property, .btn-create-property, .btn-add-property");
+    publishButtons.forEach(btn => {
+        btn.style.display = canUpload ? "block" : "none";
+    });
+    if (typeof bindPublishButtons === "function") {
+        bindPublishButtons();
     }
 
     const btnTeam = document.getElementById("btn-team");
@@ -746,13 +799,19 @@ function updateAuthUI() {
 }
 
 function openModal(modal) {
-    if (modal) modal.style.display = "block";
+    if (!modal) return;
+    modal.style.display = "block";
+    modal.classList.remove("hidden");
+    modal.classList.add("active");
     document.body.style.overflow = "hidden";
 }
 
 function closeModal() {
     [loginModal, settingsModal, propertyModal, document.getElementById("team-modal"), document.getElementById("member-phone-modal")].forEach(m => {
-        if (m) m.style.display = "none";
+        if (m) {
+            m.style.display = "none";
+            m.classList.remove("active");
+        }
     });
     const agentSelect = document.getElementById("prop-agent");
     if (agentSelect) {
@@ -2816,14 +2875,167 @@ function openEditModal(id) {
     const propLngInput = document.getElementById("prop-lng");
     if (propLatInput) propLatInput.value = latVal;
     if (propLngInput) propLngInput.value = lngVal;
-    updatePickerMapPosition(latVal, lngVal);
-
     // Change modal title
     const modalHeader = propertyModal.querySelector(".modal-header h2");
     if (modalHeader) modalHeader.textContent = "Editar propiedad";
 
     openModal(propertyModal);
+    updatePickerMapPosition(latVal, lngVal);
+    setTimeout(() => {
+        try {
+            if (pickerMapInstance) pickerMapInstance.invalidateSize();
+        } catch (_) {}
+    }, 200);
 }
+
+// ==========================================================================
+// Modal de Carga de Propiedad (Crear / Publicar) & Event Listeners
+// ==========================================================================
+async function openPropertyModal() {
+    console.log("Clic detectado en botón publicar");
+    const manager = window.AuthManager;
+
+    // 1. Validar autenticación
+    if (!manager || !manager.isLoggedIn()) {
+        alert("Debes iniciar sesión para publicar una propiedad.");
+        if (typeof openModal === "function" && loginModal) openModal(loginModal);
+        return;
+    }
+
+    // 2. Si el perfil aún se está sincronizando con Firestore, esperar con timeout de resguardo
+    if (manager._readyPromise) {
+        try {
+            await Promise.race([
+                manager._readyPromise,
+                new Promise(resolve => setTimeout(resolve, 2000))
+            ]);
+        } catch (e) {
+            console.warn("[openPropertyModal] Sincronización auth:", e);
+        }
+    }
+
+    // 3. Validar permisos / roles
+    const role = manager.getUserRole();
+    const canUpload = Boolean(
+        manager.hasPermission(manager.Permissions.UPLOAD_PROPERTY) ||
+        ["SUPER_ADMIN", "ADMIN", "AGENT", "EDITOR"].includes(role)
+    );
+
+    if (!canUpload) {
+        alert("Tu cuenta no tiene permisos suficientes para publicar propiedades. Rol actual: " + (role || "Sin rol activo confirmado. Si solicitaste acceso recientemente, aguarda la aprobación del administrador."));
+        return;
+    }
+
+    try {
+        currentEditingId = null;
+        if (propertyForm && typeof propertyForm.reset === "function") {
+            propertyForm.reset();
+        }
+        populateAgentDropdown();
+        updateCreditVisibility();
+
+        const canViewPrivate = Boolean(manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
+        const ownerSection = document.getElementById("section-prop-owner");
+        if (ownerSection) {
+            ownerSection.style.display = canViewPrivate ? "block" : "none";
+        }
+        if (!canViewPrivate) {
+            const ownerName = document.getElementById("prop-owner-name");
+            if (ownerName) ownerName.value = "";
+            const ownerPhone = document.getElementById("prop-owner-phone");
+            if (ownerPhone) ownerPhone.value = "";
+            const ownerAddress = document.getElementById("prop-owner-address");
+            if (ownerAddress) ownerAddress.value = "";
+        }
+
+        const canReassignAgent = Boolean(manager.isSuperAdmin() || manager.isAdmin());
+        const agentSelect = document.getElementById("prop-agent");
+        if (agentSelect) {
+            if (!canReassignAgent) {
+                const currentUser = manager.getUserData ? manager.getUserData() : null;
+                const myId = currentUser?.uid || manager.getDisplayName() || "";
+                let found = false;
+                for (let i = 0; i < agentSelect.options.length; i++) {
+                    if (agentSelect.options[i].value === myId || (manager.getDisplayName() && agentSelect.options[i].textContent.includes(manager.getDisplayName()))) {
+                        agentSelect.selectedIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found && myId) {
+                    const opt = document.createElement("option");
+                    opt.value = myId;
+                    opt.textContent = manager.getDisplayName() || "Mi perfil";
+                    agentSelect.appendChild(opt);
+                    agentSelect.value = myId;
+                }
+                agentSelect.disabled = true;
+                agentSelect.title = "Las nuevas publicaciones quedan automáticamente asignadas a tu nombre.";
+            } else {
+                agentSelect.disabled = false;
+                agentSelect.removeAttribute("title");
+            }
+        }
+
+        const safeSet = (id, propName, val) => {
+            const el = document.getElementById(id);
+            if (el) el[propName] = val;
+        };
+
+        safeSet("prop-area-total", "value", "");
+        safeSet("prop-area-built", "value", "");
+        safeSet("prop-has-memory", "checked", false);
+        const memWrap = document.getElementById("memory-description-wrapper");
+        if (memWrap) memWrap.style.display = "none";
+        safeSet("prop-memory-desc", "value", "");
+        safeSet("prop-has-expensas", "checked", false);
+        const expWrap = document.getElementById("expensas-wrapper");
+        if (expWrap) expWrap.style.display = "none";
+        safeSet("prop-expensas-amount", "value", "");
+        safeSet("custom-features-container", "innerHTML", "");
+        safeSet("image-previews", "innerHTML", "");
+        uploadedImages = [];
+        safeSet("prop-lat", "value", "");
+        safeSet("prop-lng", "value", "");
+
+        // 4. Cambiar título y MOSTRAR MODAL PRIMERO
+        const targetModal = propertyModal || document.getElementById("property-modal");
+        const modalHeader = targetModal?.querySelector(".modal-header h2");
+        if (modalHeader) modalHeader.textContent = "Cargar nueva propiedad";
+        openModal(targetModal);
+
+        // 5. Inicializar / centrar mini-mapa selector de ubicación DESPUÉS de abrir modal
+        updatePickerMapPosition(null, null);
+        setTimeout(() => {
+            try {
+                if (pickerMapInstance) pickerMapInstance.invalidateSize();
+            } catch (_) {}
+        }, 200);
+
+    } catch (err) {
+        console.error("[openPropertyModal] Error preparando formulario de propiedad:", err);
+        const targetModal = propertyModal || document.getElementById("property-modal");
+        openModal(targetModal);
+    }
+}
+window.openPropertyModal = openPropertyModal;
+
+function bindPublishButtons() {
+    const selectors = ["#btn-add-property", "#btn-create-property", "#btn-new-property", ".btn-create-property", ".btn-add-property"];
+    selectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(btn => {
+            if (!btn._publishListenerBound) {
+                btn._publishListenerBound = true;
+                btn.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    console.log("Clic detectado en botón publicar:", btn.id || btn.className);
+                    openPropertyModal();
+                });
+            }
+        });
+    });
+}
+window.bindPublishButtons = bindPublishButtons;
 
 // Event Bindings
 function bindEvents() {
@@ -2954,76 +3166,7 @@ function bindEvents() {
             }
         };
     });
-    if (btnAddProperty) {
-        btnAddProperty.onclick = () => {
-            currentEditingId = null;
-            propertyForm.reset();
-            populateAgentDropdown();
-            updateCreditVisibility();
-
-            const manager = window.AuthManager;
-            const canViewPrivate = Boolean(manager && manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
-            const ownerSection = document.getElementById("section-prop-owner");
-            if (ownerSection) {
-                ownerSection.style.display = canViewPrivate ? "block" : "none";
-            }
-            if (!canViewPrivate) {
-                document.getElementById("prop-owner-name").value = "";
-                document.getElementById("prop-owner-phone").value = "";
-                document.getElementById("prop-owner-address").value = "";
-            }
-
-            const canReassignAgent = Boolean(manager && (manager.isSuperAdmin() || manager.isAdmin()));
-            const agentSelect = document.getElementById("prop-agent");
-            if (agentSelect) {
-                if (!canReassignAgent) {
-                    const currentUser = manager?.getUserData ? manager.getUserData() : null;
-                    const myId = currentUser?.uid || manager?.getDisplayName() || "";
-                    let found = false;
-                    for (let i = 0; i < agentSelect.options.length; i++) {
-                        if (agentSelect.options[i].value === myId || (manager?.getDisplayName() && agentSelect.options[i].textContent.includes(manager.getDisplayName()))) {
-                            agentSelect.selectedIndex = i;
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found && myId) {
-                        const opt = document.createElement("option");
-                        opt.value = myId;
-                        opt.textContent = manager?.getDisplayName() || "Mi perfil";
-                        agentSelect.appendChild(opt);
-                        agentSelect.value = myId;
-                    }
-                    agentSelect.disabled = true;
-                    agentSelect.title = "Las nuevas publicaciones quedan automáticamente asignadas a tu nombre.";
-                } else {
-                    agentSelect.disabled = false;
-                    agentSelect.removeAttribute("title");
-                }
-            }
-
-            document.getElementById("prop-area-total").value = "";
-            document.getElementById("prop-area-built").value = "";
-            document.getElementById("prop-has-memory").checked = false;
-            document.getElementById("memory-description-wrapper").style.display = "none";
-            document.getElementById("prop-memory-desc").value = "";
-            document.getElementById("prop-has-expensas").checked = false;
-            document.getElementById("expensas-wrapper").style.display = "none";
-            document.getElementById("prop-expensas-amount").value = "";
-            document.getElementById("custom-features-container").innerHTML = "";
-            document.getElementById("image-previews").innerHTML = "";
-            uploadedImages = [];
-            const propLatInput = document.getElementById("prop-lat");
-            const propLngInput = document.getElementById("prop-lng");
-            if (propLatInput) propLatInput.value = "";
-            if (propLngInput) propLngInput.value = "";
-            updatePickerMapPosition(null, null);
-
-            const modalHeader = propertyModal.querySelector(".modal-header h2");
-            if (modalHeader) modalHeader.textContent = "Cargar nueva propiedad";
-            openModal(propertyModal);
-        };
-    }
+    bindPublishButtons();
     if (btnLogout) btnLogout.onclick = () => {
         window.AuthManager.logout();
         showUnavailableMode = false;
@@ -3557,13 +3700,26 @@ async function init() {
     renderPropertyCategories();
     updateActiveTypeUI();
 
+    // Vincular eventos temprano para asegurar listeners inmediatos
+    bindEvents();
+    bindPublishButtons();
+    updateAuthUI();
+
     if (window.AuthManager && window.AuthManager._readyPromise) {
-        await window.AuthManager._readyPromise;
+        try {
+            await window.AuthManager._readyPromise;
+        } catch (e) {
+            console.warn("[init] Auth ready promise error:", e);
+        }
     }
     // Initial load
-    await loadProperties();
+    try {
+        await loadProperties();
+    } catch (e) {
+        console.error("[init] Error cargando propiedades:", e);
+    }
     updateAuthUI();
-    bindEvents();
+    bindPublishButtons();
     initNavigation();
 
     // Asegurar que el mapa esté inicializado y redimensionado al cargar la página
@@ -3657,3 +3813,12 @@ function initNavigation() {
 }
 
 init();
+
+// Asegurar asociación de listeners al cargar DOM
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+        if (typeof bindPublishButtons === "function") bindPublishButtons();
+    });
+} else {
+    if (typeof bindPublishButtons === "function") bindPublishButtons();
+}
