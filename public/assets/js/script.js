@@ -2766,7 +2766,8 @@ async function populateAgentDropdown(selectedVal = null) {
     const userRole = (manager?.getUserRole ? manager.getUserRole() : (manager?.currentUserProfile?.role || "")).toUpperCase();
     const canReassignAgent = Boolean(userRole === "SUPER_ADMIN" || userRole === "ADMIN" || (typeof manager?.isAdmin === "function" && manager.isAdmin()));
     const currentUser = manager?.getUserData ? manager.getUserData() : null;
-    const myUid = currentUser?.uid || window.auth?.currentUser?.uid || "";
+    const authUid = window.auth?.currentUser?.uid || currentUser?.uid || "";
+    const myUid = authUid;
     const myName = manager?.getDisplayName() || currentUser?.displayName || currentUser?.username || "Mi perfil";
     const myEmail = currentUser?.email || window.auth?.currentUser?.email || "";
     const myPhone = currentUser?.phone || currentUser?.whatsapp || "";
@@ -2776,12 +2777,12 @@ async function populateAgentDropdown(selectedVal = null) {
         ? String(selectedVal).trim()
         : String(agentSelect.value || "").trim();
 
-    // 1. Si el rol es AGENT: solo puede publicar/editar a su propio nombre.
+    // 1. Si el rol es AGENT / ASESOR: solo puede publicar/editar a su propio nombre.
     // El selector debe deshabilitarse y asignarle su propio nombre automáticamente sin mostrarle la lista del resto del equipo.
     if (!canReassignAgent) {
         agentSelect.innerHTML = "";
         const opt = document.createElement("option");
-        opt.value = myUid || "agente-default";
+        opt.value = authUid;
         opt.textContent = myName;
         opt.dataset.name = myName;
         opt.dataset.email = myEmail;
@@ -3532,8 +3533,9 @@ function bindEvents() {
                 }
 
                 const currentUserData = manager?.getUserData ? manager.getUserData() : null;
-                const currentUid = currentUserData?.uid || window.auth?.currentUser?.uid || "";
-                const currentName = manager?.getDisplayName ? manager.getDisplayName() : "";
+                const authUid = window.auth?.currentUser?.uid || currentUserData?.uid || "";
+                const currentUid = authUid;
+                const currentName = manager?.getDisplayName ? manager.getDisplayName() : (currentUserData?.displayName || "");
                 const currentEmail = currentUserData?.email || window.auth?.currentUser?.email || "";
                 const canViewPrivate = Boolean(manager && manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
                 const currentRole = (manager?.getUserRole ? manager.getUserRole() : (manager?.currentUserProfile?.role || "")).toUpperCase();
@@ -3552,14 +3554,14 @@ function bindEvents() {
                 let agentPhone = "";
 
                 if (!canReassignAgent && !currentEditingId) {
-                    // Nuevo inmueble creado por un AGENT: queda asignado a él mismo
-                    agentId = currentUid || "agente-default";
-                    agentName = currentName || "Asesor Inmobiliario";
-                    agentEmail = currentEmail || "";
+                    // Nuevo inmueble creado por un AGENT / ASESOR: queda asignado a él mismo con su UID auténtico
+                    agentId = authUid;
+                    agentName = currentName || (currentUserData?.displayName) || "Asesor Inmobiliario";
+                    agentEmail = currentEmail || (currentUserData?.email) || "";
                     agentPhone = currentUserData?.phone || currentUserData?.whatsapp || "";
                 } else if (!canReassignAgent && currentEditingId && existing) {
                     // Inmueble editado por un AGENT: preserva el asesor asignado existente
-                    agentId = existing.agentId || currentUid;
+                    agentId = existing.agentId || authUid;
                     agentName = existing.agent || currentName;
                     agentEmail = existing.agentEmail || currentEmail;
                     agentPhone = existing.agentWhatsapp || existing.agentPhone || "";
@@ -3571,7 +3573,7 @@ function bindEvents() {
                     const resolvedAgent = window.getPropertyAgent
                         ? window.getPropertyAgent({ agentId: selectedAgentVal, agent: selectedAgentVal })
                         : null;
-                    agentId = selectedAgentVal || (existing?.agentId || "");
+                    agentId = selectedAgentVal || (existing?.agentId || authUid || "");
                     agentName = selectedOpt?.dataset?.name || (resolvedAgent && selectedAgentVal ? resolvedAgent.name : (selectedAgentVal || existing?.agent || ""));
                     agentEmail = selectedOpt?.dataset?.email || (resolvedAgent && resolvedAgent.email ? resolvedAgent.email : (existing?.agentEmail || ""));
                     agentPhone = selectedOpt?.dataset?.phone || (resolvedAgent && (resolvedAgent.whatsapp || resolvedAgent.phone) ? (resolvedAgent.whatsapp || resolvedAgent.phone) : (existing?.agentWhatsapp || existing?.agentPhone || ""));
@@ -3610,7 +3612,7 @@ function bindEvents() {
                     currency: currency,
                     category: category,
                     type: type,
-                    agentId: agentId,
+                    agentId: agentId || authUid,
                     agent: agentName,
                     agentEmail: agentEmail,
                     agentWhatsapp: agentPhone || (existing?.agentWhatsapp || existing?.agentPhone || ""),
@@ -3626,7 +3628,7 @@ function bindEvents() {
                         return (v !== "" && v !== null && !isNaN(Number(v))) ? Number(v) : null;
                     })(),
                     createdAt: currentEditingId ? (existing?.createdAt || new Date().toISOString()) : new Date().toISOString(),
-                    createdBy: currentEditingId ? (existing?.createdBy || currentUid) : currentUid,
+                    createdBy: currentEditingId ? (existing?.createdBy || authUid) : authUid,
                     creatorEmail: currentEditingId ? (existing?.creatorEmail || currentEmail) : currentEmail,
                     images: finalImageUrls,
                     customFeatures: (customFeatures || []).map(f => {

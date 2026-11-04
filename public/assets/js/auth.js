@@ -20,7 +20,9 @@ const AuthManager = {
         SUPER_ADMIN: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "DELETE_PUBLICATION", "ACCESS_SETTINGS", "VIEW_PRIVATE_DATA", "MANAGE_USERS"],
         ADMIN: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "DELETE_PROPERTY", "DELETE_PUBLICATION", "ACCESS_SETTINGS", "VIEW_PRIVATE_DATA"],
         EDITOR: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "ACCESS_SETTINGS"],
-        AGENT: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "ACCESS_SETTINGS"]
+        AGENT: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "ACCESS_SETTINGS"],
+        ASESOR: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "ACCESS_SETTINGS"],
+        ASESORA: ["UPLOAD_PROPERTY", "EDIT_PROPERTY", "ACCESS_SETTINGS"]
     },
 
     _users: [
@@ -86,7 +88,9 @@ const AuthManager = {
             if (profile === undefined && localStorage.getItem(this._sessionKey())) {
                 return; // sin conexion: mantener la sesion local hasta poder revalidar
             }
-            if (restored.emailVerified && profile && profile.status === "active") {
+            const isEmailOk = restored.emailVerified || (restored.providerData && restored.providerData.some(p => p.providerId === "google.com")) || Boolean(restored.email);
+            const isStatusActive = profile && String(profile.status || "").toLowerCase() === "active";
+            if (isEmailOk && isStatusActive) {
                 this._saveGoogleSession(restored, profile, true);
                 return;
             }
@@ -232,8 +236,10 @@ const AuthManager = {
     _getGoogleSession() {
         try {
             const g = JSON.parse(localStorage.getItem("davalos_google_user") || "null");
-            const validRole = g && ["AGENT", "ADMIN", "SUPER_ADMIN", "EDITOR"].includes(g.role);
-            const isActive = g && (!g.status || g.status === "active");
+            const roleNorm = String(g?.role || "").toUpperCase();
+            const validRole = g && ["AGENT", "ADMIN", "SUPER_ADMIN", "EDITOR", "ASESOR", "ASESORA"].includes(roleNorm);
+            const statusNorm = String(g?.status || "active").toLowerCase();
+            const isActive = g && (!g.status || statusNorm === "active");
             return g && g.email && validRole && isActive ? g : null;
         } catch (e) {
             return null;
@@ -495,7 +501,12 @@ const AuthManager = {
 
     getUserRole() {
         const user = this.getUserData();
-        return user ? user.role : null;
+        let role = user ? user.role : null;
+        if (role) {
+            role = String(role).toUpperCase();
+            if (role === "ASESOR" || role === "ASESORA") role = "AGENT";
+        }
+        return role;
     },
 
     isSuperAdmin() {
@@ -511,7 +522,7 @@ const AuthManager = {
         if (!this.isLoggedIn()) return false;
         const role = this.getUserRole();
         if (!role) return false;
-        const perms = this._rolePermissions[role] || [];
+        const perms = this._rolePermissions[role] || this._rolePermissions.AGENT || [];
         return perms.includes(permission);
     },
 
@@ -522,7 +533,7 @@ const AuthManager = {
         if (role === this.Roles.SUPER_ADMIN || role === this.Roles.ADMIN) {
             return true;
         }
-        if (role === this.Roles.AGENT) {
+        if (role === this.Roles.AGENT || role === "AGENT" || role === "ASESOR" || role === "ASESORA") {
             return this.isPropertyAssignedToCurrentUser(prop);
         }
         return false;

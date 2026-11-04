@@ -3,15 +3,13 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Imagenes de propiedades: lectura publica; subida/borrado para cuentas autenticadas con Google.
+    // Imagenes de propiedades: lectura publica; subida/borrado para cuentas autenticadas.
     match /properties/{allPaths=**} {
       allow read: if true;
       allow create, update: if request.auth != null
-        && request.auth.token.firebase.sign_in_provider == 'google.com'
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null
-        && request.auth.token.firebase.sign_in_provider == 'google.com';
+      allow delete: if request.auth != null;
     }
 
     // Cualquier otra ruta: solo lectura.

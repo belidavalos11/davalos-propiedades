@@ -4,10 +4,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---------- Helpers (sin correos fijos: todo sale de users/{uid}) ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+
     function signedInWithGoogle() {
-      return request.auth != null
-        && request.auth.token.firebase.sign_in_provider == 'google.com'
-        && request.auth.token.email_verified == true;
+      return signedIn();
     }
 
     function profilePath() {
@@ -27,15 +29,21 @@ service cloud.firestore {
     }
 
     function isActiveMember() {
-      return signedInWithGoogle() && hasProfile() && myProfile().status == 'active';
+      return signedIn() && hasProfile() && (myProfile().status in ['active', 'ACTIVE']);
     }
 
     function isSuperAdmin() {
-      return isActiveMember() && myProfile().role == 'SUPER_ADMIN';
+      return isActiveMember() && (myProfile().role in ['SUPER_ADMIN', 'super_admin']);
     }
 
     function isAdminOrSuperAdmin() {
-      return isActiveMember() && myProfile().role in ['SUPER_ADMIN', 'ADMIN'];
+      return isActiveMember() && (myProfile().role in ['SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin']);
+    }
+
+    function isAgentMember() {
+      return isActiveMember() && (
+        myProfile().role in ['AGENT', 'agent', 'ASESOR', 'asesor', 'Asesor', 'asesora', 'Asesora', 'EDITOR', 'editor']
+      );
     }
 
     function canDeleteProperties() {
@@ -49,14 +57,21 @@ service cloud.firestore {
 
     function canCreateProperty() {
       return isAdminOrSuperAdmin()
-        || (isActiveMember() && myProfile().role == 'AGENT' && request.resource.data.agentId == request.auth.uid);
+        || (isAgentMember() && (
+            (request.resource.data.agentId != null && request.resource.data.agentId == request.auth.uid)
+            || (request.resource.data.createdBy != null && request.resource.data.createdBy == request.auth.uid)
+        ));
     }
 
     function canUpdateProperty(resourceData) {
       return isAdminOrSuperAdmin()
-        || (isActiveMember() && myProfile().role == 'AGENT' 
+        || (isAgentMember() 
             && isPropertyOwner(resourceData) 
-            && (request.resource.data.agentId == resourceData.agentId || request.resource.data.agentId == request.auth.uid));
+            && (
+                request.resource.data.agentId == resourceData.agentId 
+                || request.resource.data.agentId == request.auth.uid
+                || request.resource.data.createdBy == request.auth.uid
+            ));
     }
 
     // Perfil nuevo propio, con el rol/estado indicados.
@@ -78,8 +93,8 @@ service cloud.firestore {
     }
 
     function validRoleAndStatus() {
-      return request.resource.data.role in ['AGENT', 'ADMIN', 'SUPER_ADMIN']
-        && request.resource.data.status in ['pending', 'active', 'inactive'];
+      return (request.resource.data.role in ['AGENT', 'agent', 'ADMIN', 'admin', 'SUPER_ADMIN', 'super_admin', 'ASESOR', 'asesor', 'Asesor'])
+        && (request.resource.data.status in ['pending', 'active', 'inactive', 'ACTIVE', 'INACTIVE']);
     }
 
     // ---------- Catalogo ----------
@@ -103,7 +118,7 @@ service cloud.firestore {
     // ---------- Usuarios y roles ----------
     match /users/{userId} {
       // Cada persona lee su propio perfil; el ADMIN o SUPER_ADMIN activo lee todos; activos leen asesores
-      allow get: if (resource.data.status == 'active') || (signedInWithGoogle() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
+      allow get: if (resource.data.status in ['active', 'ACTIVE']) || (signedIn() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
       allow list: if isAdminOrSuperAdmin();
 
       // Solicitud propia (AGENT / pending) o reclamo de arranque (SUPER_ADMIN / active) si nadie lo reclamo aun.
