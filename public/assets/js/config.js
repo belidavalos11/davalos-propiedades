@@ -250,6 +250,29 @@ const resolvePropertyAgentByConfig = function (prop) {
         if (byNameOrAlias) return byNameOrAlias;
     }
 
+    // 2.5 Buscar en window.activeTeamMembers (usuarios activos sincronizados desde Firestore)
+    if (searchKey && Array.isArray(window.activeTeamMembers)) {
+        const byTeam = window.activeTeamMembers.find(m =>
+            String(m.uid || "").toLowerCase() === searchKey ||
+            String(m.id || "").toLowerCase() === searchKey ||
+            String(m.displayName || "").toLowerCase() === searchKey ||
+            String(m.displayName || "").toLowerCase().includes(searchKey) ||
+            String(m.email || "").toLowerCase() === searchKey
+        );
+        if (byTeam) {
+            const normWa = window.normalizeWhatsappPhone(byTeam.whatsapp || byTeam.phone || fallback.whatsapp);
+            return {
+                id: byTeam.uid,
+                name: byTeam.displayName,
+                role: byTeam.role === "SUPER_ADMIN" ? "Administrador General" : (byTeam.role === "ADMIN" ? "Administrador" : "Asesor Inmobiliario"),
+                phone: byTeam.phone || fallback.phone,
+                whatsapp: normWa,
+                email: byTeam.email || fallback.email,
+                photoUrl: byTeam.photoURL || ""
+            };
+        }
+    }
+
     // 3. Buscar en AuthManager si fue asignado a un usuario creado desde Gestión de Usuarios
     if (searchKey && window.AuthManager && typeof window.AuthManager.getAllUsersSync === "function") {
         const users = window.AuthManager.getAllUsersSync() || [];

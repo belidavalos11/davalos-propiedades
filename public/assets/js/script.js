@@ -2758,49 +2758,144 @@ function renderStructuredFeature(feat) {
     div.querySelector(".btn-remove-feature").onclick = () => div.remove();
 }
 
-function populateAgentDropdown() {
+async function populateAgentDropdown(selectedVal = null) {
     const agentSelect = document.getElementById("prop-agent");
     if (!agentSelect) return;
 
-    // Save current selection to restore it if possible
-    const currentVal = agentSelect.value;
+    const manager = window.AuthManager;
+    const userRole = (manager?.getUserRole ? manager.getUserRole() : (manager?.currentUserProfile?.role || "")).toUpperCase();
+    const canReassignAgent = Boolean(userRole === "SUPER_ADMIN" || userRole === "ADMIN" || (typeof manager?.isAdmin === "function" && manager.isAdmin()));
+    const currentUser = manager?.getUserData ? manager.getUserData() : null;
+    const myUid = currentUser?.uid || window.auth?.currentUser?.uid || "";
+    const myName = manager?.getDisplayName() || currentUser?.displayName || currentUser?.username || "Mi perfil";
+    const myEmail = currentUser?.email || window.auth?.currentUser?.email || "";
+    const myPhone = currentUser?.phone || currentUser?.whatsapp || "";
+
+    // Preservar valor seleccionado si ya existía
+    const currentVal = selectedVal !== null && selectedVal !== undefined
+        ? String(selectedVal).trim()
+        : String(agentSelect.value || "").trim();
+
+    // 1. Si el rol es AGENT: solo puede publicar/editar a su propio nombre.
+    // El selector debe deshabilitarse y asignarle su propio nombre automáticamente sin mostrarle la lista del resto del equipo.
+    if (!canReassignAgent) {
+        agentSelect.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = myUid || "agente-default";
+        opt.textContent = myName;
+        opt.dataset.name = myName;
+        opt.dataset.email = myEmail;
+        opt.dataset.phone = myPhone;
+        opt.selected = true;
+        agentSelect.appendChild(opt);
+        agentSelect.value = opt.value;
+        agentSelect.disabled = true;
+        agentSelect.title = "Las publicaciones quedan automáticamente asignadas a tu nombre.";
+        return;
+    }
+
+    // 2. Si el rol es SUPER_ADMIN o ADMIN: debe poder seleccionar a cualquiera de los activos (SUPER_ADMIN, ADMIN y AGENT)
+    agentSelect.disabled = false;
+    agentSelect.removeAttribute("title");
+
+    if (agentSelect.options.length === 0) {
+        agentSelect.innerHTML = '<option value="">Cargando asesores activos...</option>';
+    }
+
+    let activeUsers = [];
+    if (window.db) {
+        try {
+            // Consulta a Firestore: buscar a todos los usuarios activos sin excluir a nadie (SUPER_ADMIN, ADMIN y AGENT)
+            const snap = await window.db.collection("users")
+                .where("status", "==", "active")
+                .get();
+            activeUsers = snap.docs.map(doc => {
+                const d = doc.data() || {};
+                return {
+                    uid: doc.id,
+                    id: doc.id,
+                    displayName: d.displayName || d.name || d.email || "Asesor",
+                    email: d.email || "",
+                    phone: d.phone || d.whatsapp || "",
+                    role: (d.role || "AGENT").toUpperCase()
+                };
+            });
+            window.activeTeamMembers = activeUsers;
+        } catch (err) {
+            console.warn("[populateAgentDropdown] Error consultando usuarios activos:", err.message);
+        }
+    }
+
+    // Si Firestore no respondió o vino vacío, usar caché de activeTeamMembers
+    if (activeUsers.length === 0 && Array.isArray(window.activeTeamMembers) && window.activeTeamMembers.length > 0) {
+        activeUsers = window.activeTeamMembers;
+    }
 
     const configAgents = Array.isArray(window.SITE_CONFIG?.agents) ? window.SITE_CONFIG.agents : [];
-    const users = (window.AuthManager && typeof window.AuthManager.getAllUsersSync === "function")
-        ? (window.AuthManager.getAllUsersSync() || [])
-        : [];
 
-    agentSelect.innerHTML = '<option value="">Seleccionar agente...</option>';
+    agentSelect.innerHTML = '<option value="">Seleccionar asesor a cargo...</option>';
 
-    const addedIds = new Set();
+    const addedKeys = new Set();
 
-    // 1. Listar agentes centralizados en config.js
-    configAgents.forEach(agent => {
-        if (!agent || !agent.id) return;
+    // Agregar todos los usuarios activos de Firestore (SUPER_ADMIN, ADMIN y AGENT)
+    activeUsers.forEach(u => {
         const opt = document.createElement("option");
-        opt.value = agent.id;
-        opt.textContent = agent.name;
+        opt.value = u.uid;
+        opt.textContent = u.displayName;
+        opt.dataset.name = u.displayName;
+        opt.dataset.email = u.email || "";
+        opt.dataset.phone = u.phone || "";
         agentSelect.appendChild(opt);
-        addedIds.add(String(agent.id).toLowerCase());
-        addedIds.add(String(agent.name || "").toLowerCase());
-        if (Array.isArray(agent.aliases)) {
-            agent.aliases.forEach(al => addedIds.add(String(al).toLowerCase()));
+
+        addedKeys.add(String(u.uid).toLowerCase());
+        addedKeys.add(String(u.displayName || "").toLowerCase());
+        if (u.email) addedKeys.add(String(u.email).toLowerCase());
+    });
+
+    // Agregar asesores de SITE_CONFIG.agents solo si no existen ya
+    configAgents.forEach(ca => {
+        const nameKey = String(ca.name || "").toLowerCase();
+        const emailKey = String(ca.email || "").toLowerCase();
+        const idKey = String(ca.id || "").toLowerCase();
+        if (addedKeys.has(nameKey) || (emailKey && addedKeys.has(emailKey))) {
+            return;
         }
-    });
-
-    // 2. Agregar usuarios adicionales de AuthManager que no estén en SITE_CONFIG.agents
-    users.forEach(user => {
-        const uKey = String(user.username || "").toLowerCase();
-        const dKey = String(user.displayName || "").toLowerCase();
-        if (addedIds.has(uKey) || addedIds.has(dKey)) return;
         const opt = document.createElement("option");
-        opt.value = user.username || user.displayName;
-        opt.textContent = user.displayName || user.username;
+        opt.value = ca.id;
+        opt.textContent = ca.name;
+        opt.dataset.name = ca.name;
+        opt.dataset.email = ca.email || "";
+        opt.dataset.phone = ca.phone || ca.whatsapp || "";
         agentSelect.appendChild(opt);
+        addedKeys.add(idKey);
+        addedKeys.add(nameKey);
     });
 
-    if (currentVal) agentSelect.value = currentVal;
+    // Restaurar selección previa o la recibida por parámetro
+    if (currentVal) {
+        let matched = false;
+        const lowVal = currentVal.toLowerCase();
+        for (let i = 0; i < agentSelect.options.length; i++) {
+            const opt = agentSelect.options[i];
+            const optVal = String(opt.value || "").toLowerCase();
+            const optName = String(opt.dataset?.name || opt.textContent || "").toLowerCase();
+            const optEmail = String(opt.dataset?.email || "").toLowerCase();
+            if (optVal === lowVal || optName === lowVal || (optEmail && optEmail === lowVal) || optName.includes(lowVal)) {
+                agentSelect.selectedIndex = i;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched && currentVal !== "agente-default") {
+            const legacyOpt = document.createElement("option");
+            legacyOpt.value = currentVal;
+            legacyOpt.textContent = currentVal;
+            agentSelect.appendChild(legacyOpt);
+            agentSelect.value = currentVal;
+        }
+    }
 }
+window.populateAgentDropdown = populateAgentDropdown;
 
 function updateCreditVisibility() {
     const category = document.getElementById("prop-category").value;
@@ -2810,7 +2905,7 @@ function updateCreditVisibility() {
     }
 }
 
-function openEditModal(id, evt) {
+async function openEditModal(id, evt) {
     if (evt) {
         try {
             evt.preventDefault();
@@ -2838,8 +2933,8 @@ function openEditModal(id, evt) {
 
         currentEditingId = prop.id;
 
-        // Repopulate agents just in case
-        populateAgentDropdown();
+        // Cargar todos los asesores activos para SUPER_ADMIN/ADMIN o solo a sí mismo para AGENT
+        await populateAgentDropdown(prop.agentId || prop.agent);
 
         // Helper seguro para asignar valores sin romper si el elemento no existe
         const setVal = (elemId, val) => {
@@ -2894,7 +2989,21 @@ function openEditModal(id, evt) {
         const canReassignAgent = Boolean(userRole === "SUPER_ADMIN" || userRole === "ADMIN" || (typeof manager?.isAdmin === "function" && manager.isAdmin()));
         if (agentSelect) {
             const candidateId = prop.agentId || (resolvedAgent && resolvedAgent.id !== "agente-default" ? resolvedAgent.id : "") || prop.agent || "";
-            agentSelect.value = candidateId;
+            if (candidateId) {
+                let matched = false;
+                const low = String(candidateId).toLowerCase();
+                for (let i = 0; i < agentSelect.options.length; i++) {
+                    const opt = agentSelect.options[i];
+                    if (String(opt.value).toLowerCase() === low || String(opt.dataset?.name || opt.textContent).toLowerCase().includes(low)) {
+                        agentSelect.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && candidateId !== "agente-default") {
+                    agentSelect.value = candidateId;
+                }
+            }
             agentSelect.disabled = !canReassignAgent;
             if (!canReassignAgent) {
                 agentSelect.title = "Solo administradores pueden reasignar el asesor a cargo.";
@@ -3024,7 +3133,7 @@ async function openPropertyModal() {
         if (propertyForm && typeof propertyForm.reset === "function") {
             propertyForm.reset();
         }
-        populateAgentDropdown();
+        await populateAgentDropdown();
         updateCreditVisibility();
 
         const canViewPrivate = Boolean(manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
@@ -3045,28 +3154,10 @@ async function openPropertyModal() {
         const canReassignAgent = Boolean(userRole === "SUPER_ADMIN" || userRole === "ADMIN" || (typeof manager?.isAdmin === "function" && manager.isAdmin()));
         const agentSelect = document.getElementById("prop-agent");
         if (agentSelect) {
+            agentSelect.disabled = !canReassignAgent;
             if (!canReassignAgent) {
-                const currentUser = manager.getUserData ? manager.getUserData() : null;
-                const myId = currentUser?.uid || manager.getDisplayName() || "";
-                let found = false;
-                for (let i = 0; i < agentSelect.options.length; i++) {
-                    if (agentSelect.options[i].value === myId || (manager.getDisplayName() && agentSelect.options[i].textContent.includes(manager.getDisplayName()))) {
-                        agentSelect.selectedIndex = i;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found && myId) {
-                    const opt = document.createElement("option");
-                    opt.value = myId;
-                    opt.textContent = manager.getDisplayName() || "Mi perfil";
-                    agentSelect.appendChild(opt);
-                    agentSelect.value = myId;
-                }
-                agentSelect.disabled = true;
                 agentSelect.title = "Las nuevas publicaciones quedan automáticamente asignadas a tu nombre.";
             } else {
-                agentSelect.disabled = false;
                 agentSelect.removeAttribute("title");
             }
         }
@@ -3458,26 +3549,32 @@ function bindEvents() {
                 let agentId = "";
                 let agentName = "";
                 let agentEmail = "";
+                let agentPhone = "";
 
                 if (!canReassignAgent && !currentEditingId) {
                     // Nuevo inmueble creado por un AGENT: queda asignado a él mismo
                     agentId = currentUid || "agente-default";
                     agentName = currentName || "Asesor Inmobiliario";
                     agentEmail = currentEmail || "";
+                    agentPhone = currentUserData?.phone || currentUserData?.whatsapp || "";
                 } else if (!canReassignAgent && currentEditingId && existing) {
                     // Inmueble editado por un AGENT: preserva el asesor asignado existente
                     agentId = existing.agentId || currentUid;
                     agentName = existing.agent || currentName;
                     agentEmail = existing.agentEmail || currentEmail;
+                    agentPhone = existing.agentWhatsapp || existing.agentPhone || "";
                 } else {
                     // ADMIN o SUPER_ADMIN: toma el selector
-                    const selectedAgentVal = document.getElementById("prop-agent").value;
+                    const agentSelect = document.getElementById("prop-agent");
+                    const selectedOpt = agentSelect && agentSelect.selectedIndex >= 0 ? agentSelect.options[agentSelect.selectedIndex] : null;
+                    const selectedAgentVal = agentSelect ? agentSelect.value : "";
                     const resolvedAgent = window.getPropertyAgent
                         ? window.getPropertyAgent({ agentId: selectedAgentVal, agent: selectedAgentVal })
                         : null;
                     agentId = selectedAgentVal || (existing?.agentId || "");
-                    agentName = (resolvedAgent && selectedAgentVal) ? resolvedAgent.name : (selectedAgentVal || existing?.agent || "");
-                    agentEmail = (resolvedAgent && resolvedAgent.email) ? resolvedAgent.email : (existing?.agentEmail || "");
+                    agentName = selectedOpt?.dataset?.name || (resolvedAgent && selectedAgentVal ? resolvedAgent.name : (selectedAgentVal || existing?.agent || ""));
+                    agentEmail = selectedOpt?.dataset?.email || (resolvedAgent && resolvedAgent.email ? resolvedAgent.email : (existing?.agentEmail || ""));
+                    agentPhone = selectedOpt?.dataset?.phone || (resolvedAgent && (resolvedAgent.whatsapp || resolvedAgent.phone) ? (resolvedAgent.whatsapp || resolvedAgent.phone) : (existing?.agentWhatsapp || existing?.agentPhone || ""));
                 }
 
                 // Capturar datos del propietario si tiene permisos (solo ADMIN / SUPER_ADMIN)
@@ -3516,6 +3613,8 @@ function bindEvents() {
                     agentId: agentId,
                     agent: agentName,
                     agentEmail: agentEmail,
+                    agentWhatsapp: agentPhone || (existing?.agentWhatsapp || existing?.agentPhone || ""),
+                    agentPhone: agentPhone || (existing?.agentPhone || existing?.agentWhatsapp || ""),
                     creditEligible: (category === "venta") ? document.getElementById("prop-credit").checked : false,
                     mapLink: safeUrl(document.getElementById("prop-map-link").value),
                     lat: (() => {

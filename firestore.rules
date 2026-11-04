@@ -104,7 +104,7 @@ service cloud.firestore {
     match /users/{userId} {
       // Cada persona lee su propio perfil; el ADMIN o SUPER_ADMIN activo lee todos; activos leen asesores
       allow get: if (resource.data.status == 'active') || (signedInWithGoogle() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
-      allow list: if isSuperAdmin();
+      allow list: if isAdminOrSuperAdmin();
 
       // Solicitud propia (AGENT / pending) o reclamo de arranque (SUPER_ADMIN / active) si nadie lo reclamo aun.
       // El reclamo exige crear meta/bootstrap en el mismo lote (existsAfter), lo que sella el arranque.
