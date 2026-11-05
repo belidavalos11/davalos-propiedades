@@ -2806,10 +2806,24 @@ async function populateAgentDropdown(selectedVal = null) {
     let activeUsers = [];
     if (window.db) {
         try {
+            // Esperar a que Firebase restaure la sesión real (no anónima) antes de consultar,
+            // si no la consulta sale sin autenticar y las reglas la rechazan.
+            if (manager && manager._readyPromise) {
+                try { await manager._readyPromise; } catch (_) {}
+            }
+            for (let i = 0; i < 30 && (!window.auth?.currentUser || window.auth.currentUser.isAnonymous); i++) {
+                await new Promise(r => setTimeout(r, 100));
+            }
             // Consulta a Firestore: buscar a todos los usuarios activos sin excluir a nadie (SUPER_ADMIN, ADMIN y AGENT)
-            const snap = await window.db.collection("users")
-                .where("status", "==", "active")
-                .get();
+            const runQuery = () => window.db.collection("users").where("status", "==", "active").get();
+            let snap;
+            try {
+                snap = await runQuery();
+            } catch (firstErr) {
+                console.warn("[populateAgentDropdown] Primer intento falló, reintentando con token renovado:", firstErr.message);
+                try { await window.auth?.currentUser?.getIdToken(true); } catch (_) {}
+                snap = await runQuery();
+            }
             activeUsers = snap.docs.map(doc => {
                 const d = doc.data() || {};
                 return {
@@ -2823,7 +2837,7 @@ async function populateAgentDropdown(selectedVal = null) {
             });
             window.activeTeamMembers = activeUsers;
         } catch (err) {
-            console.warn("[populateAgentDropdown] Error consultando usuarios activos:", err.message);
+            console.error("[populateAgentDropdown] Error consultando usuarios activos (revisá que las reglas de Firestore estén publicadas):", err.code, err.message);
         }
     }
 
