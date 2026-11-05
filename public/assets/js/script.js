@@ -2804,6 +2804,7 @@ async function populateAgentDropdown(selectedVal = null) {
     }
 
     let activeUsers = [];
+    let loadError = "";
     if (window.db) {
         try {
             // Esperar a que Firebase restaure la sesión real (no anónima) antes de consultar,
@@ -2837,8 +2838,22 @@ async function populateAgentDropdown(selectedVal = null) {
             });
             window.activeTeamMembers = activeUsers;
         } catch (err) {
+            loadError = `${err.code || "error"}: ${err.message || err}`;
             console.error("[populateAgentDropdown] Error consultando usuarios activos (revisá que las reglas de Firestore estén publicadas):", err.code, err.message);
         }
+    }
+
+    // Respaldo: usuarios ya sincronizados por el panel de Equipo (watchTeam)
+    if (activeUsers.length === 0 && typeof teamState !== "undefined" && Array.isArray(teamState.users) && teamState.users.length > 0) {
+        activeUsers = teamState.users
+            .filter(u => String(u.status || "").toLowerCase() === "active")
+            .map(u => ({
+                uid: u.uid, id: u.uid,
+                displayName: u.displayName || u.email || "Asesor",
+                email: u.email || "",
+                phone: u.phone || u.whatsapp || "",
+                role: String(u.role || "AGENT").toUpperCase()
+            }));
     }
 
     // Si Firestore no respondió o vino vacío, usar caché de activeTeamMembers
@@ -2849,6 +2864,13 @@ async function populateAgentDropdown(selectedVal = null) {
     const configAgents = Array.isArray(window.SITE_CONFIG?.agents) ? window.SITE_CONFIG.agents : [];
 
     agentSelect.innerHTML = '<option value="">Seleccionar asesor a cargo...</option>';
+    if (loadError && activeUsers.length === 0) {
+        const errOpt = document.createElement("option");
+        errOpt.value = "";
+        errOpt.disabled = true;
+        errOpt.textContent = `⚠ No se pudo cargar el equipo (${loadError})`;
+        agentSelect.appendChild(errOpt);
+    }
 
     const addedKeys = new Set();
 
