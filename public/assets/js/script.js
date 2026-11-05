@@ -2861,7 +2861,8 @@ async function populateAgentDropdown(selectedVal = null) {
         activeUsers = window.activeTeamMembers;
     }
 
-    const configAgents = Array.isArray(window.SITE_CONFIG?.agents) ? window.SITE_CONFIG.agents : [];
+    // Los asesores de SITE_CONFIG son un respaldo viejo (sin uid real): solo se usan si no hay usuarios activos ni error de carga.
+    const configAgents = (activeUsers.length === 0 && !loadError && Array.isArray(window.SITE_CONFIG?.agents)) ? window.SITE_CONFIG.agents : [];
 
     agentSelect.innerHTML = '<option value="">Seleccionar asesor a cargo...</option>';
     if (loadError && activeUsers.length === 0) {
@@ -3142,7 +3143,7 @@ async function openPropertyModal() {
     }
 
     // 2. Si el perfil aún se está sincronizando con Firestore, esperar con timeout de resguardo
-    if (manager._readyPromise) {
+    if (manager._readyPromise && !manager.getUserRole()) {
         try {
             await Promise.race([
                 manager._readyPromise,
@@ -3170,7 +3171,8 @@ async function openPropertyModal() {
         if (propertyForm && typeof propertyForm.reset === "function") {
             propertyForm.reset();
         }
-        await populateAgentDropdown();
+        // No bloquear la apertura del modal: la lista de asesores se completa en segundo plano.
+        populateAgentDropdown().catch(e => console.warn("[openPropertyModal] Lista de asesores:", e));
         updateCreditVisibility();
 
         const canViewPrivate = Boolean(manager.hasPermission(manager.Permissions.VIEW_PRIVATE_DATA));
