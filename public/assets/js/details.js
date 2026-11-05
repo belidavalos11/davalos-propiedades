@@ -1406,6 +1406,12 @@ window.addEventListener("click", (e) => {
         document.body.style.overflow = "auto";
     }
 });
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && loginModal && loginModal.style.display === "block") {
+        loginModal.style.display = "none";
+        document.body.style.overflow = "auto";
+    }
+});
 
 // Update auth UI on load
 updateDetailsAuthUI();

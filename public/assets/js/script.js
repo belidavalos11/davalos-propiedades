@@ -3418,6 +3418,26 @@ function bindEvents() {
     };
     closeBtns.forEach(btn => btn.onclick = closeModal);
 
+    // Cerrar modales al hacer clic afuera (backdrop) o presionar Escape
+    document.querySelectorAll(".modal").forEach(m => {
+        m.addEventListener("click", (e) => {
+            if (e.target === m) {
+                if (typeof closeAllTeamDropdowns === "function") closeAllTeamDropdowns();
+                closeModal();
+            }
+        });
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            const anyActiveModal = document.querySelector(".modal.active, .modal[style*='display: block'], .modal[style*='display:flex']");
+            if (anyActiveModal && anyActiveModal.style.display !== "none") {
+                if (typeof closeAllTeamDropdowns === "function") closeAllTeamDropdowns();
+                closeModal();
+            }
+        }
+    });
+
     const btnToggleUnavailable = document.getElementById("btn-toggle-unavailable");
     if (btnToggleUnavailable) {
         btnToggleUnavailable.onclick = () => {
