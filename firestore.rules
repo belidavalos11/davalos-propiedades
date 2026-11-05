@@ -28,21 +28,25 @@ service cloud.firestore {
       return get(profilePath()).data;
     }
 
+    function myRole() {
+      return string(myProfile().role).lower().replace(' ', '_').replace('-', '_');
+    }
+
     function isActiveMember() {
-      return signedIn() && hasProfile() && (myProfile().status in ['active', 'ACTIVE']);
+      return signedIn() && hasProfile() && (string(myProfile().status).lower() == 'active');
     }
 
     function isSuperAdmin() {
-      return isActiveMember() && (myProfile().role in ['SUPER_ADMIN', 'super_admin']);
+      return isActiveMember() && (myRole() in ['super_admin', 'superadmin']);
     }
 
     function isAdminOrSuperAdmin() {
-      return isActiveMember() && (myProfile().role in ['SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin']);
+      return isActiveMember() && (myRole() in ['super_admin', 'superadmin', 'admin', 'administrador']);
     }
 
     function isAgentMember() {
       return isActiveMember() && (
-        myProfile().role in ['AGENT', 'agent', 'ASESOR', 'asesor', 'Asesor', 'asesora', 'Asesora', 'EDITOR', 'editor']
+        myRole() in ['agent', 'asesor', 'asesora', 'editor']
       );
     }
 
@@ -118,10 +122,10 @@ service cloud.firestore {
     // ---------- Usuarios y roles ----------
     match /users/{userId} {
       // Cada persona lee su propio perfil; el ADMIN o SUPER_ADMIN activo lee todos; activos leen asesores
-      allow get: if (resource.data.status in ['active', 'ACTIVE']) || (signedIn() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
+      allow get: if (string(resource.data.status).lower() == 'active') || (signedIn() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
       // Los miembros activos pueden listar solo a los usuarios activos (selector de agente al publicar).
       allow list: if isAdminOrSuperAdmin()
-        || (isActiveMember() && resource.data.status in ['active', 'ACTIVE']);
+        || (isActiveMember() && string(resource.data.status).lower() == 'active');
 
       // Solicitud propia (AGENT / pending) o reclamo de arranque (SUPER_ADMIN / active) si nadie lo reclamo aun.
       // El reclamo exige crear meta/bootstrap en el mismo lote (existsAfter), lo que sella el arranque.
