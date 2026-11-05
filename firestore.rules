@@ -3,13 +3,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ---------- Helpers (sin correos fijos: todo sale de users/{uid}) ----------
+    // ---------- Helpers (todo sale de users/{uid} + resguardo de super admin) ----------
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     function signedInWithGoogle() {
       return signedIn();
+    }
+
+    function isBootstrapSuperAdmin() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in ['belidavalos.bd@gmail.com'];
     }
 
     function profilePath() {
@@ -28,25 +35,26 @@ service cloud.firestore {
       return get(profilePath()).data;
     }
 
-    function myRole() {
-      return string(myProfile().role).lower().replace(' ', '_').replace('-', '_');
-    }
-
     function isActiveMember() {
-      return signedIn() && hasProfile() && (string(myProfile().status).lower() == 'active');
+      return signedIn() && (
+        isBootstrapSuperAdmin()
+        || (hasProfile() && (myProfile().status in ['active', 'ACTIVE', 'Active']))
+      );
     }
 
     function isSuperAdmin() {
-      return isActiveMember() && (myRole() in ['super_admin', 'superadmin']);
+      return isBootstrapSuperAdmin()
+        || (isActiveMember() && hasProfile() && (myProfile().role in ['SUPER_ADMIN', 'super_admin', 'Super Admin']));
     }
 
     function isAdminOrSuperAdmin() {
-      return isActiveMember() && (myRole() in ['super_admin', 'superadmin', 'admin', 'administrador']);
+      return isSuperAdmin()
+        || (isActiveMember() && hasProfile() && (myProfile().role in ['SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin', 'Super Admin', 'Admin']));
     }
 
     function isAgentMember() {
-      return isActiveMember() && (
-        myRole() in ['agent', 'asesor', 'asesora', 'editor']
+      return isActiveMember() && hasProfile() && (
+        myProfile().role in ['AGENT', 'agent', 'Agent', 'ASESOR', 'asesor', 'Asesor', 'asesora', 'Asesora', 'ASESORA', 'EDITOR', 'editor', 'Editor']
       );
     }
 
@@ -121,14 +129,14 @@ service cloud.firestore {
 
     // ---------- Usuarios y roles ----------
     match /users/{userId} {
-      // Cada persona lee su propio perfil; el ADMIN o SUPER_ADMIN activo lee todos; activos leen asesores
-      allow get: if (string(resource.data.status).lower() == 'active') || (signedIn() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
-      // Los miembros activos pueden listar solo a los usuarios activos (selector de agente al publicar).
-      allow list: if isAdminOrSuperAdmin()
-        || (isActiveMember() && string(resource.data.status).lower() == 'active');
+      // Cualquier consulta o lectura de usuarios activos está permitida (necesario para selector de agente y ficha de propiedad);
+      // para el resto (pendientes/inactivos), solo el propio usuario o ADMIN / SUPER_ADMIN activo.
+      allow get: if (resource.data.status in ['active', 'ACTIVE'])
+        || (signedIn() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
+      allow list: if (resource.data.status in ['active', 'ACTIVE'])
+        || isAdminOrSuperAdmin();
 
       // Solicitud propia (AGENT / pending) o reclamo de arranque (SUPER_ADMIN / active) si nadie lo reclamo aun.
-      // El reclamo exige crear meta/bootstrap en el mismo lote (existsAfter), lo que sella el arranque.
       allow create: if signedInWithGoogle()
         && request.auth.uid == userId
         && (validNewProfile('AGENT', 'pending')

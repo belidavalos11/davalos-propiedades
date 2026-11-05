@@ -848,11 +848,16 @@ async function populateAssignAgentSelect(prop) {
     let activeUsers = [];
     if (window.db) {
         try {
-            const snap = await window.db.collection("users").where("status", "==", "active").get();
-            snap.forEach(doc => {
-                const u = doc.data();
+            let docs = [];
+            if (window.AuthManager && typeof window.AuthManager.fetchActiveUsersFallback === "function") {
+                docs = await window.AuthManager.fetchActiveUsersFallback();
+            } else {
+                const snap = await window.db.collection("users").where("status", "==", "active").get();
+                docs = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+            }
+            docs.forEach(u => {
                 activeUsers.push({
-                    uid: doc.id,
+                    uid: u.uid || u.id,
                     displayName: u.displayName || u.email || "Asesor",
                     email: u.email || "",
                     phone: u.phone || u.whatsapp || "",
@@ -865,27 +870,6 @@ async function populateAssignAgentSelect(prop) {
             console.warn("[details] Error al consultar usuarios activos de Firestore:", err);
         }
     }
-
-    // Complementar con agentes preconfigurados de SITE_CONFIG si no estuvieran en Firestore
-    const configAgents = Array.isArray(window.SITE_CONFIG?.agents) ? window.SITE_CONFIG.agents : [];
-    configAgents.forEach(cfgAg => {
-        if (!cfgAg || !cfgAg.name) return;
-        const exists = activeUsers.some(u =>
-            (cfgAg.id && u.uid === cfgAg.id) ||
-            (u.displayName && u.displayName.toLowerCase() === cfgAg.name.toLowerCase())
-        );
-        if (!exists) {
-            activeUsers.push({
-                uid: cfgAg.id || cfgAg.name,
-                displayName: cfgAg.name,
-                email: cfgAg.email || "",
-                phone: cfgAg.phone || cfgAg.whatsapp || "",
-                whatsapp: cfgAg.whatsapp || cfgAg.phone || "",
-                photoURL: cfgAg.photoUrl || cfgAg.avatar || "",
-                role: cfgAg.role || "Asesor Inmobiliario"
-            });
-        }
-    });
 
     activeUsers.sort((a, b) => a.displayName.localeCompare(b.displayName));
 

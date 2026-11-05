@@ -2068,13 +2068,35 @@ window.togglePropertyAvailability = async function (id) {
 const TEAM_ROLE_LABELS = { AGENT: "Asesor", ADMIN: "Admin", SUPER_ADMIN: "Super Admin" };
 
 function startTeamWatch() {
-    if (teamState.unsub) return;
+    if (teamState.unsub && !teamState.error) return;
+    if (teamState.unsub) {
+        try { teamState.unsub(); } catch (_) {}
+        teamState.unsub = null;
+    }
     const manager = window.AuthManager;
     if (!manager) return;
     teamState.error = false;
     teamState.unsub = manager.watchTeam(
-        users => { teamState.users = users; teamState.error = false; renderTeam(); },
-        () => { teamState.error = true; renderTeam(); }
+        users => {
+            teamState.users = users;
+            teamState.error = false;
+            window.activeTeamMembers = users
+                .filter(u => String(u.status || "").toLowerCase() === "active")
+                .map(u => ({
+                    uid: u.uid,
+                    id: u.uid,
+                    displayName: u.displayName || u.name || u.email || "Asesor",
+                    email: u.email || "",
+                    phone: u.phone || u.whatsapp || "",
+                    role: String(u.role || "AGENT").toUpperCase()
+                }));
+            renderTeam();
+        },
+        () => {
+            teamState.unsub = null;
+            teamState.error = true;
+            renderTeam();
+        }
     );
 }
 
@@ -2509,7 +2531,15 @@ function initTeamModule() {
     const btnTeam = document.getElementById("btn-team");
     const modal = document.getElementById("team-modal");
     if (!btnTeam || !modal) return;
-    btnTeam.onclick = () => { closeAllTeamDropdowns(); teamState.tab = "active"; renderTeam(); openModal(modal); };
+    btnTeam.onclick = () => {
+        closeAllTeamDropdowns();
+        teamState.tab = "active";
+        if (!teamState.unsub || teamState.error || teamState.users.length === 0) {
+            startTeamWatch();
+        }
+        renderTeam();
+        openModal(modal);
+    };
 
     modal.addEventListener("click", async e => {
         if (e.target === modal) {
@@ -2807,39 +2837,27 @@ async function populateAgentDropdown(selectedVal = null) {
     let loadError = "";
     if (window.db) {
         try {
-            // Esperar a que Firebase restaure la sesión real (no anónima) antes de consultar,
-            // si no la consulta sale sin autenticar y las reglas la rechazan.
-            if (manager && manager._readyPromise) {
-                try { await manager._readyPromise; } catch (_) {}
+            let docs = [];
+            if (manager && typeof manager.fetchActiveUsersFallback === "function") {
+                docs = await manager.fetchActiveUsersFallback();
+            } else {
+                const snap = await window.db.collection("users").where("status", "==", "active").get();
+                docs = snap.docs.map(doc => ({ uid: doc.id, id: doc.id, ...doc.data() }));
             }
-            for (let i = 0; i < 30 && (!window.auth?.currentUser || window.auth.currentUser.isAnonymous); i++) {
-                await new Promise(r => setTimeout(r, 100));
+            activeUsers = docs.map(d => ({
+                uid: d.uid || d.id,
+                id: d.uid || d.id,
+                displayName: d.displayName || d.name || d.email || "Asesor",
+                email: d.email || "",
+                phone: d.phone || d.whatsapp || "",
+                role: String(d.role || "AGENT").toUpperCase()
+            }));
+            if (activeUsers.length > 0) {
+                window.activeTeamMembers = activeUsers;
             }
-            // Consulta a Firestore: buscar a todos los usuarios activos sin excluir a nadie (SUPER_ADMIN, ADMIN y AGENT)
-            const runQuery = () => window.db.collection("users").where("status", "==", "active").get();
-            let snap;
-            try {
-                snap = await runQuery();
-            } catch (firstErr) {
-                console.warn("[populateAgentDropdown] Primer intento falló, reintentando con token renovado:", firstErr.message);
-                try { await window.auth?.currentUser?.getIdToken(true); } catch (_) {}
-                snap = await runQuery();
-            }
-            activeUsers = snap.docs.map(doc => {
-                const d = doc.data() || {};
-                return {
-                    uid: doc.id,
-                    id: doc.id,
-                    displayName: d.displayName || d.name || d.email || "Asesor",
-                    email: d.email || "",
-                    phone: d.phone || d.whatsapp || "",
-                    role: (d.role || "AGENT").toUpperCase()
-                };
-            });
-            window.activeTeamMembers = activeUsers;
         } catch (err) {
             loadError = `${err.code || "error"}: ${err.message || err}`;
-            console.error("[populateAgentDropdown] Error consultando usuarios activos (revisá que las reglas de Firestore estén publicadas):", err.code, err.message);
+            console.error("[populateAgentDropdown] Error consultando usuarios activos:", err.code, err.message);
         }
     }
 
@@ -2861,8 +2879,7 @@ async function populateAgentDropdown(selectedVal = null) {
         activeUsers = window.activeTeamMembers;
     }
 
-    // Los asesores de SITE_CONFIG son un respaldo viejo (sin uid real): solo se usan si no hay usuarios activos ni error de carga.
-    const configAgents = (activeUsers.length === 0 && !loadError && Array.isArray(window.SITE_CONFIG?.agents)) ? window.SITE_CONFIG.agents : [];
+    const configAgents = [];
 
     agentSelect.innerHTML = '<option value="">Seleccionar asesor a cargo...</option>';
     if (loadError && activeUsers.length === 0) {

@@ -98,14 +98,75 @@ const AuthManager = {
             this._clearGoogleSession();
         }
 
-        if (!window.auth.currentUser) {
+        if (restored && restored.isAnonymous) {
+            await window.auth.signOut().catch(() => {});
+        }
+
+        const savedGoogle = this._getGoogleSession();
+        if ((!restored || restored.isAnonymous) && savedGoogle && savedGoogle.uid) {
             try {
-                await window.auth.signInAnonymously();
-                console.log("Firebase session synced (Anonymous)");
+                const profile = await window.db.collection("users").doc(savedGoogle.uid).get().then(s => (s.exists ? s.data() : null));
+                if (profile && String(profile.status || "").toLowerCase() === "active") {
+                    this._applyProfile(savedGoogle.uid, profile);
+                }
             } catch (e) {
-                console.error("Firebase sync error:", e);
+                console.warn("[Auth] No se pudo verificar perfil guardado:", e);
             }
         }
+    },
+
+    // Obtiene usuarios activos desde Firestore; si la consulta list falla por permisos/token,
+    // recupera los perfiles activos mediante lectura directa doc(uid).get() (permitida por allow get).
+    async fetchActiveUsersFallback() {
+        if (!window.db) return [];
+        try {
+            const snap = await window.db.collection("users").where("status", "==", "active").get();
+            if (!snap.empty) {
+                return snap.docs.map(d => ({ uid: d.id, id: d.id, ...d.data() }));
+            }
+        } catch (firstErr) {
+            if (window.auth?.currentUser && !window.auth.currentUser.isAnonymous) {
+                try {
+                    await window.auth.currentUser.getIdToken(true);
+                    const snap = await window.db.collection("users").where("status", "==", "active").get();
+                    if (!snap.empty) {
+                        return snap.docs.map(d => ({ uid: d.id, id: d.id, ...d.data() }));
+                    }
+                } catch (_) {}
+            }
+        }
+
+        // Respaldo por lectura directa de documentos (allow get permite leer cualquier usuario con status == 'active')
+        const candidateUids = new Set();
+        const addCandidate = id => {
+            const v = String(id || "").trim();
+            if (!v || ["agente-1", "agente-2", "agente-3", "agente-default", "admin"].includes(v.toLowerCase())) return;
+            candidateUids.add(v);
+        };
+        addCandidate(window.auth?.currentUser?.uid);
+        addCandidate(this.currentUserProfile?.uid);
+        addCandidate(this._getGoogleSession()?.uid);
+        addCandidate("OXzYScI4HATySAbrVIKHpYw2nRj1");
+        if (Array.isArray(window.properties)) {
+            window.properties.forEach(p => {
+                addCandidate(p?.agentId);
+                addCandidate(p?.createdBy);
+            });
+        }
+
+        const results = [];
+        await Promise.all(Array.from(candidateUids).map(async uid => {
+            try {
+                const doc = await window.db.collection("users").doc(uid).get();
+                if (doc.exists) {
+                    const data = doc.data() || {};
+                    if (String(data.status || "").toLowerCase() === "active") {
+                        results.push({ uid: doc.id, id: doc.id, ...data });
+                    }
+                }
+            } catch (_) {}
+        }));
+        return results;
     },
 
     // ---- Google Sign-In + perfiles en Firestore (coleccion `users`, id = uid) ----
@@ -347,13 +408,61 @@ const AuthManager = {
     // Escucha en tiempo real la coleccion `users` (incluye todos los documentos de Firestore).
     watchTeam(onData, onError) {
         if (!this.hasPermission(this.Permissions.MANAGE_USERS) || !window.db) return () => {};
-        return window.db.collection("users").onSnapshot(
-            snap => onData(snap.docs.map(d => ({ uid: d.id, ...d.data() }))),
-            err => {
-                console.error("[Auth] Error al escuchar usuarios:", err);
-                if (onError) onError(err);
+        let cancelled = false;
+        let innerUnsub = null;
+
+        const runFallback = async err => {
+            if (cancelled) return;
+            try {
+                const fallbackUsers = await this.fetchActiveUsersFallback();
+                if (!cancelled && fallbackUsers.length > 0) {
+                    onData(fallbackUsers);
+                    return;
+                }
+            } catch (_) {}
+            console.error("[Auth] Error al escuchar usuarios:", err);
+            if (onError) onError(err);
+        };
+
+        const subscribe = (isRetry = false) => {
+            if (cancelled) return;
+            if (!window.auth?.currentUser || window.auth.currentUser.isAnonymous) {
+                runFallback(new Error("no-google-auth"));
+                return;
             }
-        );
+            innerUnsub = window.db.collection("users").onSnapshot(
+                snap => {
+                    if (cancelled) return;
+                    onData(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
+                },
+                async err => {
+                    if (cancelled) return;
+                    if (!isRetry && window.auth?.currentUser && !window.auth.currentUser.isAnonymous) {
+                        try { await window.auth.currentUser.getIdToken(true); } catch (_) {}
+                        if (!cancelled) {
+                            subscribe(true);
+                            return;
+                        }
+                    }
+                    await runFallback(err);
+                }
+            );
+        };
+
+        (async () => {
+            if (this._readyPromise) {
+                try { await this._readyPromise; } catch (_) {}
+            }
+            if (!cancelled) subscribe(false);
+        })();
+
+        return () => {
+            cancelled = true;
+            if (innerUnsub) {
+                try { innerUnsub(); } catch (_) {}
+                innerUnsub = null;
+            }
+        };
     },
 
     // Cambia rol y/o estado de un miembro. Rol: AGENT | ADMIN | SUPER_ADMIN. Estado: active | inactive.
