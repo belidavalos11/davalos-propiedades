@@ -793,18 +793,34 @@ function updateAuthUI() {
     if (isSuperAdmin) startTeamWatch(); else stopTeamWatch();
 
     const greeting = document.getElementById("user-greeting");
+    const btnOpenDrawer = document.getElementById("btn-open-admin-drawer");
+    const drawerUserName = document.getElementById("drawer-user-name");
+    const drawerUserRole = document.getElementById("drawer-user-role");
+
     if (greeting) {
         if (logged) {
             const name = window.AuthManager.getDisplayName();
             greeting.className = "user-greeting";
             greeting.textContent = `¡Hola ${name}!`;
-            greeting.style.display = "block";
+            greeting.style.display = "inline-flex";
             greeting.onclick = null;
         } else {
             greeting.className = "user-greeting";
             greeting.style.display = "none";
             greeting.onclick = null;
         }
+    }
+
+    if (btnOpenDrawer) {
+        btnOpenDrawer.style.display = logged ? "inline-flex" : "none";
+    }
+
+    if (logged) {
+        const name = window.AuthManager.getDisplayName();
+        const role = window.AuthManager.getUserRole();
+        const roleLabels = { SUPER_ADMIN: "Super Administrador", ADMIN: "Administrador", AGENT: "Asesor Comercial", EDITOR: "Editor" };
+        if (drawerUserName) drawerUserName.textContent = name || "Usuario";
+        if (drawerUserRole) drawerUserRole.textContent = roleLabels[role] || role || "Miembro del equipo";
     }
 
     // Botón de filtro de propiedades no disponibles en el catálogo (solo AGENT, ADMIN, SUPER_ADMIN)
@@ -3410,9 +3426,43 @@ function bindEvents() {
         };
     });
     bindPublishButtons();
+    // Manejo del panel lateral de administración / acciones
+    const adminDrawer = document.getElementById("admin-drawer");
+    const adminDrawerOverlay = document.getElementById("admin-drawer-overlay");
+    const btnOpenDrawer = document.getElementById("btn-open-admin-drawer");
+    const btnCloseDrawer = document.getElementById("btn-close-admin-drawer");
+
+    function openAdminDrawer() {
+        if (!adminDrawer) return;
+        adminDrawer.classList.add("active");
+        if (adminDrawerOverlay) adminDrawerOverlay.classList.add("active");
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeAdminDrawer() {
+        if (!adminDrawer) return;
+        adminDrawer.classList.remove("active");
+        if (adminDrawerOverlay) adminDrawerOverlay.classList.remove("active");
+        document.body.style.overflow = "";
+    }
+
+    if (btnOpenDrawer) btnOpenDrawer.addEventListener("click", openAdminDrawer);
+    if (btnCloseDrawer) btnCloseDrawer.addEventListener("click", closeAdminDrawer);
+    if (adminDrawerOverlay) adminDrawerOverlay.addEventListener("click", closeAdminDrawer);
+
+    // Si se presiona una acción del drawer (publicar, equipo, etc.), cerrar el panel suavemente
+    if (adminDrawer) {
+        adminDrawer.querySelectorAll(".btn-drawer-action").forEach(btn => {
+            btn.addEventListener("click", () => {
+                closeAdminDrawer();
+            });
+        });
+    }
+
     if (btnLogout) btnLogout.onclick = () => {
         window.AuthManager.logout();
         showUnavailableMode = false;
+        closeAdminDrawer();
         updateAuthUI();
         applyFilters();
     };
@@ -3430,6 +3480,10 @@ function bindEvents() {
 
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
+            if (adminDrawer && adminDrawer.classList.contains("active")) {
+                closeAdminDrawer();
+                return;
+            }
             const anyActiveModal = document.querySelector(".modal.active, .modal[style*='display: block'], .modal[style*='display:flex']");
             if (anyActiveModal && anyActiveModal.style.display !== "none") {
                 if (typeof closeAllTeamDropdowns === "function") closeAllTeamDropdowns();

@@ -3677,3 +3677,240 @@ textarea {
 .btn-team-icon-only svg {
     margin: 0 !important;
 }
+
+/* ==========================================================================
+   Menú Lateral Escondido de Gestión (Admin Drawer)
+   ========================================================================== */
+
+/* Botón disparador en la barra superior */
+.btn-admin-drawer-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #050e36;
+    color: #ffffff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(5, 14, 54, 0.15);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-left: 10px;
+}
+
+.btn-admin-drawer-trigger:hover {
+    background: #0b1a59;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(5, 14, 54, 0.25);
+}
+
+.btn-admin-drawer-trigger svg {
+    transition: transform 0.3s ease;
+}
+
+.btn-admin-drawer-trigger:hover svg {
+    transform: rotate(45deg);
+}
+
+/* Overlay semitransparente con blur */
+.admin-drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(5, 14, 54, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 2500;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
+}
+
+.admin-drawer-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Panel lateral deslizante (desde la derecha) */
+.admin-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 320px;
+    max-width: 88vw;
+    height: 100%;
+    background: #ffffff;
+    box-shadow: -10px 0 35px rgba(5, 14, 54, 0.2);
+    z-index: 2600;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
+    box-sizing: border-box;
+}
+
+.admin-drawer.active {
+    transform: translateX(0);
+}
+
+/* Encabezado del panel */
+.admin-drawer-header {
+    padding: 22px 20px 18px;
+    background: #050e36;
+    color: #ffffff;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.admin-drawer-user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.admin-drawer-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #e2e8f0;
+    opacity: 0.8;
+}
+
+.admin-drawer-user-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.25;
+}
+
+.admin-drawer-user-role {
+    font-size: 0.78rem;
+    color: #cbd5e1;
+    font-weight: 500;
+}
+
+.admin-drawer-close {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: #ffffff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 1.4rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.admin-drawer-close:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Cuerpo con secciones */
+.admin-drawer-body {
+    padding: 20px 16px;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.admin-drawer-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-drawer-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #64748b;
+    padding-left: 6px;
+    margin-bottom: 2px;
+}
+
+/* Botones de acción del drawer */
+.btn-drawer-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    color: #1e293b;
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+.btn-drawer-action:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateX(2px);
+}
+
+.btn-drawer-action svg {
+    flex-shrink: 0;
+    color: #475569;
+}
+
+/* Botón principal Publicar en drawer */
+.btn-drawer-action.btn-drawer-primary {
+    background: #050e36;
+    color: #ffffff;
+    border-color: #050e36;
+    box-shadow: 0 4px 12px rgba(5, 14, 54, 0.18);
+}
+
+.btn-drawer-action.btn-drawer-primary svg {
+    color: #ffffff;
+}
+
+.btn-drawer-action.btn-drawer-primary:hover {
+    background: #0b1a59;
+    border-color: #0b1a59;
+    box-shadow: 0 6px 16px rgba(5, 14, 54, 0.25);
+}
+
+/* Footer del panel (Cerrar sesión) */
+.admin-drawer-footer {
+    padding: 14px 16px 20px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.btn-drawer-action.btn-drawer-logout {
+    background: #fef2f2;
+    border-color: #fee2e2;
+    color: #dc2626;
+}
+
+.btn-drawer-action.btn-drawer-logout svg {
+    color: #dc2626;
+}
+
+.btn-drawer-action.btn-drawer-logout:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #b91c1c;
+}

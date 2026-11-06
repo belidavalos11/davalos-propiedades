@@ -1363,8 +1363,60 @@ const loginForm = document.getElementById("login-form");
 function updateDetailsAuthUI() {
     const logged = window.AuthManager && window.AuthManager.isLoggedIn();
     if (btnLogin) btnLogin.style.display = logged ? "none" : "block";
-    if (btnLogout) btnLogout.style.display = logged ? "block" : "none";
+    const btnOpenDrawer = document.getElementById("btn-open-admin-drawer");
+    if (btnOpenDrawer) btnOpenDrawer.style.display = logged ? "inline-flex" : "none";
+
+    const greeting = document.getElementById("user-greeting");
+    if (greeting) {
+        if (logged) {
+            const name = window.AuthManager.getDisplayName();
+            greeting.textContent = `¡Hola ${name}!`;
+            greeting.style.display = "inline-flex";
+        } else {
+            greeting.style.display = "none";
+        }
+    }
+
+    if (logged) {
+        const name = window.AuthManager.getDisplayName();
+        const role = window.AuthManager.getUserRole();
+        const roleLabels = { SUPER_ADMIN: "Super Administrador", ADMIN: "Administrador", AGENT: "Asesor Comercial", EDITOR: "Editor" };
+        const drawerUserName = document.getElementById("drawer-user-name");
+        const drawerUserRole = document.getElementById("drawer-user-role");
+        if (drawerUserName) drawerUserName.textContent = name || "Usuario";
+        if (drawerUserRole) drawerUserRole.textContent = roleLabels[role] || role || "Miembro del equipo";
+    }
 }
+
+// Drawer de administración en details.html
+const adminDrawer = document.getElementById("admin-drawer");
+const adminDrawerOverlay = document.getElementById("admin-drawer-overlay");
+const btnOpenDrawer = document.getElementById("btn-open-admin-drawer");
+const btnCloseDrawer = document.getElementById("btn-close-admin-drawer");
+
+function openAdminDrawer() {
+    if (!adminDrawer) return;
+    adminDrawer.classList.add("active");
+    if (adminDrawerOverlay) adminDrawerOverlay.classList.add("active");
+    document.body.style.overflow = "hidden";
+}
+
+function closeAdminDrawer() {
+    if (!adminDrawer) return;
+    adminDrawer.classList.remove("active");
+    if (adminDrawerOverlay) adminDrawerOverlay.classList.remove("active");
+    document.body.style.overflow = "";
+}
+
+if (btnOpenDrawer) btnOpenDrawer.addEventListener("click", openAdminDrawer);
+if (btnCloseDrawer) btnCloseDrawer.addEventListener("click", closeAdminDrawer);
+if (adminDrawerOverlay) adminDrawerOverlay.addEventListener("click", closeAdminDrawer);
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && adminDrawer && adminDrawer.classList.contains("active")) {
+        closeAdminDrawer();
+    }
+});
 
 if (btnLogin && loginModal) {
     btnLogin.onclick = () => {
