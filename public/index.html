@@ -72,11 +72,11 @@
 
             <!-- Menú central: sólo las secciones de la página -->
             <nav class="nav-main">
-                <a href="index.html" class="nav-link active">Inicio</a>
-                <a href="#propiedades" class="nav-link" onclick="filterByOperation('venta')">Venta</a>
-                <a href="#propiedades" class="nav-link" onclick="filterByOperation('alquiler')">Alquiler</a>
-                <a href="#nosotros" class="nav-link">Nosotros</a>
-                <a href="#contacto" class="nav-link">Contacto</a>
+                <a href="#inicio" class="nav-link active" data-nav-target="inicio">Inicio</a>
+                <a href="#propiedades" class="nav-link" data-nav-target="venta" onclick="filterByOperation('venta')">Venta</a>
+                <a href="#propiedades" class="nav-link" data-nav-target="alquiler" onclick="filterByOperation('alquiler')">Alquiler</a>
+                <a href="#nosotros" class="nav-link" data-nav-target="nosotros">Nosotros</a>
+                <a href="#contacto" class="nav-link" data-nav-target="contacto">Contacto</a>
             </nav>
 
             <!-- Bloque derecho: Saludo al usuario + Botón hamburguesa / acceso contra el margen -->
@@ -871,7 +871,7 @@
 
     <script src="assets/js/auth.js?v=16"></script>
     <script src="assets/js/loader.js?v=4"></script>
-    <script src="assets/js/script.js?v=40"></script>
+    <script src="assets/js/script.js?v=41"></script>
     <script>
         const menuToggle = document.getElementById('mobile-menu-toggle');
         const navMain = document.querySelector('.nav-main');

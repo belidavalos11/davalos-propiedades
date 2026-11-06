@@ -1530,10 +1530,10 @@ window.filterByOperation = function (type) {
         applyFilters();
 
         // Update active class in nav
-        document.querySelectorAll('.nav-link').forEach(link => {
+        document.querySelectorAll('.nav-main .nav-link').forEach(link => {
             link.classList.remove('active');
-            const href = link.getAttribute('href');
-            if (href === '#propiedades' || (type === 'venta' && href?.includes('venta')) || (type === 'alquiler' && href?.includes('alquiler'))) {
+            const target = link.dataset?.navTarget;
+            if (target === type) {
                 link.classList.add('active');
             }
         });
@@ -4165,57 +4165,52 @@ async function init() {
  * Navigation & Active State Management (ScrollSpy)
  */
 function initNavigation() {
-    const navLinks = document.querySelectorAll('.nav-link');
-    const sections = [
-        { id: 'inicio', element: document.querySelector('.header') }, 
-        { id: 'propiedades', element: document.getElementById('propiedades') },
-        { id: 'nosotros', element: document.getElementById('nosotros') },
-        { id: 'contacto', element: document.getElementById('contacto') }
-    ];
+    const navLinks = document.querySelectorAll('.nav-main .nav-link');
+    const heroSec = document.getElementById('inicio');
+    const propSec = document.getElementById('propiedades');
+    const nosotrosSec = document.getElementById('nosotros');
+    const contactoSec = document.getElementById('contacto');
 
-    const updateActive = (id) => {
+    const setActive = (targetName) => {
         navLinks.forEach(link => {
-            const href = link.getAttribute('href');
-            // Avoid removing active from special buttons like login/logout/publish
-            if (link.id && link.id.startsWith('btn-')) return;
-            
-            link.classList.remove('active');
-            if (id === 'inicio' && (href === 'index.html' || href === 'index.html#')) {
-                link.classList.add('active');
-            } else if (href === '#' + id) {
-                link.classList.add('active');
-            }
+            const t = link.dataset?.navTarget;
+            link.classList.toggle('active', t === targetName);
         });
     };
 
-    // Intersection Observer for ScrollSpy
-    const observerOptions = {
-        root: null,
-        rootMargin: '-40% 0px -40% 0px',
-        threshold: 0
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const id = entry.target.id || (entry.target.classList.contains('header') ? 'inicio' : '');
-                if (id) updateActive(id);
-            }
-        });
-    }, observerOptions);
-
-    sections.forEach(sec => {
-        if (sec.element) {
-            observer.observe(sec.element);
+    const handleScroll = () => {
+        const scrollY = window.scrollY || window.pageYOffset || 0;
+        
+        // Si estamos arriba en la portada/inicio
+        if (scrollY < 250) {
+            setActive('inicio');
+            return;
         }
-    });
 
-    // Manual click handling
+        const viewMid = scrollY + (window.innerHeight * 0.35);
+
+        if (contactoSec && contactoSec.offsetTop <= viewMid) {
+            setActive('contacto');
+        } else if (nosotrosSec && nosotrosSec.offsetTop <= viewMid) {
+            setActive('nosotros');
+        } else if (propSec && propSec.offsetTop <= (scrollY + (window.innerHeight * 0.55))) {
+            const currentOp = (filterType && filterType.value) ? filterType.value.toLowerCase() : 'venta';
+            setActive(currentOp === 'alquiler' ? 'alquiler' : 'venta');
+        } else {
+            setActive('inicio');
+        }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    // Clic manual en los enlaces
     navLinks.forEach(link => {
         link.addEventListener('click', function() {
-            if (this.id && this.id.startsWith('btn-')) return;
-            navLinks.forEach(l => l.classList.remove('active'));
-            this.classList.add('active');
+            const target = this.dataset?.navTarget;
+            if (target) {
+                setActive(target);
+            }
         });
     });
 }
