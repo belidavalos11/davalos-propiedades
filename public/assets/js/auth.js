@@ -33,7 +33,7 @@ const AuthManager = {
         { username: "flopypfister", password: "flopy2026", displayName: "Flopy", role: "SUPER_ADMIN", phone: "5493874155902" },
     ],
 
-    _sessionHours: 12,
+    _sessionHours: 720, // 30 dias; se renueva en cada visita
     // Perfil del usuario logueado (users/{uid}): unica fuente de rol y estado. { uid, email, displayName, photoURL, role, status }
     currentUserProfile: null,
     _profileUnsub: null,
@@ -56,13 +56,13 @@ const AuthManager = {
         // Legado: los usuarios usuario/contrasena fueron reemplazados por perfiles de Google (ver watchTeam).
         return;
         if (!window.db) {
-            console.warn("Firestore (window.db) no está inicializado. No se pueden cargar usuarios externos.");
+            console.warn("Firestore (window.db) no estÃ¡ inicializado. No se pueden cargar usuarios externos.");
             return;
         }
         try {
             const snapshot = await window.db.collection("users").get();
             this._cachedUsers = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
-            console.log(`[Auth] Sincronización exitosa: ${this._cachedUsers.length} usuarios externos cargados.`);
+            console.log(`[Auth] SincronizaciÃ³n exitosa: ${this._cachedUsers.length} usuarios externos cargados.`);
         } catch (e) {
             console.error("[Auth] ERROR al cargar usuarios de Firestore:", e);
         }
@@ -91,7 +91,7 @@ const AuthManager = {
             const isEmailOk = restored.emailVerified || (restored.providerData && restored.providerData.some(p => p.providerId === "google.com")) || Boolean(restored.email);
             const isStatusActive = profile && String(profile.status || "").toLowerCase() === "active";
             if (isEmailOk && isStatusActive) {
-                this._saveGoogleSession(restored, profile, true);
+                this._saveGoogleSession(restored, profile, false); // sesion deslizante: cada visita renueva el plazo
                 return;
             }
             await window.auth.signOut().catch(() => {});
@@ -291,7 +291,7 @@ const AuthManager = {
             if (typeof window.applyFilters === "function") {
                 try { window.applyFilters(); } catch (_) {}
             }
-            try { alert("Tu sesión expiró. Volvé a iniciar sesión para continuar."); } catch (_) {}
+            try { alert("Tu sesiÃ³n expirÃ³. VolvÃ© a iniciar sesiÃ³n para continuar."); } catch (_) {}
         });
     },
 
@@ -391,13 +391,13 @@ const AuthManager = {
             }).then(async res => {
                 if (!res.ok) {
                     const err = await res.text().catch(() => "");
-                    console.warn("[Auth] /api/notify-pending-request respondió con error:", res.status, err);
+                    console.warn("[Auth] /api/notify-pending-request respondiÃ³ con error:", res.status, err);
                 }
             }).catch(err => {
-                console.warn("[Auth] No se pudo enviar notificación de solicitud pendiente:", err.message);
+                console.warn("[Auth] No se pudo enviar notificaciÃ³n de solicitud pendiente:", err.message);
             });
         } catch (e) {
-            console.warn("[Auth] Excepción al notificar solicitud pendiente:", e);
+            console.warn("[Auth] ExcepciÃ³n al notificar solicitud pendiente:", e);
         }
     },
 
@@ -408,16 +408,16 @@ const AuthManager = {
                 return null;
             case "pending":
                 return res.created
-                    ? "Tu solicitud de acceso fue enviada. El administrador revisará tu cuenta a la brevedad."
-                    : "Tu solicitud de acceso sigue pendiente de aprobación. El administrador revisará tu cuenta a la brevedad.";
+                    ? "Tu solicitud de acceso fue enviada. El administrador revisarÃ¡ tu cuenta a la brevedad."
+                    : "Tu solicitud de acceso sigue pendiente de aprobaciÃ³n. El administrador revisarÃ¡ tu cuenta a la brevedad.";
             case "inactive":
-                return "Tu cuenta está suspendida. Contactá al administrador para reactivarla.";
+                return "Tu cuenta estÃ¡ suspendida. ContactÃ¡ al administrador para reactivarla.";
             case "unauthorized":
-                return "No se pudo verificar tu cuenta de Google. Usá una cuenta con el correo verificado.";
+                return "No se pudo verificar tu cuenta de Google. UsÃ¡ una cuenta con el correo verificado.";
             case "permission-denied":
-                return "No se pudo registrar tu solicitud por falta de permisos. Contactá al administrador.";
+                return "No se pudo registrar tu solicitud por falta de permisos. ContactÃ¡ al administrador.";
             default:
-                return "No se pudo iniciar sesión con Google. Intentá nuevamente.";
+                return "No se pudo iniciar sesiÃ³n con Google. IntentÃ¡ nuevamente.";
         }
     },
 
@@ -506,15 +506,15 @@ const AuthManager = {
         }
     },
 
-    // Actualiza el número de WhatsApp/teléfono de un miembro (solo el propio usuario o SUPER_ADMIN)
+    // Actualiza el nÃºmero de WhatsApp/telÃ©fono de un miembro (solo el propio usuario o SUPER_ADMIN)
     async updateUserPhone(uid, rawPhone) {
-        if (!window.db) return { success: false, reason: "no_db", error: "Firestore no está disponible." };
+        if (!window.db) return { success: false, reason: "no_db", error: "Firestore no estÃ¡ disponible." };
         const currentUid = window.auth && window.auth.currentUser ? window.auth.currentUser.uid : null;
         const isSelf = currentUid && currentUid === uid;
         const isSuperAdmin = this.hasPermission(this.Permissions.MANAGE_USERS);
 
         if (!isSelf && !isSuperAdmin) {
-            return { success: false, reason: "permission", error: "No tenés permisos para modificar los datos de este usuario." };
+            return { success: false, reason: "permission", error: "No tenÃ©s permisos para modificar los datos de este usuario." };
         }
 
         const inputStr = String(rawPhone || "").trim();
@@ -540,7 +540,7 @@ const AuthManager = {
             }
             return { success: true, phone: cleanPhone };
         } catch (e) {
-            console.error("[Auth] Error al actualizar teléfono de usuario:", e);
+            console.error("[Auth] Error al actualizar telÃ©fono de usuario:", e);
             return { success: false, reason: "error", error: e.message || String(e) };
         }
     },
@@ -554,7 +554,7 @@ const AuthManager = {
             return { success: false, reason: "self" };
         }
         if (!window.db) {
-            return { success: false, reason: "error", error: "Firestore no está disponible." };
+            return { success: false, reason: "error", error: "Firestore no estÃ¡ disponible." };
         }
         try {
             await window.db.collection("users").doc(uid).delete();
@@ -724,7 +724,7 @@ const AuthManager = {
             try {
                 await window.auth.signInAnonymously();
             } catch(e) {
-                console.error("[Auth] Error de sesión anónima:", e);
+                console.error("[Auth] Error de sesiÃ³n anÃ³nima:", e);
             }
         }
         
@@ -754,7 +754,7 @@ const AuthManager = {
             console.log(`[Auth] Login exitoso: "${normalized}" con rol ${user.role}`);
             return true;
         } else {
-            console.warn(`[Auth] Login fallido para "${normalized}": Contraseña incorrecta.`);
+            console.warn(`[Auth] Login fallido para "${normalized}": ContraseÃ±a incorrecta.`);
             // Diagnostic for the developer (don't show full passwords in prod usually, but here it helps)
             console.log(`[Auth Diagnostic] Longitudes - Ingresada: ${cleanPassword.length}, Guardada: ${storedPassword.length}`);
             return false;
@@ -789,12 +789,12 @@ const AuthManager = {
         const normalized = this._normalizeUsername(username);
         const cleanPassword = newPassword.trim();
 
-        // 1. Guardar en los overrides locales (para asegurar la sesión actual y compatibilidad)
+        // 1. Guardar en los overrides locales (para asegurar la sesiÃ³n actual y compatibilidad)
         this._overrides[normalized] = cleanPassword;
         localStorage.setItem("davalos_user_overrides", JSON.stringify(this._overrides));
 
         // 2. Persistir en el almacenamiento real
-        // ¿Es un usuario core (estático)?
+        // Â¿Es un usuario core (estÃ¡tico)?
         if (this._users.some(u => u.username === normalized)) {
             try {
                 const coreEdits = JSON.parse(localStorage.getItem("davalos_core_user_edits") || "{}");
@@ -804,7 +804,7 @@ const AuthManager = {
                 };
                 localStorage.setItem("davalos_core_user_edits", JSON.stringify(coreEdits));
 
-                // Guardar también en Firestore si está disponible para sincronización global
+                // Guardar tambiÃ©n en Firestore si estÃ¡ disponible para sincronizaciÃ³n global
                 if (window.db) {
                     const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
                     const fullCoreUser = {
@@ -823,12 +823,12 @@ const AuthManager = {
 
                 return { success: true, mode: "core" };
             } catch (err) {
-                console.error("Error al guardar contraseña core localmente o en nube:", err);
+                console.error("Error al guardar contraseÃ±a core localmente o en nube:", err);
                 return { success: false, reason: "local_write_error", error: err.message };
             }
         }
 
-        // ¿Es un usuario extra local (creado localmente cuando Firestore falla)?
+        // Â¿Es un usuario extra local (creado localmente cuando Firestore falla)?
         const extraUsers = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
         const extraIndex = extraUsers.findIndex(u => this._normalizeUsername(u.username) === normalized);
         if (extraIndex !== -1) {
@@ -836,7 +836,7 @@ const AuthManager = {
                 extraUsers[extraIndex].password = cleanPassword;
                 localStorage.setItem("davalos_extra_users", JSON.stringify(extraUsers));
 
-                // Si Firestore ahora está disponible, guardarlo en la nube también
+                // Si Firestore ahora estÃ¡ disponible, guardarlo en la nube tambiÃ©n
                 if (window.db) {
                     const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
                     if (!snapshot.empty) {
@@ -844,7 +844,7 @@ const AuthManager = {
                     } else {
                         await window.db.collection("users").add(extraUsers[extraIndex]);
                     }
-                    // Y lo quitamos de extraUsers ya que ahora está en la nube
+                    // Y lo quitamos de extraUsers ya que ahora estÃ¡ en la nube
                     const filteredExtra = extraUsers.filter(u => this._normalizeUsername(u.username) !== normalized);
                     localStorage.setItem("davalos_extra_users", JSON.stringify(filteredExtra));
                     await this._loadUsersFromFirestore();
@@ -853,7 +853,7 @@ const AuthManager = {
 
                 return { success: true, mode: "local" };
             } catch (err) {
-                console.error("Error al actualizar contraseña en extraUsers:", err);
+                console.error("Error al actualizar contraseÃ±a en extraUsers:", err);
                 return { success: false, reason: "local_write_error", error: err.message };
             }
         }
@@ -861,7 +861,7 @@ const AuthManager = {
         // De lo contrario, es un usuario de Firestore (Nube)
         try {
             if (!window.db) {
-                throw new Error("Firestore no está inicializado");
+                throw new Error("Firestore no estÃ¡ inicializado");
             }
             const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
             if (!snapshot.empty) {
@@ -870,10 +870,10 @@ const AuthManager = {
                 await this._loadUsersFromFirestore();
                 return { success: true, mode: "firestore" };
             } else {
-                throw new Error("El usuario no se encontró en Firestore");
+                throw new Error("El usuario no se encontrÃ³ en Firestore");
             }
         } catch (e) {
-            console.warn("Fallo al actualizar contraseña en Firestore, usando almacenamiento local como respaldo:", e);
+            console.warn("Fallo al actualizar contraseÃ±a en Firestore, usando almacenamiento local como respaldo:", e);
             try {
                 // Respaldar localmente en extraUsers
                 const cachedUser = this._cachedUsers.find(u => this._normalizeUsername(u.username) === normalized);
@@ -887,7 +887,7 @@ const AuthManager = {
                 localStorage.setItem("davalos_extra_users", JSON.stringify(updatedExtra));
                 return { success: true, mode: "local_fallback", error: e.message || String(e) };
             } catch (localErr) {
-                console.error("Error crítico al actualizar localmente la contraseña:", localErr);
+                console.error("Error crÃ­tico al actualizar localmente la contraseÃ±a:", localErr);
                 return { success: false, reason: "fallback_error", error: localErr.message || String(localErr) };
             }
         }
@@ -914,7 +914,7 @@ const AuthManager = {
             .map(u => {
                 const norm = this._normalizeUsername(u.username);
                 if (coreEdits[norm]) {
-                    // Combinar propiedades estáticas con los cambios guardados
+                    // Combinar propiedades estÃ¡ticas con los cambios guardados
                     return { ...u, ...coreEdits[norm] };
                 }
                 return u;
@@ -922,7 +922,7 @@ const AuthManager = {
 
         const extraUsers = JSON.parse(localStorage.getItem("davalos_extra_users") || "[]");
         
-        // Evitar duplicados si por algún motivo un usuario local ya está en cached o core
+        // Evitar duplicados si por algÃºn motivo un usuario local ya estÃ¡ en cached o core
         const allUsers = [...this._cachedUsers, ...filteredCore, ...extraUsers];
         const uniqueUsers = [];
         const seen = new Set();
@@ -969,7 +969,7 @@ const AuthManager = {
 
         try {
             if (!window.db) {
-                throw new Error("Firestore no está inicializado");
+                throw new Error("Firestore no estÃ¡ inicializado");
             }
             await window.db.collection("users").add(cleanUserData);
             await this._loadUsersFromFirestore();
@@ -982,7 +982,7 @@ const AuthManager = {
                 localStorage.setItem("davalos_extra_users", JSON.stringify(extraUsers));
                 return { success: true, mode: "local", error: e.message || String(e) };
             } catch (localErr) {
-                console.error("Error crítico al guardar usuario localmente:", localErr);
+                console.error("Error crÃ­tico al guardar usuario localmente:", localErr);
                 return { success: false, reason: "error", error: localErr.message || String(localErr) };
             }
         }
@@ -1074,7 +1074,7 @@ const AuthManager = {
                 };
                 localStorage.setItem("davalos_core_user_edits", JSON.stringify(coreEdits));
 
-                // Guardar también en Firestore si está disponible para sincronización global
+                // Guardar tambiÃ©n en Firestore si estÃ¡ disponible para sincronizaciÃ³n global
                 if (window.db) {
                     const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
                     const fullCoreUser = {
@@ -1109,7 +1109,7 @@ const AuthManager = {
                 };
                 localStorage.setItem("davalos_extra_users", JSON.stringify(extraUsers));
 
-                // Guardar también en Firestore si está disponible para sincronización global
+                // Guardar tambiÃ©n en Firestore si estÃ¡ disponible para sincronizaciÃ³n global
                 if (window.db) {
                     const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
                     if (!snapshot.empty) {
@@ -1133,7 +1133,7 @@ const AuthManager = {
         // 4. Otherwise, it's a Firestore user (or falls back to local extra users if Firestore fails)
         try {
             if (!window.db) {
-                throw new Error("Firestore no está inicializado");
+                throw new Error("Firestore no estÃ¡ inicializado");
             }
             const snapshot = await window.db.collection("users").where("username", "==", normalized).get();
             if (!snapshot.empty) {
@@ -1143,7 +1143,7 @@ const AuthManager = {
                 await this._loadUsersFromFirestore();
                 return { success: true, mode: "firestore" };
             } else {
-                throw new Error("El usuario no se encontró en la nube ni localmente");
+                throw new Error("El usuario no se encontrÃ³ en la nube ni localmente");
             }
         } catch (e) {
             console.warn("Fallo al actualizar usuario en Firestore, usando almacenamiento local como respaldo:", e);
@@ -1162,7 +1162,7 @@ const AuthManager = {
                 localStorage.setItem("davalos_extra_users", JSON.stringify(updatedExtra));
                 return { success: true, mode: "local", error: e.message || String(e) };
             } catch (localErr) {
-                console.error("Error crítico al actualizar localmente:", localErr);
+                console.error("Error crÃ­tico al actualizar localmente:", localErr);
                 return { success: false, reason: "error", error: localErr.message || String(localErr) };
             }
         }

@@ -15,6 +15,7 @@ if (typeof firebase !== 'undefined') {
     firebase.initializeApp(firebaseConfig);
     window.db = firebase.firestore();
     window.auth = firebase.auth();
+    window.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (e) { console.warn("Persistencia", e); });
     window.storage = firebase.storage();
     console.log("Firebase initialized");
 } else {
