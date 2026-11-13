@@ -46,7 +46,7 @@ const AuthManager = {
             
             // Ensure Firebase is synced before loading users
             await this._syncWithFirebase();
-            
+            this._watchSessionLoss();
             this._cachedUsers = [];
             await this._loadUsersFromFirestore();
         })();
@@ -271,6 +271,28 @@ const AuthManager = {
             },
             err => console.warn("[Auth] No se pudo escuchar el perfil:", err)
         );
+    },
+
+    // Si Firebase pierde la sesion mientras la pagina esta abierta (token vencido/revocado),
+    // la UI pasa a "sin sesion" al instante para que el usuario vuelva a ingresar.
+    _watchSessionLoss() {
+        if (this._sessionWatchStarted || !window.auth) return;
+        this._sessionWatchStarted = true;
+        let hadUser = Boolean(window.auth.currentUser && !window.auth.currentUser.isAnonymous);
+        window.auth.onAuthStateChanged(u => {
+            const real = Boolean(u && !u.isAnonymous);
+            if (real) { hadUser = true; return; }
+            if (!hadUser) return;
+            hadUser = false;
+            this._clearGoogleSession();
+            if (typeof window.updateAuthUI === "function") {
+                try { window.updateAuthUI(); } catch (_) {}
+            }
+            if (typeof window.applyFilters === "function") {
+                try { window.applyFilters(); } catch (_) {}
+            }
+            try { alert("Tu sesión expiró. Volvé a iniciar sesión para continuar."); } catch (_) {}
+        });
     },
 
     _stopProfileWatch() {
