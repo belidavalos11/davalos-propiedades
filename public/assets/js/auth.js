@@ -103,15 +103,10 @@ const AuthManager = {
         }
 
         const savedGoogle = this._getGoogleSession();
-        if ((!restored || restored.isAnonymous) && savedGoogle && savedGoogle.uid) {
-            try {
-                const profile = await window.db.collection("users").doc(savedGoogle.uid).get().then(s => (s.exists ? s.data() : null));
-                if (profile && String(profile.status || "").toLowerCase() === "active") {
-                    this._applyProfile(savedGoogle.uid, profile);
-                }
-            } catch (e) {
-                console.warn("[Auth] No se pudo verificar perfil guardado:", e);
-            }
+        // Sin sesion real de Firebase NO se mantiene una sesion "fantasma" (daba permisos en la UI
+        // pero Storage/Firestore rechazaban con storage/unauthorized). Se limpia para forzar login.
+        if ((!restored || restored.isAnonymous) && savedGoogle) {
+            this._clearGoogleSession();
         }
     },
 

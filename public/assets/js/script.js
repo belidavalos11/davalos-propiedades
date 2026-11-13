@@ -3718,15 +3718,49 @@ function bindEvents() {
 
                 // 1. Upload new images to Firebase Storage
                 const finalImageUrls = [];
+                // Garantiza una sesion de Firebase valida (storage.rules exige request.auth != null).
+                const ensureFirebaseSession = async (forceRefresh) => {
+                    let u = window.auth && window.auth.currentUser;
+                    if (!u && window.auth) {
+                        u = await new Promise(resolve => {
+                            const t = setTimeout(() => { try { off(); } catch (_) {} resolve(window.auth.currentUser || null); }, 4000);
+                            const off = window.auth.onAuthStateChanged(x => { if (x) { clearTimeout(t); off(); resolve(x); } });
+                        });
+                    }
+                    if (!u && window.AuthManager && typeof window.AuthManager.loginWithGoogle === "function") {
+                        // La sesion de Firebase expiro: se vuelve a iniciar con Google sin perder el formulario.
+                        alert("Tu sesión expiró. Se abrirá la ventana de Google para volver a ingresar; luego se continuará la publicación automáticamente.");
+                        const res = await window.AuthManager.loginWithGoogle();
+                        if (!res || !res.success) throw new Error("No se pudo renovar la sesión. Volvé a iniciar sesión e intentá de nuevo (tus datos del formulario no se pierden).");
+                        u = window.auth.currentUser;
+                    }
+                    if (!u) throw new Error("Sesión no válida. Iniciá sesión nuevamente.");
+                    try { await u.getIdToken(!!forceRefresh); } catch (_) {}
+                    return u;
+                };
+                if (uploadedImages.some(i => i && typeof i !== 'string' && i.file)) {
+                    await ensureFirebaseSession(true);
+                }
                 for (const item of uploadedImages) {
                     if (typeof item === 'string') {
                         // Already a URL (editing existing)
                         finalImageUrls.push(item);
                     } else if (item.file) {
                         // New file to upload
-                        const fileName = `${Date.now()}_${item.file.name}`;
+                        const safeName = String(item.file.name || "image.jpg").replace(/[^\w.\-]/g, "_");
+                        const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
                         const storageRef = window.storage.ref(`properties/${fileName}`);
-                        const snapshot = await storageRef.put(item.file);
+                        let snapshot;
+                        try {
+                            snapshot = await storageRef.put(item.file);
+                        } catch (upErr) {
+                            if (upErr && (upErr.code === "storage/unauthorized" || upErr.code === "storage/unauthenticated")) {
+                                await ensureFirebaseSession(true);
+                                snapshot = await storageRef.put(item.file);
+                            } else {
+                                throw upErr;
+                            }
+                        }
                         const url = await snapshot.ref.getDownloadURL();
                         finalImageUrls.push(url);
                     }
