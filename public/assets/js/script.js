@@ -289,7 +289,9 @@ function renderCatalogMap(propsToDisplay) {
 
                 // C) Marcador y popup:
                 const approx = window.getApproxLocation(prop, parseFloat(lat), parseFloat(lng));
-                const marker = L.circle([approx.lat, approx.lng], { radius: approx.radius, color: '#0b1b4f', weight: 2, fillColor: '#0b1b4f', fillOpacity: 0.2 });
+                const area = L.circle([approx.lat, approx.lng], { radius: approx.radius, color: '#2563eb', weight: 1, opacity: 0.35, fillColor: '#3b82f6', fillOpacity: 0.12, interactive: false });
+                const dot = L.circleMarker([approx.lat, approx.lng], { radius: 6, color: '#ffffff', weight: 2, fillColor: '#1d4ed8', fillOpacity: 1 });
+                const marker = L.featureGroup([area, dot]);
                 const popupContent = (typeof createMapPopupHtml === "function")
                     ? createMapPopupHtml(prop)
                     : `<b>${escapeHtml(prop.title || 'Propiedad')}</b><br><a href="details.html?id=${prop.id}">Ver propiedad</a>`;

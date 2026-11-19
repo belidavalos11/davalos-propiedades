@@ -1033,10 +1033,18 @@ function initDetailsMap(rawLat, rawLng, prop) {
 
         L.circle([approx.lat, approx.lng], {
             radius: approx.radius,
-            color: '#0b1b4f',
+            color: '#2563eb',
+            weight: 1,
+            opacity: 0.35,
+            fillColor: '#3b82f6',
+            fillOpacity: 0.12
+        }).addTo(map);
+        L.circleMarker([approx.lat, approx.lng], {
+            radius: 7,
+            color: '#ffffff',
             weight: 2,
-            fillColor: '#0b1b4f',
-            fillOpacity: 0.2
+            fillColor: '#1d4ed8',
+            fillOpacity: 1
         }).addTo(map);
         // 3. Invalidate Size (ajuste de cálculo de pantalla)
         setTimeout(() => {
