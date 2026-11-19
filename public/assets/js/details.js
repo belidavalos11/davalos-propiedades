@@ -395,11 +395,6 @@ function renderDetails(prop) {
                     <div class="property-location-line">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
                         <span>${escapeHtml(prop.location || window.SITE_CONFIG?.contact?.city || "Salta, Argentina")}</span>
-                        ${prop.mapLink && safeUrl(prop.mapLink) ? `
-                            <a href="${escapeHtml(safeUrl(prop.mapLink))}" target="_blank" rel="noopener noreferrer" class="link-open-map">
-                                <span>Ver en mapa ↗</span>
-                            </a>
-                        ` : ''}
                     </div>
 
                     <!-- Fila de precio para dispositivos móviles -->
@@ -512,12 +507,9 @@ function renderDetails(prop) {
                                 <h2 class="section-title" style="margin-bottom: 4px;">Ubicación</h2>
                                 <div class="location-text-line">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-                                    <span>${escapeHtml(prop.location || "Salta, Argentina")}</span>
+                                    <span>${escapeHtml(prop.location || "Salta, Argentina")} <small style="color:#64748b;">(zona aproximada)</small></span>
                                 </div>
                             </div>
-                            <a href="${escapeHtml(safeUrl(prop.mapLink) || `https://www.google.com/maps?q=${lat},${lng}`)}" target="_blank" rel="noopener noreferrer" class="btn-external-gmaps">
-                                <span>Abrir en Google Maps ↗</span>
-                            </a>
                         </div>
                         <div id="property-map"></div>
                     </section>
@@ -1025,8 +1017,9 @@ function initDetailsMap(rawLat, rawLng, prop) {
             propertyDetailsMapInstance = null;
         }
 
+        const approx = window.getApproxLocation(prop, lat, lng);
         const map = L.map('property-map', {
-            center: [lat, lng],
+            center: [approx.lat, approx.lng],
             zoom: 15,
             scrollWheelZoom: false
         });
@@ -1038,23 +1031,13 @@ function initDetailsMap(rawLat, rawLng, prop) {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        const customPin = L.divIcon({
-            className: 'custom-map-marker',
-            html: `
-                <div class="map-marker-pin" style="background:#0b1b4f; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; box-shadow:0 3px 10px rgba(0,0,0,0.35); border:2px solid #fff;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-                </div>
-            `,
-            iconSize: [36, 36],
-            iconAnchor: [18, 36],
-            popupAnchor: [0, -36]
-        });
-
-        const marker = L.marker([lat, lng], { icon: customPin }).addTo(map);
-        if (prop && prop.title) {
-            marker.bindPopup(`<strong>${escapeHtml(prop.title)}</strong><br><span style="color:#666;">${escapeHtml(prop.location || '')}</span>`);
-        }
-
+        L.circle([approx.lat, approx.lng], {
+            radius: approx.radius,
+            color: '#0b1b4f',
+            weight: 2,
+            fillColor: '#0b1b4f',
+            fillOpacity: 0.2
+        }).addTo(map);
         // 3. Invalidate Size (ajuste de cálculo de pantalla)
         setTimeout(() => {
             if (map) {

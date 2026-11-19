@@ -619,3 +619,19 @@ if (window.location.hostname === "localhost" || window.location.hostname === "12
         }
     }, 1200);
 }
+
+// ---- Privacidad de ubicación: devuelve un centro desplazado (determinístico) y radio del área ----
+window.APPROX_RADIUS_M = 400;
+window.getApproxLocation = function (prop, lat, lng) {
+    const key = String((prop && (prop.id ?? prop.title)) ?? "") + "|" + Number(lat).toFixed(4) + "|" + Number(lng).toFixed(4);
+    let h = 2166136261;
+    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const r1 = ((h >>> 0) % 1000) / 1000;
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    const r2 = ((h >>> 0) % 1000) / 1000;
+    const angle = r1 * 2 * Math.PI;
+    const dist = (0.25 + r2 * 0.45) * window.APPROX_RADIUS_M; // el punto real queda dentro del círculo pero no en el centro
+    const dLat = (dist * Math.cos(angle)) / 111320;
+    const dLng = (dist * Math.sin(angle)) / (111320 * Math.cos(Number(lat) * Math.PI / 180));
+    return { lat: Number(lat) + dLat, lng: Number(lng) + dLng, radius: window.APPROX_RADIUS_M };
+};
