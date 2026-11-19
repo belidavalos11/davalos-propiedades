@@ -621,7 +621,7 @@ if (window.location.hostname === "localhost" || window.location.hostname === "12
 }
 
 // ---- Privacidad de ubicación: devuelve un centro desplazado (determinístico) y radio del área ----
-window.APPROX_RADIUS_M = 400;
+window.APPROX_RADIUS_M = 75; // ~una manzana
 window.getApproxLocation = function (prop, lat, lng) {
     const key = String((prop && (prop.id ?? prop.title)) ?? "") + "|" + Number(lat).toFixed(4) + "|" + Number(lng).toFixed(4);
     let h = 2166136261;

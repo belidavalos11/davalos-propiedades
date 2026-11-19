@@ -1020,7 +1020,7 @@ function initDetailsMap(rawLat, rawLng, prop) {
         const approx = window.getApproxLocation(prop, lat, lng);
         const map = L.map('property-map', {
             center: [approx.lat, approx.lng],
-            zoom: 15,
+            zoom: 17,
             scrollWheelZoom: false
         });
         propertyDetailsMapInstance = map;
