@@ -841,12 +841,16 @@ h1, h2, h3, h4 {
     border: 1px solid #bbf7d0;
     padding: 4px 10px;
     border-radius: 999px;
-    font-size: 0.8rem;
+    font-size: 0.81rem;
     font-weight: 600;
     text-decoration: none;
     transition: var(--transition);
     max-width: 100%;
-    word-break: break-all;
+    white-space: nowrap;
+}
+
+.wa-link svg {
+    flex-shrink: 0;
 }
 
 .wa-link:hover {
