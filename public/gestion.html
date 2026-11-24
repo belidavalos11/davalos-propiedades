@@ -19,7 +19,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/gestion.css?v=7">
+    <link rel="stylesheet" href="assets/css/gestion.css?v=8">
 </head>
 
 <body>
@@ -314,6 +314,8 @@
                             <button type="button" class="btn btn-primary" id="btn-new-contract">+ Nuevo contrato</button>
                         </div>
 
+                        <div id="contracts-relation-bar" class="relation-filter-bar hidden"></div>
+
                         <div class="table-container">
                             <table class="data-table" id="contracts-table">
                                 <thead>
@@ -360,6 +362,8 @@
                                 <button type="button" class="btn btn-primary" id="btn-new-property">+ Nueva propiedad</button>
                             </div>
                         </div>
+
+                        <div id="properties-relation-bar" class="relation-filter-bar hidden"></div>
 
                         <div class="table-container">
                             <table class="data-table" id="properties-table">
@@ -769,6 +773,26 @@
         </div>
     </div>
 
+    <!-- ==================== MODAL: FICHA VINCULADA (RELACIONES) ==================== -->
+    <div id="modal-relations" class="modal" role="dialog" aria-modal="true" aria-labelledby="relations-title">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <div>
+                    <span id="relations-eyebrow" class="relations-eyebrow">Vínculos</span>
+                    <h2 id="relations-title">Detalle</h2>
+                    <p id="relations-subtitle"></p>
+                </div>
+                <button type="button" class="modal-close" data-close-modal="modal-relations" aria-label="Cerrar">&times;</button>
+            </div>
+            <div id="relations-body" class="modal-body-pad relations-body">
+                <!-- Rendered by gestion.js -->
+            </div>
+            <div class="modal-footer" id="relations-footer">
+                <button type="button" class="btn btn-ghost" data-close-modal="modal-relations">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== MODAL: CONFIRMACIÓN ==================== -->
     <div id="modal-confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
         <div class="modal-dialog modal-xs">
@@ -876,7 +900,7 @@
     <script src="assets/js/config.js?v=12"></script>
     <script src="assets/js/firebase-config.js"></script>
     <script src="assets/js/auth.js?v=17"></script>
-    <script src="assets/js/gestion.js?v=8"></script>
+    <script src="assets/js/gestion.js?v=9"></script>
 </body>
 
 </html>

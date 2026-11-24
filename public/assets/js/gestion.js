@@ -69,7 +69,11 @@
         contracts: [],
         isAuthorized: false,
         confirmCallback: null,
-        nextUpdateManualOverride: false
+        nextUpdateManualOverride: false,
+        relationFilter: {
+            contracts: null,
+            properties: null
+        }
     };
 
     // ==================== UTILITIES ====================
@@ -195,6 +199,43 @@
     function getPropertyById(id) {
         if (!id) return null;
         return state.properties.find((p) => p.id === id) || null;
+    }
+
+    function getClientProperties(clientId) {
+        if (!clientId) return [];
+        return state.properties.filter((p) => p.ownerId === clientId);
+    }
+
+    function getPropertyContracts(propertyId) {
+        if (!propertyId) return [];
+        return state.contracts
+            .filter((c) => c.propertyId === propertyId)
+            .sort((a, b) => Number(isContractActive(b)) - Number(isContractActive(a)));
+    }
+
+    function getClientContracts(clientId) {
+        if (!clientId) return [];
+        const ownedPropertyIds = new Set(getClientProperties(clientId).map((p) => p.id));
+        return state.contracts
+            .filter((c) => c.tenantId === clientId || ownedPropertyIds.has(c.propertyId))
+            .map((c) => ({
+                contract: c,
+                relationRole: c.tenantId === clientId
+                    ? (ownedPropertyIds.has(c.propertyId) ? "Propietario e Inquilino" : "Inquilino")
+                    : "Propietario"
+            }))
+            .sort((a, b) => Number(isContractActive(b.contract)) - Number(isContractActive(a.contract)));
+    }
+
+    function buildWhatsappBadgeHtml(phone) {
+        const normalizedWa = normalizeArgPhone(phone);
+        if (!normalizedWa) return "";
+        return `<a href="https://wa.me/${escapeHtml(normalizedWa)}" target="_blank" rel="noopener noreferrer" class="wa-link" title="Abrir WhatsApp">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.625.846 5.059 2.284 7.033l-1.494 5.462 5.602-1.469c1.908 1.132 4.132 1.787 6.516 1.787 6.627 0 12-5.373 12-12s-5.373-12-12.908-12.813z"/>
+                    </svg>
+                    <span>${escapeHtml(phone)}</span>
+                </a>`;
     }
 
     function isContractActive(contract) {
@@ -672,13 +713,41 @@
             .join("");
     }
 
+    function renderRelationFilterBar(viewKey, barElementId) {
+        const bar = document.getElementById(barElementId);
+        if (!bar) return;
+        const rf = state.relationFilter[viewKey];
+        if (!rf) {
+            bar.classList.add("hidden");
+            bar.innerHTML = "";
+            return;
+        }
+        bar.classList.remove("hidden");
+        bar.innerHTML = `
+            <span>${escapeHtml(rf.label)}</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-clear-relation="${escapeHtml(viewKey)}">✕ Ver todos</button>
+        `;
+    }
+
     function renderContractsTable() {
         const tbody = document.getElementById("contracts-tbody");
         const query = (document.getElementById("contracts-search").value || "").trim().toLowerCase();
         const statusFilter = document.getElementById("contracts-filter-status").value;
         const currencyFilter = document.getElementById("contracts-filter-currency").value;
+        const relFilter = state.relationFilter.contracts;
+
+        renderRelationFilterBar("contracts", "contracts-relation-bar");
 
         const filtered = state.contracts.filter((c) => {
+            if (relFilter && relFilter.clientId) {
+                const prop = getPropertyById(c.propertyId);
+                const matchesTenant = c.tenantId === relFilter.clientId;
+                const matchesOwner = prop && prop.ownerId === relFilter.clientId;
+                if (!matchesTenant && !matchesOwner) return false;
+            }
+            if (relFilter && relFilter.propertyId && c.propertyId !== relFilter.propertyId) {
+                return false;
+            }
             const effStatus = getContractEffectiveStatus(c);
             if (statusFilter !== "todos" && effStatus !== statusFilter) return false;
             if (currencyFilter !== "todas" && (c.currency || "ARS") !== currencyFilter) return false;
@@ -749,7 +818,7 @@
                 const endLine = prop && prop.alias && prop.address ? ` · Vence ${formatDateAR(c.endDate)}` : "";
 
                 return `
-                    <tr>
+                    <tr class="row-clickable" data-open-contract="${escapeHtml(c.id)}">
                         <td data-label="Propiedad">
                             <div class="cell-stack">
                                 <span class="cell-primary">${escapeHtml(propTitle)}</span>
@@ -783,6 +852,10 @@
                             <div class="action-menu-wrap">
                                 <button type="button" class="btn-kebab" aria-label="Acciones del contrato" aria-expanded="false">⋮</button>
                                 <div class="action-dropdown">
+                                    <button type="button" data-action="view-contract-relations" data-id="${escapeHtml(c.id)}">Ver detalle y vínculos</button>
+                                    ${prop ? `<button type="button" data-action="view-property-relations" data-id="${escapeHtml(prop.id)}">Ver propiedad</button>` : ""}
+                                    ${tenant ? `<button type="button" data-action="view-client-relations" data-id="${escapeHtml(tenant.id)}">Ver inquilino</button>` : ""}
+                                    <div class="dropdown-divider"></div>
                                     <button type="button" data-action="edit-contract" data-id="${escapeHtml(c.id)}">Editar contrato</button>
                                     ${effStatus !== "finalizado"
                                         ? `<button type="button" data-action="adjust-contract" data-id="${escapeHtml(c.id)}">Registrar ajuste de monto</button>
@@ -802,8 +875,12 @@
         const tbody = document.getElementById("properties-tbody");
         const query = (document.getElementById("properties-search").value || "").trim().toLowerCase();
         const statusFilter = document.getElementById("properties-filter-status").value;
+        const relFilter = state.relationFilter.properties;
+
+        renderRelationFilterBar("properties", "properties-relation-bar");
 
         const filtered = state.properties.filter((p) => {
+            if (relFilter && relFilter.clientId && p.ownerId !== relFilter.clientId) return false;
             const eff = getPropertyEffectiveStatus(p);
             if (statusFilter !== "todos" && eff.status !== statusFilter) return false;
 
@@ -847,6 +924,11 @@
         tbody.innerHTML = filtered
             .map((p) => {
                 const owner = getClientById(p.ownerId);
+                const propContracts = getPropertyContracts(p.id);
+                const mainContract = propContracts[0] || null;
+                const activeTenant = mainContract && isContractActive(mainContract)
+                    ? getClientById(mainContract.tenantId)
+                    : null;
                 const eff = getPropertyEffectiveStatus(p);
                 const statusBadge =
                     eff.status === "alquilada"
@@ -884,13 +966,19 @@
                         <td data-label="Estado">
                             <div class="cell-stack">
                                 ${statusBadge}
-                                ${eff.viaContract ? '<span class="cell-secondary">Contrato activo</span>' : ""}
+                                ${activeTenant
+                                    ? `<span class="cell-secondary">Inq.: ${escapeHtml(activeTenant.fullName)}</span>`
+                                    : (eff.viaContract ? '<span class="cell-secondary">Contrato activo</span>' : "")}
                             </div>
                         </td>
                         <td data-label="Acciones" class="col-actions">
                             <div class="action-menu-wrap">
                                 <button type="button" class="btn-kebab" aria-label="Acciones de propiedad" aria-expanded="false">⋮</button>
                                 <div class="action-dropdown">
+                                    <button type="button" data-action="view-property-relations" data-id="${escapeHtml(p.id)}">Ver dueño y alquiler</button>
+                                    ${owner ? `<button type="button" data-action="view-client-relations" data-id="${escapeHtml(owner.id)}">Ver propietario</button>` : ""}
+                                    ${mainContract ? `<button type="button" data-action="view-contract-relations" data-id="${escapeHtml(mainContract.id)}">Ver contrato e inquilino</button>` : ""}
+                                    <div class="dropdown-divider"></div>
                                     <button type="button" data-action="edit-property" data-id="${escapeHtml(p.id)}">Ver / Editar ficha</button>
                                     <button type="button" class="danger" data-action="delete-property" data-id="${escapeHtml(p.id)}">Eliminar</button>
                                 </div>
@@ -950,18 +1038,15 @@
             .map((c) => {
                 const typeLabel = CLIENT_TYPE_LABELS[c.type] || c.type || "Cliente";
                 const badgeCls = CLIENT_TYPE_BADGE[c.type] || "badge-neutral";
-                const normalizedWa = normalizeArgPhone(c.phone);
+                const ownedProps = getClientProperties(c.id);
+                const clientContracts = getClientContracts(c.id);
                 const dniHtml = c.dni
                     ? `<span class="cell-mono">${escapeHtml(c.dni)}</span>`
                     : `<button type="button" class="btn-assign-mini" data-quick-edit="client" data-id="${escapeHtml(c.id)}" data-focus="client-dni">+ Cargar</button>`;
 
-                const whatsappHtml = normalizedWa
-                    ? `<a href="https://wa.me/${escapeHtml(normalizedWa)}" target="_blank" rel="noopener noreferrer" class="wa-link" title="Abrir WhatsApp">
-                           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
-                               <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.625.846 5.059 2.284 7.033l-1.494 5.462 5.602-1.469c1.908 1.132 4.132 1.787 6.516 1.787 6.627 0 12-5.373 12-12s-5.373-12-12.908-12.813z"/>
-                           </svg>
-                           <span>${escapeHtml(c.phone)}</span>
-                       </a>`
+                const whatsappBadge = buildWhatsappBadgeHtml(c.phone);
+                const whatsappHtml = whatsappBadge
+                    ? whatsappBadge
                     : `<button type="button" class="btn-assign-mini" data-quick-edit="client" data-id="${escapeHtml(c.id)}" data-focus="client-phone">+ Cargar</button>`;
 
                 return `
@@ -981,6 +1066,10 @@
                             <div class="action-menu-wrap">
                                 <button type="button" class="btn-kebab" aria-label="Acciones del cliente" aria-expanded="false">⋮</button>
                                 <div class="action-dropdown">
+                                    <button type="button" data-action="view-client-relations" data-id="${escapeHtml(c.id)}">Ver propiedades y contratos</button>
+                                    ${ownedProps.length > 0 ? `<button type="button" data-action="filter-client-properties" data-id="${escapeHtml(c.id)}">Ver sus propiedades (${ownedProps.length})</button>` : ""}
+                                    ${clientContracts.length > 0 ? `<button type="button" data-action="filter-client-contracts" data-id="${escapeHtml(c.id)}">Ver sus contratos (${clientContracts.length})</button>` : ""}
+                                    <div class="dropdown-divider"></div>
                                     <button type="button" data-action="edit-client" data-id="${escapeHtml(c.id)}">Editar</button>
                                     <button type="button" class="danger" data-action="delete-client" data-id="${escapeHtml(c.id)}">Eliminar</button>
                                 </div>
@@ -1799,6 +1888,342 @@
         });
     }
 
+    // ==================== RELATIONS / CROSS-LINK VIEWS ====================
+    function filterPropertiesByClient(clientId) {
+        const client = getClientById(clientId);
+        if (!client) return;
+        closeModal("modal-relations");
+        state.relationFilter.properties = {
+            clientId,
+            label: `Mostrando propiedades de: ${client.fullName}`
+        };
+        document.getElementById("properties-search").value = "";
+        document.getElementById("properties-filter-status").value = "todos";
+        renderPropertiesTable();
+        switchView("propiedades");
+    }
+
+    function filterContractsByClient(clientId) {
+        const client = getClientById(clientId);
+        if (!client) return;
+        closeModal("modal-relations");
+        state.relationFilter.contracts = {
+            clientId,
+            label: `Mostrando contratos vinculados a: ${client.fullName}`
+        };
+        document.getElementById("contracts-search").value = "";
+        document.getElementById("contracts-filter-status").value = "todos";
+        document.getElementById("contracts-filter-currency").value = "todas";
+        renderContractsTable();
+        switchView("contratos");
+    }
+
+    function openClientRelationsModal(clientId) {
+        const client = getClientById(clientId);
+        if (!client) return;
+
+        const typeLabel = CLIENT_TYPE_LABELS[client.type] || client.type || "Cliente";
+        const ownedProps = getClientProperties(client.id);
+        const clientContracts = getClientContracts(client.id);
+        const waHtml = buildWhatsappBadgeHtml(client.phone);
+
+        document.getElementById("relations-eyebrow").textContent = `Cliente · ${typeLabel}`;
+        document.getElementById("relations-title").textContent = client.fullName || "Cliente";
+        document.getElementById("relations-subtitle").textContent = client.email || client.address || "Ficha de vínculos con propiedades y contratos";
+
+        const propsCardsHtml = ownedProps.length
+            ? `<div class="rel-cards">
+                ${ownedProps.map((p) => {
+                    const eff = getPropertyEffectiveStatus(p);
+                    const badge = eff.status === "alquilada"
+                        ? '<span class="badge badge-primary">Alquilada</span>'
+                        : '<span class="badge badge-success">Disponible</span>';
+                    return `
+                        <div class="rel-card">
+                            <div class="rel-card-main">
+                                <span class="rel-card-title">${escapeHtml(p.alias || p.address || "Propiedad")}</span>
+                                <span class="rel-card-sub">${escapeHtml(p.address || "")}${p.neighborhood ? ` · ${escapeHtml(p.neighborhood)}` : ""}</span>
+                            </div>
+                            <div class="rel-card-actions">
+                                ${badge}
+                                <button type="button" class="btn btn-outline btn-sm" data-action="view-property-relations" data-id="${escapeHtml(p.id)}">Ver propiedad</button>
+                            </div>
+                        </div>
+                    `;
+                }).join("")}
+               </div>`
+            : `<div class="rel-empty">Este cliente todavía no tiene propiedades asignadas como propietario.</div>`;
+
+        const contractsCardsHtml = clientContracts.length
+            ? `<div class="rel-cards">
+                ${clientContracts.map(({ contract: c, relationRole }) => {
+                    const prop = getPropertyById(c.propertyId);
+                    const effStatus = getContractEffectiveStatus(c);
+                    const statusBadge = effStatus === "finalizado"
+                        ? '<span class="badge badge-neutral">Finalizado</span>'
+                        : effStatus === "por_vencer"
+                            ? '<span class="badge badge-warning">Por vencer</span>'
+                            : '<span class="badge badge-success">Activo</span>';
+                    return `
+                        <div class="rel-card">
+                            <div class="rel-card-main">
+                                <span class="rel-card-title">${escapeHtml(prop ? prop.alias || prop.address : "Propiedad")}</span>
+                                <span class="rel-card-sub">
+                                    Rol: <strong>${escapeHtml(relationRole)}</strong> · ${escapeHtml(formatCurrency(c.currentAmount, c.currency))} · Vence ${escapeHtml(formatDateAR(c.endDate))}
+                                </span>
+                            </div>
+                            <div class="rel-card-actions">
+                                ${statusBadge}
+                                <button type="button" class="btn btn-outline btn-sm" data-action="view-contract-relations" data-id="${escapeHtml(c.id)}">Ver contrato</button>
+                            </div>
+                        </div>
+                    `;
+                }).join("")}
+               </div>`
+            : `<div class="rel-empty">Este cliente todavía no tiene contratos vinculados.</div>`;
+
+        document.getElementById("relations-body").innerHTML = `
+            <div class="rel-info-grid">
+                <div class="rel-info-item">
+                    <span class="rel-info-label">DNI / CUIT</span>
+                    <span class="rel-info-val">${escapeHtml(client.dni || "Sin cargar")}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">WhatsApp</span>
+                    <span class="rel-info-val">${waHtml || "Sin cargar"}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Email</span>
+                    <span class="rel-info-val">${escapeHtml(client.email || "Sin cargar")}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Dirección</span>
+                    <span class="rel-info-val">${escapeHtml(client.address || "Sin cargar")}</span>
+                </div>
+            </div>
+
+            <div class="rel-section">
+                <div class="rel-section-header">
+                    <span class="rel-section-title">Propiedades (${ownedProps.length})</span>
+                    ${ownedProps.length > 0 ? `<button type="button" class="link-action" data-action="filter-client-properties" data-id="${escapeHtml(client.id)}">Ver en tabla Propiedades</button>` : ""}
+                </div>
+                ${propsCardsHtml}
+            </div>
+
+            <div class="rel-section">
+                <div class="rel-section-header">
+                    <span class="rel-section-title">Contratos (${clientContracts.length})</span>
+                    ${clientContracts.length > 0 ? `<button type="button" class="link-action" data-action="filter-client-contracts" data-id="${escapeHtml(client.id)}">Ver en tabla Contratos</button>` : ""}
+                </div>
+                ${contractsCardsHtml}
+            </div>
+        `;
+
+        document.getElementById("relations-footer").innerHTML = `
+            <button type="button" class="btn btn-ghost" data-close-modal="modal-relations">Cerrar</button>
+            <button type="button" class="btn btn-primary" data-action="edit-client" data-id="${escapeHtml(client.id)}">Editar cliente</button>
+        `;
+
+        openModal("modal-relations");
+    }
+
+    function openPropertyRelationsModal(propertyId) {
+        const prop = getPropertyById(propertyId);
+        if (!prop) return;
+
+        const owner = getClientById(prop.ownerId);
+        const propContracts = getPropertyContracts(prop.id);
+        const eff = getPropertyEffectiveStatus(prop);
+
+        document.getElementById("relations-eyebrow").textContent = eff.status === "alquilada" ? "Propiedad · Alquilada" : "Propiedad · Disponible";
+        document.getElementById("relations-title").textContent = prop.alias || prop.address || "Propiedad";
+        document.getElementById("relations-subtitle").textContent =
+            `${prop.address || ""}${prop.neighborhood ? ` · ${prop.neighborhood}` : ""}`;
+
+        const ownerCardHtml = owner
+            ? `<div class="rel-card">
+                   <div class="rel-card-main">
+                       <span class="rel-card-title">${escapeHtml(owner.fullName)}</span>
+                       <span class="rel-card-sub">${escapeHtml(owner.dni ? `DNI/CUIT: ${owner.dni}` : "Propietario asignado")}</span>
+                   </div>
+                   <div class="rel-card-actions">
+                       ${buildWhatsappBadgeHtml(owner.phone)}
+                       <button type="button" class="btn btn-outline btn-sm" data-action="view-client-relations" data-id="${escapeHtml(owner.id)}">Ver propietario</button>
+                   </div>
+               </div>`
+            : `<div class="rel-empty">Sin propietario asignado. <button type="button" class="btn-assign-mini" data-quick-edit="property" data-id="${escapeHtml(prop.id)}" data-focus="property-owner">+ Asignar</button></div>`;
+
+        const contractsHtml = propContracts.length
+            ? `<div class="rel-cards">
+                ${propContracts.map((c) => {
+                    const tenant = getClientById(c.tenantId);
+                    const effStatus = getContractEffectiveStatus(c);
+                    const statusBadge = effStatus === "finalizado"
+                        ? '<span class="badge badge-neutral">Finalizado</span>'
+                        : effStatus === "por_vencer"
+                            ? '<span class="badge badge-warning">Por vencer</span>'
+                            : '<span class="badge badge-success">Activo</span>';
+                    return `
+                        <div class="rel-card">
+                            <div class="rel-card-main">
+                                <span class="rel-card-title">Inquilino: ${escapeHtml(tenant ? tenant.fullName : "Sin asignar")}</span>
+                                <span class="rel-card-sub">
+                                    ${escapeHtml(formatCurrency(c.currentAmount, c.currency))} · ${escapeHtml(FREQUENCY_LABELS[c.updateFrequency] || "—")} (${escapeHtml(c.updateIndex || "—")}) · Vence ${escapeHtml(formatDateAR(c.endDate))}
+                                </span>
+                            </div>
+                            <div class="rel-card-actions">
+                                ${statusBadge}
+                                ${tenant ? `<button type="button" class="btn btn-ghost btn-sm" data-action="view-client-relations" data-id="${escapeHtml(tenant.id)}">Ver inquilino</button>` : ""}
+                                <button type="button" class="btn btn-outline btn-sm" data-action="view-contract-relations" data-id="${escapeHtml(c.id)}">Ver contrato</button>
+                            </div>
+                        </div>
+                    `;
+                }).join("")}
+               </div>`
+            : `<div class="rel-empty">Esta propiedad no tiene contratos de alquiler cargados todavía.</div>`;
+
+        document.getElementById("relations-body").innerHTML = `
+            <div class="rel-info-grid">
+                <div class="rel-info-item">
+                    <span class="rel-info-label">NIS (Luz)</span>
+                    <span class="rel-info-val">${prop.nis ? `<span class="nis-inline"><span class="cell-mono">${escapeHtml(prop.nis)}</span><button type="button" class="btn-copy-mini" data-copy-value="${escapeHtml(prop.nis)}">Copiar</button></span>` : "Sin cargar"}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Catastro / Matrícula</span>
+                    <span class="rel-info-val">${escapeHtml(prop.catastro || "Sin cargar")}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Agua / Gas</span>
+                    <span class="rel-info-val">${escapeHtml([prop.waterAccount ? `Agua: ${prop.waterAccount}` : "", prop.gasAccount ? `Gas: ${prop.gasAccount}` : ""].filter(Boolean).join(" · ") || "Sin cargar")}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Consorcio / Expensas</span>
+                    <span class="rel-info-val">${escapeHtml([prop.consorcioName, prop.consorcioContact].filter(Boolean).join(" · ") || "Sin cargar")}</span>
+                </div>
+            </div>
+
+            <div class="rel-section">
+                <div class="rel-section-header">
+                    <span class="rel-section-title">Propietario</span>
+                </div>
+                ${ownerCardHtml}
+            </div>
+
+            <div class="rel-section">
+                <div class="rel-section-header">
+                    <span class="rel-section-title">Alquileres / Contratos (${propContracts.length})</span>
+                </div>
+                ${contractsHtml}
+            </div>
+        `;
+
+        document.getElementById("relations-footer").innerHTML = `
+            <button type="button" class="btn btn-ghost" data-close-modal="modal-relations">Cerrar</button>
+            <button type="button" class="btn btn-primary" data-action="edit-property" data-id="${escapeHtml(prop.id)}">Editar ficha y servicios</button>
+        `;
+
+        openModal("modal-relations");
+    }
+
+    function openContractRelationsModal(contractId) {
+        const c = state.contracts.find((item) => item.id === contractId);
+        if (!c) return;
+
+        const prop = getPropertyById(c.propertyId);
+        const tenant = getClientById(c.tenantId);
+        const owner = prop ? getClientById(prop.ownerId) : null;
+        const effStatus = getContractEffectiveStatus(c);
+        const statusText = effStatus === "finalizado" ? "Finalizado" : effStatus === "por_vencer" ? "Por vencer" : "Activo";
+        const freqLabel = FREQUENCY_LABELS[c.updateFrequency] || c.updateFrequency || "—";
+
+        document.getElementById("relations-eyebrow").textContent = `Contrato · ${statusText}`;
+        document.getElementById("relations-title").textContent = prop ? prop.alias || prop.address : "Contrato";
+        document.getElementById("relations-subtitle").textContent =
+            `Vigencia: ${formatDateAR(c.startDate)} al ${formatDateAR(c.endDate)}`;
+
+        const propCardHtml = prop
+            ? `<div class="rel-card">
+                   <div class="rel-card-main">
+                       <span class="rel-card-title">${escapeHtml(prop.alias || prop.address)}</span>
+                       <span class="rel-card-sub">${escapeHtml(prop.address || "")}${prop.nis ? ` · NIS: ${escapeHtml(prop.nis)}` : ""}</span>
+                   </div>
+                   <div class="rel-card-actions">
+                       <button type="button" class="btn btn-outline btn-sm" data-action="view-property-relations" data-id="${escapeHtml(prop.id)}">Ver propiedad</button>
+                   </div>
+               </div>`
+            : `<div class="rel-empty">La propiedad vinculada ya no existe.</div>`;
+
+        const tenantCardHtml = tenant
+            ? `<div class="rel-card">
+                   <div class="rel-card-main">
+                       <span class="rel-card-title">${escapeHtml(tenant.fullName)}</span>
+                       <span class="rel-card-sub">${escapeHtml(tenant.dni ? `DNI/CUIT: ${tenant.dni}` : "Inquilino")}</span>
+                   </div>
+                   <div class="rel-card-actions">
+                       ${buildWhatsappBadgeHtml(tenant.phone)}
+                       <button type="button" class="btn btn-outline btn-sm" data-action="view-client-relations" data-id="${escapeHtml(tenant.id)}">Ver inquilino</button>
+                   </div>
+               </div>`
+            : `<div class="rel-empty">Sin inquilino asignado.</div>`;
+
+        const ownerCardHtml = owner
+            ? `<div class="rel-card">
+                   <div class="rel-card-main">
+                       <span class="rel-card-title">${escapeHtml(owner.fullName)}</span>
+                       <span class="rel-card-sub">Propietario del inmueble</span>
+                   </div>
+                   <div class="rel-card-actions">
+                       ${buildWhatsappBadgeHtml(owner.phone)}
+                       <button type="button" class="btn btn-outline btn-sm" data-action="view-client-relations" data-id="${escapeHtml(owner.id)}">Ver propietario</button>
+                   </div>
+               </div>`
+            : `<div class="rel-empty">La propiedad aún no tiene propietario asignado.</div>`;
+
+        document.getElementById("relations-body").innerHTML = `
+            <div class="rel-info-grid">
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Monto actual</span>
+                    <span class="rel-info-val">${escapeHtml(formatCurrency(c.currentAmount, c.currency))}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Ajuste</span>
+                    <span class="rel-info-val">${escapeHtml(c.updateFrequency === "sin_ajuste" ? "Sin ajuste" : `${freqLabel} · ${c.updateIndex || "—"}`)}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Próxima actualización</span>
+                    <span class="rel-info-val">${escapeHtml(c.nextUpdateDate ? formatDateAR(c.nextUpdateDate) : "No aplica")}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Observaciones</span>
+                    <span class="rel-info-val">${escapeHtml(c.notes || "Sin notas")}</span>
+                </div>
+            </div>
+
+            <div class="rel-section">
+                <div class="rel-section-header"><span class="rel-section-title">Propiedad</span></div>
+                ${propCardHtml}
+            </div>
+
+            <div class="rel-section">
+                <div class="rel-section-header"><span class="rel-section-title">Inquilino</span></div>
+                ${tenantCardHtml}
+            </div>
+
+            <div class="rel-section">
+                <div class="rel-section-header"><span class="rel-section-title">Propietario</span></div>
+                ${ownerCardHtml}
+            </div>
+        `;
+
+        document.getElementById("relations-footer").innerHTML = `
+            <button type="button" class="btn btn-ghost" data-close-modal="modal-relations">Cerrar</button>
+            ${effStatus !== "finalizado" ? `<button type="button" class="btn btn-outline" data-action="adjust-contract" data-id="${escapeHtml(c.id)}">Registrar ajuste</button>` : ""}
+            <button type="button" class="btn btn-primary" data-action="edit-contract" data-id="${escapeHtml(c.id)}">Editar contrato</button>
+        `;
+
+        openModal("modal-relations");
+    }
+
     // ==================== DROPDOWN HANDLING ====================
     function closeAllDropdowns() {
         document.querySelectorAll(".action-dropdown.show").forEach((dd) => {
@@ -2014,8 +2439,15 @@
             }
         });
 
-        // Global delegated click handling (dropdowns, table actions, quick copy, row click)
+        // Global delegated click handling (close modals, dropdowns, table actions, quick copy, row click)
         document.addEventListener("click", (e) => {
+            const closeModalBtn = e.target.closest("[data-close-modal]");
+            if (closeModalBtn) {
+                e.stopPropagation();
+                closeModal(closeModalBtn.dataset.closeModal);
+                return;
+            }
+
             const kebabBtn = e.target.closest(".btn-kebab");
             if (kebabBtn) {
                 e.stopPropagation();
@@ -2030,6 +2462,18 @@
                 return;
             }
 
+            const clearRelBtn = e.target.closest("[data-clear-relation]");
+            if (clearRelBtn) {
+                e.stopPropagation();
+                const viewKey = clearRelBtn.dataset.clearRelation;
+                if (viewKey && state.relationFilter[viewKey]) {
+                    state.relationFilter[viewKey] = null;
+                    if (viewKey === "contracts") renderContractsTable();
+                    if (viewKey === "properties") renderPropertiesTable();
+                }
+                return;
+            }
+
             const quickEditBtn = e.target.closest("[data-quick-edit]");
             if (quickEditBtn) {
                 e.stopPropagation();
@@ -2037,6 +2481,7 @@
                 const id = quickEditBtn.dataset.id;
                 const focusField = quickEditBtn.dataset.focus;
                 closeAllDropdowns();
+                closeModal("modal-relations");
 
                 if (targetType === "property") openPropertyModal(id);
                 else if (targetType === "client") openClientModal(id);
@@ -2053,15 +2498,20 @@
                 const id = actionBtn.dataset.id;
                 closeAllDropdowns();
 
-                if (action === "edit-contract") openContractModal(id);
-                else if (action === "adjust-contract") openAdjustmentModal(id);
+                if (action === "view-client-relations") openClientRelationsModal(id);
+                else if (action === "view-property-relations") openPropertyRelationsModal(id);
+                else if (action === "view-contract-relations") openContractRelationsModal(id);
+                else if (action === "filter-client-properties") filterPropertiesByClient(id);
+                else if (action === "filter-client-contracts") filterContractsByClient(id);
+                else if (action === "edit-contract") { closeModal("modal-relations"); openContractModal(id); }
+                else if (action === "adjust-contract") { closeModal("modal-relations"); openAdjustmentModal(id); }
                 else if (action === "finalize-contract") requestFinalizeContract(id);
                 else if (action === "reactivate-contract") requestReactivateContract(id);
                 else if (action === "delete-contract") requestDeleteContract(id);
-                else if (action === "edit-property") openPropertyModal(id);
+                else if (action === "edit-property") { closeModal("modal-relations"); openPropertyModal(id); }
                 else if (action === "delete-property") requestDeleteProperty(id);
                 else if (action === "import-catalog") requestImportFromCatalog();
-                else if (action === "edit-client") openClientModal(id);
+                else if (action === "edit-client") { closeModal("modal-relations"); openClientModal(id); }
                 else if (action === "delete-client") requestDeleteClient(id);
                 return;
             }
@@ -2075,6 +2525,13 @@
             const propRow = e.target.closest("tr[data-open-property]");
             if (propRow && !e.target.closest("button, a, .action-menu-wrap")) {
                 openPropertyModal(propRow.dataset.openProperty);
+                return;
+            }
+
+            // Clickable contract row opens linked contract detail modal
+            const contractRow = e.target.closest("tr[data-open-contract]");
+            if (contractRow && !e.target.closest("button, a, .action-menu-wrap")) {
+                openContractRelationsModal(contractRow.dataset.openContract);
             }
         });
     }
