@@ -19,7 +19,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/gestion.css?v=5">
+    <link rel="stylesheet" href="assets/css/gestion.css?v=6">
 </head>
 
 <body>
@@ -78,7 +78,7 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <a href="#resumen" id="sidebar-brand-home" class="sidebar-brand" title="Ir a Resumen">
+                <a href="index.html" class="sidebar-brand" title="Ir a la página principal">
                     <img src="assets/images/logo-horizontal.svg" alt="DÁVALOS PROPIEDADES" class="sidebar-logo">
                 </a>
                 <span class="sidebar-badge">Gestión Interna</span>
@@ -154,8 +154,13 @@
         <div class="main-wrapper">
             <header class="topbar">
                 <div class="topbar-left">
-                    <h1 id="topbar-title" class="topbar-title">Resumen</h1>
-                    <p id="topbar-subtitle" class="topbar-subtitle">Estado general de contratos, propiedades y clientes</p>
+                    <a href="index.html" class="topbar-mobile-logo" title="Ir a la página principal">
+                        <img src="assets/images/logo-horizontal.svg" alt="DÁVALOS PROPIEDADES">
+                    </a>
+                    <div>
+                        <h1 id="topbar-title" class="topbar-title">Resumen</h1>
+                        <p id="topbar-subtitle" class="topbar-subtitle">Estado general de contratos, propiedades y clientes</p>
+                    </div>
                 </div>
                 <div class="topbar-right">
                     <button type="button" id="btn-refresh-data" class="btn btn-ghost btn-sm" title="Actualizar datos">
@@ -174,8 +179,12 @@
                             <span class="user-role">SUPER_ADMIN</span>
                         </div>
                     </div>
-                    <button type="button" id="btn-logout-mobile" class="btn btn-ghost btn-sm mobile-only-btn"
-                        title="Cerrar sesión" aria-label="Cerrar sesión">Salir</button>
+                    <button type="button" id="btn-open-admin-drawer" class="btn-admin-hamburger"
+                        aria-label="Abrir menú de opciones" title="Menú de administración">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
                 </div>
             </header>
 
@@ -779,6 +788,83 @@
         </div>
     </div>
 
+    <!-- Panel Lateral Desplegable (idéntico al de la página principal) -->
+    <div id="admin-drawer-overlay" class="admin-drawer-overlay"></div>
+    <aside id="admin-drawer" class="admin-drawer" aria-label="Menú de administración">
+        <div class="admin-drawer-header">
+            <div class="admin-drawer-user-info">
+                <span class="admin-drawer-badge">Panel Privado</span>
+                <strong id="drawer-user-name" class="admin-drawer-user-name">Usuario</strong>
+                <span id="drawer-user-role" class="admin-drawer-user-role">Super Administrador</span>
+            </div>
+            <button type="button" id="btn-close-admin-drawer" class="admin-drawer-close" aria-label="Cerrar panel">&times;</button>
+        </div>
+
+        <div class="admin-drawer-body">
+            <div class="admin-drawer-section">
+                <span class="admin-drawer-section-title">Sitio Principal</span>
+                <a href="index.html" class="btn-drawer-action">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span>Ir a Página Principal</span>
+                </a>
+            </div>
+
+            <div class="admin-drawer-section">
+                <span class="admin-drawer-section-title">Publicaciones</span>
+                <a href="index.html?action=publish" class="btn-drawer-action btn-drawer-primary">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Publicar Propiedad</span>
+                </a>
+            </div>
+
+            <div class="admin-drawer-section">
+                <span class="admin-drawer-section-title">Administración</span>
+                <button type="button" id="btn-drawer-stay-gestion" class="btn-drawer-action btn-drawer-current">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span>Gestión Inmobiliaria</span>
+                </button>
+                <a href="index.html?action=team" class="btn-drawer-action">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Gestionar Equipo</span>
+                </a>
+                <a href="index.html?action=settings" class="btn-drawer-action">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span>Configuración</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="admin-drawer-footer">
+            <button type="button" id="btn-drawer-logout" class="btn-drawer-action btn-drawer-logout">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span>Cerrar Sesión</span>
+            </button>
+        </div>
+    </aside>
+
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
@@ -790,7 +876,7 @@
     <script src="assets/js/config.js?v=12"></script>
     <script src="assets/js/firebase-config.js"></script>
     <script src="assets/js/auth.js?v=17"></script>
-    <script src="assets/js/gestion.js?v=6"></script>
+    <script src="assets/js/gestion.js?v=7"></script>
 </body>
 
 </html>

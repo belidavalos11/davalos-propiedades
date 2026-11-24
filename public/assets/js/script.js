@@ -4198,6 +4198,36 @@ async function init() {
             }
         })();
     }
+
+    // Accesos directos desde Gestión Inmobiliaria (?action=publish | team | settings)
+    const pendingAction = urlParams.get("action");
+    if (pendingAction && ["publish", "team", "settings"].includes(pendingAction)) {
+        (async () => {
+            if (window.AuthManager && window.AuthManager._readyPromise) {
+                try { await window.AuthManager._readyPromise; } catch (_) {}
+            }
+            const manager = window.AuthManager;
+            if (manager && manager.isLoggedIn()) {
+                for (let i = 0; i < 30 && !manager.getUserRole(); i++) {
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                if (pendingAction === "publish" && typeof openPropertyModal === "function") {
+                    openPropertyModal();
+                } else if (pendingAction === "team") {
+                    const teamBtn = document.getElementById("btn-team");
+                    if (teamBtn) teamBtn.click();
+                } else if (pendingAction === "settings") {
+                    const settingsBtn = document.getElementById("btn-settings");
+                    if (settingsBtn) settingsBtn.click();
+                }
+            }
+            try {
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete("action");
+                window.history.replaceState({}, document.title, cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : "") + cleanUrl.hash);
+            } catch (_) {}
+        })();
+    }
 }
 
 /**

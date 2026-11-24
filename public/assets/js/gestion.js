@@ -441,6 +441,8 @@
 
         document.getElementById("current-user-name").textContent = authStatus.displayName || "Admin";
         document.getElementById("user-avatar-initials").textContent = getInitials(authStatus.displayName);
+        const drawerNameEl = document.getElementById("drawer-user-name");
+        if (drawerNameEl) drawerNameEl.textContent = authStatus.displayName || "Admin";
 
         document.getElementById("auth-checking-screen").classList.add("hidden");
         document.getElementById("restricted-screen").classList.add("hidden");
@@ -1833,13 +1835,29 @@
             btn.addEventListener("click", () => switchView(btn.dataset.view));
         });
 
-        const brandHome = document.getElementById("sidebar-brand-home");
-        if (brandHome) {
-            brandHome.addEventListener("click", (e) => {
-                e.preventDefault();
-                switchView("resumen");
-            });
-        }
+        // Admin drawer (matching home page top-right menu)
+        const adminDrawer = document.getElementById("admin-drawer");
+        const adminDrawerOverlay = document.getElementById("admin-drawer-overlay");
+        const openAdminDrawer = () => {
+            if (adminDrawer) adminDrawer.classList.add("active");
+            if (adminDrawerOverlay) adminDrawerOverlay.classList.add("active");
+            document.body.style.overflow = "hidden";
+        };
+        const closeAdminDrawer = () => {
+            if (adminDrawer) adminDrawer.classList.remove("active");
+            if (adminDrawerOverlay) adminDrawerOverlay.classList.remove("active");
+            if (!document.querySelector(".modal.open")) {
+                document.body.style.overflow = "";
+            }
+        };
+
+        const btnOpenDrawer = document.getElementById("btn-open-admin-drawer");
+        if (btnOpenDrawer) btnOpenDrawer.addEventListener("click", openAdminDrawer);
+        const btnCloseDrawer = document.getElementById("btn-close-admin-drawer");
+        if (btnCloseDrawer) btnCloseDrawer.addEventListener("click", closeAdminDrawer);
+        if (adminDrawerOverlay) adminDrawerOverlay.addEventListener("click", closeAdminDrawer);
+        const btnStayGestion = document.getElementById("btn-drawer-stay-gestion");
+        if (btnStayGestion) btnStayGestion.addEventListener("click", closeAdminDrawer);
 
         // KPI clickable shortcuts
         document.querySelectorAll(".kpi-clickable").forEach((card) => {
@@ -1899,7 +1917,13 @@
         };
 
         document.getElementById("btn-logout").addEventListener("click", doLogout);
-        document.getElementById("btn-logout-mobile").addEventListener("click", doLogout);
+        const btnDrawerLogout = document.getElementById("btn-drawer-logout");
+        if (btnDrawerLogout) {
+            btnDrawerLogout.addEventListener("click", async () => {
+                closeAdminDrawer();
+                await doLogout();
+            });
+        }
         document.getElementById("btn-restricted-logout").addEventListener("click", doLogout);
 
         // Refresh button
@@ -1975,9 +1999,10 @@
             });
         });
 
-        // Escape key closes modals and dropdowns
+        // Escape key closes drawer, modals and dropdowns
         document.addEventListener("keydown", (e) => {
             if (e.key === "Escape") {
+                closeAdminDrawer();
                 closeAllDropdowns();
                 const openModals = document.querySelectorAll(".modal.open");
                 if (openModals.length > 0) {
