@@ -791,8 +791,10 @@ function updateAuthUI() {
     }
 
     const btnTeam = document.getElementById("btn-team");
+    const btnGestionCrm = document.getElementById("btn-gestion-crm");
     const isSuperAdmin = Boolean(logged && manager.hasPermission(manager.Permissions.MANAGE_USERS));
     if (btnTeam) btnTeam.style.display = isSuperAdmin ? "inline-flex" : "none";
+    if (btnGestionCrm) btnGestionCrm.style.display = isSuperAdmin ? "inline-flex" : "none";
     if (isSuperAdmin) startTeamWatch(); else stopTeamWatch();
 
     const greeting = document.getElementById("user-greeting");

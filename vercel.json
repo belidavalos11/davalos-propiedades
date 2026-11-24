@@ -19,6 +19,14 @@
       "destination": "/public/details.html"
     },
     {
+      "source": "/gestion",
+      "destination": "/public/gestion.html"
+    },
+    {
+      "source": "/gestion.html",
+      "destination": "/public/gestion.html"
+    },
+    {
       "source": "/admin",
       "destination": "/public/admin/index.html"
     },

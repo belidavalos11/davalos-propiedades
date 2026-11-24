@@ -130,11 +130,11 @@ service cloud.firestore {
     // ---------- Usuarios y roles ----------
     match /users/{userId} {
       // Cualquier consulta o lectura de usuarios activos está permitida (necesario para selector de agente y ficha de propiedad);
-      // para el resto (pendientes/inactivos), solo el propio usuario o ADMIN / SUPER_ADMIN activo.
-      allow get: if (resource.data.status in ['active', 'ACTIVE'])
-        || (signedIn() && (request.auth.uid == userId || isAdminOrSuperAdmin()));
-      allow list: if (resource.data.status in ['active', 'ACTIVE'])
-        || isAdminOrSuperAdmin();
+      // para el resto (pendientes/inactivos o perfil aún inexistente), solo el propio usuario o ADMIN / SUPER_ADMIN activo.
+      allow get: if (signedIn() && (request.auth.uid == userId || isAdminOrSuperAdmin()))
+        || (resource != null && resource.data.status in ['active', 'ACTIVE']);
+      allow list: if isAdminOrSuperAdmin()
+        || (resource != null && resource.data.status in ['active', 'ACTIVE']);
 
       // Solicitud propia (AGENT / pending) o reclamo de arranque (SUPER_ADMIN / active) si nadie lo reclamo aun.
       allow create: if signedInWithGoogle()
@@ -159,6 +159,19 @@ service cloud.firestore {
         && getAfter(profilePath()).data.status == 'active'
         && (isSuperAdmin() || !hasProfile());
       allow update, delete: if false;
+    }
+
+    // ---------- Gestión Inmobiliaria Interna (exclusiva SUPER_ADMIN) ----------
+    match /crm_clients/{clientId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    match /crm_properties/{propertyId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    match /crm_contracts/{contractId} {
+      allow read, write: if isSuperAdmin();
     }
 
     match /{document=**} {

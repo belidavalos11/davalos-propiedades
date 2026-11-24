@@ -281,9 +281,14 @@ const AuthManager = {
         let hadUser = Boolean(window.auth.currentUser && !window.auth.currentUser.isAnonymous);
         window.auth.onAuthStateChanged(u => {
             const real = Boolean(u && !u.isAnonymous);
-            if (real) { hadUser = true; return; }
+            if (real) {
+                hadUser = true;
+                return;
+            }
             if (!hadUser) return;
             hadUser = false;
+            const intentional = Boolean(this._intentionalSignOut);
+            this._intentionalSignOut = false;
             this._clearGoogleSession();
             if (typeof window.updateAuthUI === "function") {
                 try { window.updateAuthUI(); } catch (_) {}
@@ -291,7 +296,9 @@ const AuthManager = {
             if (typeof window.applyFilters === "function") {
                 try { window.applyFilters(); } catch (_) {}
             }
-            try { alert("Tu sesiÃ³n expirÃ³. VolvÃ© a iniciar sesiÃ³n para continuar."); } catch (_) {}
+            if (!intentional) {
+                try { alert("Tu sesión expiró. Volvé a iniciar sesión para continuar."); } catch (_) {}
+            }
         });
     },
 
@@ -333,6 +340,7 @@ const AuthManager = {
             const user = result.user;
             if (!user || !user.emailVerified) {
                 const email = user && user.email;
+                this._intentionalSignOut = true;
                 await window.auth.signOut().catch(() => {});
                 this._clearGoogleSession();
                 return { success: false, reason: "unauthorized", email };
@@ -354,6 +362,7 @@ const AuthManager = {
                 }, user);
             }
 
+            this._intentionalSignOut = true;
             await window.auth.signOut().catch(() => {});
             this._clearGoogleSession();
             return {
@@ -367,6 +376,7 @@ const AuthManager = {
                 return { success: false, reason: "cancelled" };
             }
             console.error("[Auth] Error en login con Google:", e);
+            this._intentionalSignOut = true;
             await window.auth.signOut().catch(() => {});
             this._clearGoogleSession();
             return { success: false, reason: e.code || "error", error: e.message };
@@ -408,16 +418,16 @@ const AuthManager = {
                 return null;
             case "pending":
                 return res.created
-                    ? "Tu solicitud de acceso fue enviada. El administrador revisarÃ¡ tu cuenta a la brevedad."
-                    : "Tu solicitud de acceso sigue pendiente de aprobaciÃ³n. El administrador revisarÃ¡ tu cuenta a la brevedad.";
+                    ? "Tu solicitud de acceso fue enviada. El administrador revisará tu cuenta a la brevedad."
+                    : "Tu solicitud de acceso sigue pendiente de aprobación. El administrador revisará tu cuenta a la brevedad.";
             case "inactive":
-                return "Tu cuenta estÃ¡ suspendida. ContactÃ¡ al administrador para reactivarla.";
+                return "Tu cuenta está suspendida. Contactá al administrador para reactivarla.";
             case "unauthorized":
-                return "No se pudo verificar tu cuenta de Google. UsÃ¡ una cuenta con el correo verificado.";
+                return "No se pudo verificar tu cuenta de Google. Usá una cuenta con el correo verificado.";
             case "permission-denied":
-                return "No se pudo registrar tu solicitud por falta de permisos. ContactÃ¡ al administrador.";
+                return "No se pudo registrar tu solicitud por falta de permisos. Contactá al administrador.";
             default:
-                return "No se pudo iniciar sesiÃ³n con Google. IntentÃ¡ nuevamente.";
+                return "No se pudo iniciar sesión con Google. Intentá nuevamente.";
         }
     },
 
@@ -768,6 +778,7 @@ const AuthManager = {
         localStorage.removeItem("davalos_current_user");
         localStorage.removeItem("davalos_google_user");
         if (window.auth) {
+            this._intentionalSignOut = true;
             window.auth.signOut().catch(e => console.error("Firebase SignOut Error:", e));
         }
     },

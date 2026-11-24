@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión Inmobiliaria | DÁVALOS PROPIEDADES</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#001556">
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+    <!-- Typography (matching Dávalos Propiedades) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/gestion.css?v=5">
+</head>
+
+<body>
+    <!-- Initial Auth Verification Screen -->
+    <div id="auth-checking-screen" class="gate-screen">
+        <div class="gate-card">
+            <img src="assets/images/logo-horizontal.svg" alt="DÁVALOS PROPIEDADES" class="gate-logo">
+            <div class="spinner" aria-hidden="true"></div>
+            <h2>Verificando acceso...</h2>
+            <p>Validando credenciales de administración.</p>
+        </div>
+    </div>
+
+    <!-- Restricted Access Screen (default when unauthenticated or not SUPER_ADMIN) -->
+    <div id="restricted-screen" class="gate-screen hidden">
+        <div class="gate-card">
+            <img src="assets/images/logo-horizontal.svg" alt="DÁVALOS PROPIEDADES" class="gate-logo">
+            <div class="gate-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <h1>Acceso restringido</h1>
+            <p id="restricted-message">
+                Esta sección de Gestión Inmobiliaria es exclusiva para usuarios autenticados con rol
+                <strong>SUPER_ADMIN</strong>.
+            </p>
+            <div id="restricted-user-info" class="restricted-user-badge hidden"></div>
+
+            <!-- Google Login Action for Unauthenticated Users -->
+            <div id="gestion-login-box" class="gate-login-box hidden">
+                <button type="button" id="btn-google-login" class="btn btn-google btn-full">
+                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>
+                        <path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.565 24 12.255 24z"/>
+                        <path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/>
+                        <path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.69 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/>
+                    </svg>
+                    <span>Continuar con Google</span>
+                </button>
+                <p id="login-error-msg" class="form-error hidden" role="alert"></p>
+            </div>
+
+            <div class="gate-actions">
+                <button type="button" id="btn-restricted-logout" class="btn btn-outline hidden">Cerrar sesión e
+                    ingresar con otra cuenta</button>
+                <a href="index.html" class="btn btn-ghost">← Volver al catálogo público</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard App (only shown to verified SUPER_ADMIN) -->
+    <div id="app-shell" class="app-shell hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="#resumen" id="sidebar-brand-home" class="sidebar-brand" title="Ir a Resumen">
+                    <img src="assets/images/logo-horizontal.svg" alt="DÁVALOS PROPIEDADES" class="sidebar-logo">
+                </a>
+                <span class="sidebar-badge">Gestión Interna</span>
+            </div>
+
+            <nav class="sidebar-nav" aria-label="Navegación principal">
+                <button type="button" class="nav-item active" data-view="resumen">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span>Resumen</span>
+                </button>
+                <button type="button" class="nav-item" data-view="contratos">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    <span>Contratos</span>
+                    <span class="nav-count" id="nav-count-contratos">0</span>
+                </button>
+                <button type="button" class="nav-item" data-view="propiedades">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span>Propiedades</span>
+                    <span class="nav-count" id="nav-count-propiedades">0</span>
+                </button>
+                <button type="button" class="nav-item" data-view="clientes">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Clientes</span>
+                    <span class="nav-count" id="nav-count-clientes">0</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="index.html" class="sidebar-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                    Catálogo público
+                </a>
+                <button type="button" id="btn-logout" class="sidebar-link sidebar-link-danger">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Cerrar sesión
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="main-wrapper">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h1 id="topbar-title" class="topbar-title">Resumen</h1>
+                    <p id="topbar-subtitle" class="topbar-subtitle">Estado general de contratos, propiedades y clientes</p>
+                </div>
+                <div class="topbar-right">
+                    <button type="button" id="btn-refresh-data" class="btn btn-ghost btn-sm" title="Actualizar datos">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        <span class="hide-xs">Actualizar</span>
+                    </button>
+                    <div class="user-pill">
+                        <span class="user-avatar" id="user-avatar-initials">SA</span>
+                        <div class="user-meta">
+                            <span class="user-name" id="current-user-name">Admin</span>
+                            <span class="user-role">SUPER_ADMIN</span>
+                        </div>
+                    </div>
+                    <button type="button" id="btn-logout-mobile" class="btn btn-ghost btn-sm mobile-only-btn"
+                        title="Cerrar sesión" aria-label="Cerrar sesión">Salir</button>
+                </div>
+            </header>
+
+            <!-- Mobile Tabs Bar -->
+            <nav class="mobile-tabs" aria-label="Navegación móvil">
+                <button type="button" class="mobile-tab active" data-view="resumen">Resumen</button>
+                <button type="button" class="mobile-tab" data-view="contratos">Contratos</button>
+                <button type="button" class="mobile-tab" data-view="propiedades">Propiedades</button>
+                <button type="button" class="mobile-tab" data-view="clientes">Clientes</button>
+            </nav>
+
+            <!-- Global Alert Banner (e.g., Firestore permission notice) -->
+            <div id="global-alert-banner" class="alert-banner hidden" role="alert"></div>
+
+            <main class="main-content">
+                <!-- ==================== VIEW 1: RESUMEN ==================== -->
+                <section id="view-resumen" class="view-section active">
+                    <div class="kpi-grid">
+                        <article class="kpi-card">
+                            <div class="kpi-header">
+                                <span class="kpi-label">Contratos activos</span>
+                                <span class="kpi-icon kpi-icon-primary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                    </svg>
+                                </span>
+                            </div>
+                            <div class="kpi-value" id="kpi-active-contracts">0</div>
+                            <p class="kpi-sub" id="kpi-active-contracts-sub">Vigentes actualmente</p>
+                        </article>
+
+                        <article class="kpi-card kpi-clickable" data-jump-view="contratos">
+                            <div class="kpi-header">
+                                <span class="kpi-label">Actualizaciones (30 días)</span>
+                                <span class="kpi-icon kpi-icon-warning">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                                        <polyline points="17 6 23 6 23 12"></polyline>
+                                    </svg>
+                                </span>
+                            </div>
+                            <div class="kpi-value" id="kpi-updates-30">0</div>
+                            <p class="kpi-sub" id="kpi-updates-30-sub">Ajustes próximos o pendientes</p>
+                        </article>
+
+                        <article class="kpi-card kpi-clickable" data-jump-view="contratos" data-jump-filter="por_vencer">
+                            <div class="kpi-header">
+                                <span class="kpi-label">Por vencer (60 días)</span>
+                                <span class="kpi-icon kpi-icon-danger">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                </span>
+                            </div>
+                            <div class="kpi-value" id="kpi-expiring-60">0</div>
+                            <p class="kpi-sub" id="kpi-expiring-60-sub">Contratos próximos a finalizar</p>
+                        </article>
+
+                        <article class="kpi-card kpi-clickable" data-jump-view="clientes">
+                            <div class="kpi-header">
+                                <span class="kpi-label">Total de clientes</span>
+                                <span class="kpi-icon kpi-icon-success">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </span>
+                            </div>
+                            <div class="kpi-value" id="kpi-total-clients">0</div>
+                            <p class="kpi-sub" id="kpi-total-clients-sub">Propietarios, inquilinos y garantes</p>
+                        </article>
+                    </div>
+
+                    <div class="panel-card">
+                        <div class="panel-card-header">
+                            <div>
+                                <h2>Próximas actualizaciones de alquiler</h2>
+                                <p>Ordenadas por fecha más cercana. Registrá el ajuste directamente desde aquí.</p>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm" id="btn-quick-new-contract">+ Nuevo contrato</button>
+                        </div>
+                        <div id="upcoming-updates-list" class="updates-list">
+                            <!-- Rendered by gestion.js -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW 2: CONTRATOS ==================== -->
+                <section id="view-contratos" class="view-section">
+                    <div class="panel-card">
+                        <div class="toolbar">
+                            <div class="toolbar-filters">
+                                <div class="search-box">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                    </svg>
+                                    <input type="search" id="contracts-search"
+                                        placeholder="Buscar por propiedad, inquilino, índice...">
+                                </div>
+                                <select id="contracts-filter-status" aria-label="Filtrar por estado">
+                                    <option value="todos">Estado: Todos</option>
+                                    <option value="activo">Activo</option>
+                                    <option value="por_vencer">Por vencer</option>
+                                    <option value="finalizado">Finalizado</option>
+                                </select>
+                                <select id="contracts-filter-currency" aria-label="Filtrar por moneda">
+                                    <option value="todas">Moneda: Todas</option>
+                                    <option value="ARS">Pesos (ARS)</option>
+                                    <option value="USD">Dólares (USD)</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="btn-new-contract">+ Nuevo contrato</button>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table" id="contracts-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 24%;">Propiedad</th>
+                                        <th style="width: 19%;">Inquilino</th>
+                                        <th style="width: 17%;">Monto y Moneda</th>
+                                        <th style="width: 17%;">Ajuste</th>
+                                        <th style="width: 17%;">Próx. actualización</th>
+                                        <th style="width: 6%;" class="col-actions">Acc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="contracts-tbody">
+                                    <!-- Rendered by gestion.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW 3: PROPIEDADES ==================== -->
+                <section id="view-propiedades" class="view-section">
+                    <div class="panel-card">
+                        <div class="toolbar">
+                            <div class="toolbar-filters">
+                                <div class="search-box">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                    </svg>
+                                    <input type="search" id="properties-search"
+                                        placeholder="Buscar por alias, dirección, propietario, NIS...">
+                                </div>
+                                <select id="properties-filter-status" aria-label="Filtrar por estado">
+                                    <option value="todos">Estado: Todos</option>
+                                    <option value="alquilada">Alquilada</option>
+                                    <option value="disponible">Disponible</option>
+                                </select>
+                            </div>
+                            <div class="toolbar-actions">
+                                <button type="button" class="btn btn-outline" id="btn-import-catalog">Importar del catálogo</button>
+                                <button type="button" class="btn btn-primary" id="btn-new-property">+ Nueva propiedad</button>
+                            </div>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table" id="properties-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 34%;">Dirección / Alias</th>
+                                        <th style="width: 24%;">Propietario</th>
+                                        <th style="width: 20%;">NIS Luz</th>
+                                        <th style="width: 15%;">Estado</th>
+                                        <th style="width: 7%;" class="col-actions">Acc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="properties-tbody">
+                                    <!-- Rendered by gestion.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW 4: CLIENTES ==================== -->
+                <section id="view-clientes" class="view-section">
+                    <div class="panel-card">
+                        <div class="toolbar">
+                            <div class="toolbar-filters">
+                                <div class="search-box">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                    </svg>
+                                    <input type="search" id="clients-search"
+                                        placeholder="Buscar por nombre, DNI/CUIT, teléfono, email...">
+                                </div>
+                                <select id="clients-filter-type" aria-label="Filtrar por tipo de cliente">
+                                    <option value="todos">Tipo: Todos</option>
+                                    <option value="propietario">Propietarios</option>
+                                    <option value="inquilino">Inquilinos</option>
+                                    <option value="garante">Garantes</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="btn-new-client">+ Nuevo cliente</button>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table" id="clients-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 31%;">Nombre completo</th>
+                                        <th style="width: 17%;">Tipo</th>
+                                        <th style="width: 19%;">DNI / CUIT</th>
+                                        <th style="width: 26%;">WhatsApp</th>
+                                        <th style="width: 7%;" class="col-actions">Acc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clients-tbody">
+                                    <!-- Rendered by gestion.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: CONTRATO ==================== -->
+    <div id="modal-contract" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-contract-title">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-contract-title">Nuevo Contrato</h2>
+                    <p id="modal-contract-subtitle">Vinculá propiedad, inquilino y reglas de actualización.</p>
+                </div>
+                <button type="button" class="modal-close" data-close-modal="modal-contract" aria-label="Cerrar">&times;</button>
+            </div>
+            <form id="form-contract" class="modal-form" novalidate>
+                <input type="hidden" id="contract-id">
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="contract-property">Propiedad <span class="req">*</span></label>
+                        <select id="contract-property" required>
+                            <option value="">Seleccionar propiedad...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contract-tenant">Inquilino <span class="req">*</span></label>
+                        <select id="contract-tenant" required>
+                            <option value="">Seleccionar inquilino...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="contract-start-date">Fecha de inicio <span class="req">*</span></label>
+                        <input type="date" id="contract-start-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="contract-end-date">Fecha de vencimiento <span class="req">*</span></label>
+                        <input type="date" id="contract-end-date" required>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="contract-amount">Monto actual <span class="req">*</span></label>
+                        <input type="number" id="contract-amount" min="1" step="any" placeholder="Ej. 450000" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="contract-currency">Moneda <span class="req">*</span></label>
+                        <select id="contract-currency" required>
+                            <option value="ARS">Pesos (ARS)</option>
+                            <option value="USD">Dólares (USD)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="contract-frequency">Frecuencia de actualización <span class="req">*</span></label>
+                        <select id="contract-frequency" required>
+                            <option value="mensual">Mensual</option>
+                            <option value="bimestral">Bimestral</option>
+                            <option value="trimestral" selected>Trimestral</option>
+                            <option value="cuatrimestral">Cuatrimestral</option>
+                            <option value="semestral">Semestral</option>
+                            <option value="anual">Anual</option>
+                            <option value="sin_ajuste">Sin ajuste</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contract-index">Índice de actualización <span class="req">*</span></label>
+                        <select id="contract-index" required>
+                            <option value="ICL">ICL</option>
+                            <option value="IPC">IPC</option>
+                            <option value="Casa Propia">Casa Propia</option>
+                            <option value="Porcentaje fijo">Porcentaje fijo</option>
+                            <option value="Acuerdo entre partes">Acuerdo entre partes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <div class="label-with-action">
+                            <label for="contract-next-update">Próxima fecha de actualización</label>
+                            <button type="button" id="btn-recalc-next-update" class="link-action">Recalcular</button>
+                        </div>
+                        <input type="date" id="contract-next-update">
+                        <small class="field-hint" id="contract-next-update-hint">Sugerida automáticamente según inicio y frecuencia (editable).</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="contract-status">Estado del contrato</label>
+                        <select id="contract-status">
+                            <option value="activo">Activo</option>
+                            <option value="finalizado">Finalizado</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="contract-notes">Observaciones / Notas</label>
+                    <textarea id="contract-notes" rows="3"
+                        placeholder="Ej. Pago del 1 al 10, depósito en garantía, garantes, condiciones especiales..."></textarea>
+                </div>
+
+                <p id="contract-form-error" class="form-error hidden" role="alert"></p>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close-modal="modal-contract">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-contract">Guardar contrato</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: REGISTRAR AJUSTE DE MONTO ==================== -->
+    <div id="modal-adjustment" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-adjustment-title">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-adjustment-title">Registrar ajuste de monto</h2>
+                    <p id="modal-adjustment-subtitle">Actualizá el canon locativo y la próxima fecha.</p>
+                </div>
+                <button type="button" class="modal-close" data-close-modal="modal-adjustment" aria-label="Cerrar">&times;</button>
+            </div>
+            <form id="form-adjustment" class="modal-form" novalidate>
+                <input type="hidden" id="adjustment-contract-id">
+                <div class="summary-callout" id="adjustment-contract-summary"></div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="adjustment-new-amount">Nuevo monto <span class="req">*</span></label>
+                        <input type="number" id="adjustment-new-amount" min="1" step="any" required placeholder="Nuevo importe">
+                    </div>
+                    <div class="form-group">
+                        <label for="adjustment-next-date">Nueva próx. actualización</label>
+                        <input type="date" id="adjustment-next-date">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="adjustment-note">Detalle del ajuste (opcional)</label>
+                    <input type="text" id="adjustment-note" placeholder="Ej. Ajuste trimestral IPC +12,4%">
+                </div>
+
+                <p id="adjustment-form-error" class="form-error hidden" role="alert"></p>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close-modal="modal-adjustment">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-adjustment">Aplicar ajuste</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: PROPIEDAD (FICHA INTERNA Y SERVICIOS) ==================== -->
+    <div id="modal-property" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-property-title">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-property-title">Nueva Propiedad</h2>
+                    <p>Ficha interna de administración, servicios e impuestos.</p>
+                </div>
+                <button type="button" class="modal-close" data-close-modal="modal-property" aria-label="Cerrar">&times;</button>
+            </div>
+            <form id="form-property" class="modal-form" novalidate>
+                <input type="hidden" id="property-id">
+
+                <div class="form-section-title">Datos básicos</div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="property-alias">Alias / Nombre interno <span class="req">*</span></label>
+                        <input type="text" id="property-alias" required placeholder="Ej. Depto Tres Cerritos 2B">
+                    </div>
+                    <div class="form-group">
+                        <label for="property-address">Dirección real <span class="req">*</span></label>
+                        <input type="text" id="property-address" required placeholder="Ej. Av. Bicentenario 1240, Piso 2 B">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="property-neighborhood">Barrio / Zona</label>
+                        <input type="text" id="property-neighborhood" placeholder="Ej. Tres Cerritos">
+                    </div>
+                    <div class="form-group">
+                        <label for="property-owner">Propietario</label>
+                        <select id="property-owner">
+                            <option value="">Sin asignar</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="property-catastro">N° de Catastro / Matrícula</label>
+                        <div class="copy-input-group">
+                            <input type="text" id="property-catastro" placeholder="Ej. Catastro 145820">
+                            <button type="button" class="btn-copy" data-copy-target="property-catastro" title="Copiar N° de Catastro">Copiar</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="property-status">Estado manual</label>
+                        <select id="property-status">
+                            <option value="disponible">Disponible</option>
+                            <option value="alquilada">Alquilada</option>
+                        </select>
+                        <small class="field-hint" id="property-status-hint">Si posee un contrato activo, se mostrará automáticamente como Alquilada.</small>
+                    </div>
+                </div>
+
+                <div class="services-box">
+                    <div class="form-section-title">Servicios e Impuestos</div>
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="property-nis">NIS (Luz / EDESA)</label>
+                            <div class="copy-input-group">
+                                <input type="text" id="property-nis" placeholder="Ej. 3045128">
+                                <button type="button" class="btn-copy" data-copy-target="property-nis" title="Copiar NIS">Copiar</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="property-water">N° de Cuenta / Usuario Agua</label>
+                            <div class="copy-input-group">
+                                <input type="text" id="property-water" placeholder="Ej. 00123456">
+                                <button type="button" class="btn-copy" data-copy-target="property-water" title="Copiar cuenta de Agua">Copiar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="property-gas">N° de Cuenta Gas</label>
+                            <div class="copy-input-group">
+                                <input type="text" id="property-gas" placeholder="Ej. 88901234">
+                                <button type="button" class="btn-copy" data-copy-target="property-gas" title="Copiar cuenta de Gas">Copiar</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="property-municipal">Partida Municipal / Inmobiliario</label>
+                            <div class="copy-input-group">
+                                <input type="text" id="property-municipal" placeholder="Ej. 45-00231-9">
+                                <button type="button" class="btn-copy" data-copy-target="property-municipal" title="Copiar Partida Municipal">Copiar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="property-consorcio-name">Consorcio / Expensas (Nombre)</label>
+                            <div class="copy-input-group">
+                                <input type="text" id="property-consorcio-name" placeholder="Ej. Adm. Norte SRL">
+                                <button type="button" class="btn-copy" data-copy-target="property-consorcio-name" title="Copiar nombre del consorcio">Copiar</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="property-consorcio-contact">Consorcio / Expensas (Contacto)</label>
+                            <div class="copy-input-group">
+                                <input type="text" id="property-consorcio-contact" placeholder="Ej. 387-5123456 / expensas@...">
+                                <button type="button" class="btn-copy" data-copy-target="property-consorcio-contact" title="Copiar contacto del consorcio">Copiar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="property-notes">Notas internas</label>
+                    <textarea id="property-notes" rows="2" placeholder="Llaves, cochera, observaciones de mantenimiento..."></textarea>
+                </div>
+
+                <p id="property-form-error" class="form-error hidden" role="alert"></p>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close-modal="modal-property">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-property">Guardar propiedad</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: CLIENTE ==================== -->
+    <div id="modal-client" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-client-title">
+        <div class="modal-dialog modal-md">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-client-title">Nuevo Cliente</h2>
+                    <p>Registrá propietarios, inquilinos o garantes.</p>
+                </div>
+                <button type="button" class="modal-close" data-close-modal="modal-client" aria-label="Cerrar">&times;</button>
+            </div>
+            <form id="form-client" class="modal-form" novalidate>
+                <input type="hidden" id="client-id">
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="client-name">Nombre y apellido <span class="req">*</span></label>
+                        <input type="text" id="client-name" required placeholder="Ej. María Laura Gómez">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-type">Tipo <span class="req">*</span></label>
+                        <select id="client-type" required>
+                            <option value="propietario">Propietario</option>
+                            <option value="inquilino">Inquilino</option>
+                            <option value="ambos">Ambos (Prop. e Inq.)</option>
+                            <option value="garante">Garante</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="client-dni">DNI / CUIT</label>
+                        <input type="text" id="client-dni" placeholder="Ej. 27-32456789-4">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-phone">Teléfono / WhatsApp</label>
+                        <input type="tel" id="client-phone" placeholder="Ej. 3874123456">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="client-email">Email</label>
+                        <input type="email" id="client-email" placeholder="cliente@ejemplo.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-address">Dirección</label>
+                        <input type="text" id="client-address" placeholder="Domicilio particular">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="client-notes">Notas internas</label>
+                    <textarea id="client-notes" rows="3" placeholder="Preferencias de contacto, CBU, datos adicionales..."></textarea>
+                </div>
+
+                <p id="client-form-error" class="form-error hidden" role="alert"></p>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close-modal="modal-client">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-client">Guardar cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: CONFIRMACIÓN ==================== -->
+    <div id="modal-confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <div class="modal-dialog modal-xs">
+            <div class="modal-header">
+                <div>
+                    <h2 id="confirm-title">Confirmar acción</h2>
+                </div>
+                <button type="button" class="modal-close" data-close-modal="modal-confirm" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body-pad">
+                <p id="confirm-message" class="confirm-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-close-modal="modal-confirm">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-ok">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Firebase SDK (same version & setup as public/index.html) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="assets/js/config.js?v=12"></script>
+    <script src="assets/js/firebase-config.js"></script>
+    <script src="assets/js/auth.js?v=17"></script>
+    <script src="assets/js/gestion.js?v=6"></script>
+</body>
+
+</html>
