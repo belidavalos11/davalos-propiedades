@@ -4249,8 +4249,70 @@ textarea {
 [data-theme="dark"] .contact-section,
 [data-theme="dark"] .opportunities-section,
 [data-theme="dark"] .categories-section,
-[data-theme="dark"] .properties {
+[data-theme="dark"] .properties,
+[data-theme="dark"] .map-section {
     background-color: var(--background);
+    background: var(--background);
+}
+
+[data-theme="dark"] .section-badge {
+    color: #f4f3ef;
+}
+
+[data-theme="dark"] .section-subtitle {
+    color: #c7c6c1;
+}
+
+[data-theme="dark"] #catalog-map,
+[data-theme="dark"] .visible-map,
+[data-theme="dark"] .map-section .map-container,
+[data-theme="dark"] .property-picker-map {
+    border-color: #243047;
+    background: #0f172a;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .leaflet-tile-pane {
+    filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(90%);
+}
+
+[data-theme="dark"] .leaflet-popup-content-wrapper,
+[data-theme="dark"] .leaflet-popup-tip {
+    background: #111827;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .map-popup-title,
+[data-theme="dark"] .map-popup-price {
+    color: #f4f3ef;
+}
+
+[data-theme="dark"] .map-popup-features {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .map-popup-btn {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .map-popup-btn:hover {
+    background: #1d4ed8;
+}
+
+[data-theme="dark"] .leaflet-control-zoom a {
+    background: #111827;
+    color: #f4f3ef;
+    border-color: #243047;
+}
+
+[data-theme="dark"] .leaflet-control-zoom a:hover {
+    background: #1e293b;
+}
+
+[data-theme="dark"] .form-group-location {
+    background: #141d2e !important;
+    border-color: #243047 !important;
 }
 
 [data-theme="dark"] .footer {
