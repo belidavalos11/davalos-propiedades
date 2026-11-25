@@ -4199,6 +4199,8 @@ textarea {
 
 [data-theme="dark"] .property-card,
 [data-theme="dark"] .about-card,
+[data-theme="dark"] .about-card-content,
+[data-theme="dark"] .about-pillar,
 [data-theme="dark"] .about-box,
 [data-theme="dark"] .value-card,
 [data-theme="dark"] .contact-card,
@@ -4207,14 +4209,32 @@ textarea {
 [data-theme="dark"] .contact-item,
 [data-theme="dark"] .map-card,
 [data-theme="dark"] .empty-state-card,
-[data-theme="dark"] .btn-google-login {
+[data-theme="dark"] .btn-google-login,
+[data-theme="dark"] .btn-google {
     background: #111827;
     border-color: #243047;
     color: #e2e8f0;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
-[data-theme="dark"] .btn-google-login:hover {
+[data-theme="dark"] .about-card-content p,
+[data-theme="dark"] .about-pillar p {
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] .about-card-content strong,
+[data-theme="dark"] .about-pillar h3 {
+    color: #f4f3ef;
+}
+
+[data-theme="dark"] .about-pillar-icon {
+    background: rgba(96, 165, 250, 0.14);
+    color: #93c5fd;
+    border: 1px solid rgba(96, 165, 250, 0.25);
+}
+
+[data-theme="dark"] .btn-google-login:hover,
+[data-theme="dark"] .btn-google:hover {
     background: #182234;
     border-color: #3b82f6;
 }

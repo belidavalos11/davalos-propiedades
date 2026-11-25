@@ -1341,6 +1341,113 @@ body {
 }
 
 [data-theme="dark"] .spec-item,
-[data-theme="dark"] .amenity-pill {
+[data-theme="dark"] .amenity-pill,
+[data-theme="dark"] .amenity-chip,
+[data-theme="dark"] .property-type-tag,
+[data-theme="dark"] .memory-box {
     background: #182234;
+    border-color: #243047;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .amenity-chip:hover {
+    background: #24324c;
+}
+
+[data-theme="dark"] .sidebar-price-number {
+    color: #f4f3ef;
+}
+
+[data-theme="dark"] .sidebar-expensas-tag {
+    background: #182234;
+    color: #cbd5e1;
+    border: 1px solid #243047;
+}
+
+[data-theme="dark"] .sidebar-agent-card {
+    background: #182234;
+    border-color: #243047;
+}
+
+[data-theme="dark"] .agent-card-badge {
+    background: rgba(96, 165, 250, 0.16);
+    color: #93c5fd;
+}
+
+[data-theme="dark"] .agent-name-title {
+    color: #f4f3ef;
+}
+
+[data-theme="dark"] .agent-license-subtitle {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .super-admin-agent-selector-wrap {
+    border-top-color: #334155;
+}
+
+[data-theme="dark"] .agent-selector-label {
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] .agent-select-control {
+    background-color: #111827;
+    color: #f4f3ef;
+    border-color: #334155;
+}
+
+[data-theme="dark"] .agent-select-control:disabled {
+    background-color: #141d2e;
+}
+
+[data-theme="dark"] .consultant-name-input {
+    background: #182234;
+    color: #f4f3ef;
+    border-color: #334155;
+}
+
+[data-theme="dark"] .consultant-name-input:focus {
+    background: #111827;
+}
+
+[data-theme="dark"] .btn-util-action {
+    background: #182234;
+    color: #e2e8f0;
+    border-color: #334155;
+}
+
+[data-theme="dark"] .btn-util-action:hover {
+    background: #24324c;
+    color: #ffffff;
+    border-color: #475569;
+}
+
+[data-theme="dark"] .btn-util-action.btn-util-edit {
+    background: rgba(59, 130, 246, 0.16);
+    color: #93c5fd;
+    border-color: rgba(96, 165, 250, 0.35);
+}
+
+[data-theme="dark"] .btn-util-action.btn-util-edit:hover {
+    background: rgba(59, 130, 246, 0.28);
+    color: #ffffff;
+    border-color: #60a5fa;
+}
+
+[data-theme="dark"] .gallery-nav-btn,
+[data-theme="dark"] .gallery-expand-btn {
+    background: rgba(15, 23, 42, 0.85);
+    color: #f4f3ef;
+    border: 1px solid #334155;
+}
+
+[data-theme="dark"] .gallery-nav-btn:hover,
+[data-theme="dark"] .gallery-expand-btn:hover {
+    background: #1e293b;
+}
+
+[data-theme="dark"] .floating-contact .btn-outline {
+    background: #182234;
+    color: #f4f3ef;
+    border-color: #334155;
 }
