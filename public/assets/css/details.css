@@ -1451,3 +1451,37 @@ body {
     color: #f4f3ef;
     border-color: #334155;
 }
+
+[data-theme="dark"] .btn-nav-whatsapp {
+    background: rgba(34, 197, 94, 0.14);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: #6ee7b7;
+    box-shadow: none;
+}
+
+[data-theme="dark"] .btn-nav-whatsapp:hover {
+    background: rgba(22, 163, 74, 0.3);
+    border-color: rgba(74, 222, 128, 0.6);
+    color: #f4f3ef;
+    box-shadow: 0 4px 12px rgba(21, 128, 61, 0.25);
+}
+
+[data-theme="dark"] .btn-sidebar-whatsapp {
+    background-color: rgba(34, 197, 94, 0.16);
+    border: 1px solid rgba(52, 211, 153, 0.42);
+    color: #86efac !important;
+    box-shadow: none;
+}
+
+[data-theme="dark"] .btn-sidebar-whatsapp:hover {
+    background-color: #15803d;
+    border-color: #22c55e;
+    color: #f4f3ef !important;
+    box-shadow: 0 6px 18px rgba(21, 128, 61, 0.32);
+}
+
+[data-theme="dark"] .floating-contact .btn-whatsapp {
+    background-color: #15803d;
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    color: #f4f3ef;
+}
