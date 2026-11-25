@@ -43,8 +43,9 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=19">
-    <link rel="stylesheet" href="assets/css/loader.css?v=4">
+    <script src="assets/js/theme.js?v=1"></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=20">
+    <link rel="stylesheet" href="assets/css/loader.css?v=5">
     <!-- Leaflet & MarkerCluster CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
@@ -79,8 +80,24 @@
                 <a href="#contacto" class="nav-link" data-nav-target="contacto">Contacto</a>
             </nav>
 
-            <!-- Bloque derecho: Saludo al usuario + Botón hamburguesa / acceso contra el margen -->
+            <!-- Bloque derecho: Tema + Saludo al usuario + Botón hamburguesa / acceso contra el margen -->
             <div class="header-right-actions">
+                <button type="button" class="btn-theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" title="Cambiar a modo oscuro">
+                    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
                 <button id="btn-login" class="nav-link btn-link-style btn-header-login">Acceso</button>
                 <span id="user-greeting" class="user-greeting" style="display: none;"></span>
                 <button id="btn-open-admin-drawer" class="btn-admin-hamburger" style="display: none;" aria-label="Abrir panel de opciones" title="Menú de administración">

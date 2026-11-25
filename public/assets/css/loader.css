@@ -3,6 +3,11 @@
     --loader-color: var(--primary, #050e36);
 }
 
+[data-theme="dark"] {
+    --loader-bg: #0b1120;
+    --loader-color: #f8fafc;
+}
+
 .page-loader {
     position: fixed;
     top: 0;

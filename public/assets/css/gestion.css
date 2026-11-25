@@ -2087,3 +2087,295 @@ h1, h2, h3, h4 {
     color: var(--text-light);
     margin-top: 2px;
 }
+
+/* ==================== THEME TOGGLE BUTTON (GESTIÓN) ==================== */
+.btn-theme-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.btn-theme-toggle:hover {
+    background: var(--primary-soft);
+    border-color: var(--primary-border);
+}
+
+.btn-theme-toggle .icon-sun {
+    display: none;
+}
+
+.btn-theme-toggle.is-dark .icon-moon {
+    display: none;
+}
+
+.btn-theme-toggle.is-dark .icon-sun {
+    display: block;
+}
+
+/* ==================== DARK MODE (GESTIÓN INMOBILIARIA) ==================== */
+[data-theme="dark"] {
+    --primary: #3b82f6;
+    --primary-dark: #2563eb;
+    --primary-soft: rgba(59, 130, 246, 0.16);
+    --primary-border: rgba(96, 165, 250, 0.35);
+    --secondary: #e2e8f0;
+    --background: #0b1120;
+    --surface: #111827;
+    --surface-muted: #182234;
+    --border: #243047;
+    --border-light: #1e293b;
+    --text: #e2e8f0;
+    --text-dark: #f8fafc;
+    --text-light: #94a3b8;
+    --white: #ffffff;
+
+    --success: #34d399;
+    --success-bg: rgba(16, 185, 129, 0.14);
+    --success-border: rgba(52, 211, 153, 0.32);
+
+    --warning: #fbbf24;
+    --warning-bg: rgba(245, 158, 11, 0.14);
+    --warning-border: rgba(251, 191, 36, 0.32);
+
+    --danger: #f87171;
+    --danger-bg: rgba(239, 68, 68, 0.15);
+    --danger-border: rgba(248, 113, 113, 0.34);
+
+    --info: #60a5fa;
+    --info-bg: rgba(59, 130, 246, 0.16);
+    --info-border: rgba(96, 165, 250, 0.34);
+
+    --neutral: #cbd5e1;
+    --neutral-bg: rgba(148, 163, 184, 0.14);
+    --neutral-border: rgba(148, 163, 184, 0.28);
+
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.32);
+    --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .gate-logo,
+[data-theme="dark"] .sidebar-logo,
+[data-theme="dark"] .topbar-mobile-logo img {
+    filter: brightness(0) invert(1);
+}
+
+[data-theme="dark"] .btn-theme-toggle {
+    background: #182234;
+    border-color: #334155;
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .btn-theme-toggle:hover {
+    background: #24324c;
+    border-color: rgba(251, 191, 36, 0.55);
+}
+
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .mobile-tabs,
+[data-theme="dark"] .panel-card,
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .modal-dialog,
+[data-theme="dark"] .action-dropdown,
+[data-theme="dark"] .admin-drawer {
+    background: var(--surface);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .sidebar-badge,
+[data-theme="dark"] .nav-count,
+[data-theme="dark"] .user-pill {
+    background: var(--surface-muted);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .nav-item:hover {
+    background: var(--surface-muted);
+    color: var(--text-dark);
+}
+
+[data-theme="dark"] .nav-item.active {
+    background: var(--primary-soft);
+    color: #93c5fd;
+}
+
+[data-theme="dark"] .btn-admin-hamburger {
+    border-color: #334155;
+    background: #182234;
+}
+
+[data-theme="dark"] .btn-admin-hamburger span {
+    background: #e2e8f0;
+}
+
+[data-theme="dark"] .btn-admin-hamburger:hover {
+    background: #24324c;
+    border-color: #60a5fa;
+}
+
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="tel"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+    background: #182234;
+    color: #f1f5f9;
+    border-color: #2c3a55;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .search-box input {
+    background: #182234;
+    border-color: #2c3a55;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .data-table th {
+    background: #141d2e;
+    color: #94a3b8;
+    border-bottom-color: var(--border);
+}
+
+[data-theme="dark"] .data-table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.08);
+}
+
+[data-theme="dark"] .data-table td {
+    border-bottom-color: var(--border-light);
+}
+
+[data-theme="dark"] .services-box,
+[data-theme="dark"] .rel-info-item,
+[data-theme="dark"] .rel-card,
+[data-theme="dark"] .update-item,
+[data-theme="dark"] .excel-dropzone,
+[data-theme="dark"] .excel-options-bar,
+[data-theme="dark"] .excel-preview-table-wrap,
+[data-theme="dark"] .excel-preview-table th {
+    background: #141d2e;
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .excel-preview-table {
+    color: var(--text);
+}
+
+[data-theme="dark"] .excel-preview-table td {
+    border-bottom-color: var(--border-light);
+}
+
+[data-theme="dark"] .excel-pill {
+    background: rgba(59, 130, 246, 0.18);
+    color: #93c5fd;
+}
+
+[data-theme="dark"] .excel-pill-success {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+[data-theme="dark"] .excel-pill-warning {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+[data-theme="dark"] .excel-pill-muted {
+    background: var(--neutral-bg);
+    color: var(--neutral);
+}
+
+[data-theme="dark"] .btn-outline,
+[data-theme="dark"] .btn-ghost,
+[data-theme="dark"] .btn-copy,
+[data-theme="dark"] .btn-copy-mini,
+[data-theme="dark"] .btn-assign-mini,
+[data-theme="dark"] .btn-kebab {
+    background: #182234;
+    color: #e2e8f0;
+    border-color: #334155;
+}
+
+[data-theme="dark"] .btn-outline:hover,
+[data-theme="dark"] .btn-ghost:hover,
+[data-theme="dark"] .btn-copy:hover,
+[data-theme="dark"] .btn-copy-mini:hover,
+[data-theme="dark"] .btn-assign-mini:hover,
+[data-theme="dark"] .btn-kebab:hover {
+    background: #24324c;
+    color: #ffffff;
+    border-color: #475569;
+}
+
+[data-theme="dark"] .action-dropdown button {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .action-dropdown button:hover {
+    background: #1e293b;
+}
+
+[data-theme="dark"] .btn-drawer-action {
+    background: #182234;
+    border-color: #2c3a55;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .btn-drawer-action svg {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-drawer-action:hover {
+    background: #24324c;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .btn-drawer-action.btn-drawer-primary,
+[data-theme="dark"] .btn-drawer-action.btn-drawer-current {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .btn-drawer-action.btn-drawer-primary svg,
+[data-theme="dark"] .btn-drawer-action.btn-drawer-current svg {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .btn-drawer-action.btn-drawer-logout {
+    background: rgba(220, 38, 38, 0.14);
+    border-color: rgba(248, 113, 113, 0.35);
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .btn-drawer-action.btn-drawer-logout svg {
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer,
+[data-theme="dark"] .admin-drawer-footer {
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .toast {
+    background: #1e293b;
+    border: 1px solid #334155;
+}
