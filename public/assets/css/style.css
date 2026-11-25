@@ -4182,17 +4182,19 @@ textarea {
 }
 
 /* Sections & Property Cards */
-[data-theme="dark"] .section-title {
-    color: #f8fafc;
-}
-
-[data-theme="dark"] .categories-eyebrow {
-    color: #93c5fd;
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] .categories-title,
+[data-theme="dark"] .categories-eyebrow,
+[data-theme="dark"] .section-title,
+[data-theme="dark"] .search-card-title {
+    color: #f4f3ef;
 }
 
 [data-theme="dark"] .featured-left-subtitle,
 [data-theme="dark"] .categories-subtitle {
-    color: #94a3b8;
+    color: #c7c6c1;
 }
 
 [data-theme="dark"] .property-card,
