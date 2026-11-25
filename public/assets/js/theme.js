@@ -35,10 +35,37 @@
         });
     }
 
+    const INLINE_THEME_VARS = [
+        "--primary",
+        "--primary-dark",
+        "--gold-light",
+        "--gold-dark",
+        "--secondary",
+        "--background",
+        "--surface",
+        "--text",
+        "--text-light",
+        "--text-dark",
+        "--loader-bg",
+        "--loader-color"
+    ];
+
+    function clearInlineBrandThemeVars() {
+        const rootStyle = document.documentElement.style;
+        INLINE_THEME_VARS.forEach((v) => rootStyle.removeProperty(v));
+    }
+
     function applyTheme(theme, persist = false) {
         const normalized = theme === "dark" ? "dark" : "light";
         document.documentElement.setAttribute("data-theme", normalized);
         document.documentElement.style.colorScheme = normalized;
+
+        if (normalized === "dark") {
+            clearInlineBrandThemeVars();
+        } else if (typeof window.applyBrandThemeColors === "function") {
+            window.applyBrandThemeColors();
+        }
+
         if (persist) {
             try {
                 localStorage.setItem(STORAGE_KEY, normalized);

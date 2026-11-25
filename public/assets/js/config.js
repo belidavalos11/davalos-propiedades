@@ -460,36 +460,45 @@ window.updatePageSeoMeta = function (meta = {}) {
     canonical.setAttribute("href", url);
 };
 
+window.applyBrandThemeColors = function () {
+    const cfg = window.SITE_CONFIG;
+    if (!cfg || !cfg.theme) return;
+    const root = document.documentElement;
+    if (root.getAttribute("data-theme") === "dark") return;
+
+    if (cfg.theme.primary) {
+        root.style.setProperty("--primary", cfg.theme.primary);
+        root.style.setProperty("--gold-light", cfg.theme.primary);
+    }
+    if (cfg.theme.primaryDark) {
+        root.style.setProperty("--primary-dark", cfg.theme.primaryDark);
+        root.style.setProperty("--gold-dark", cfg.theme.primaryDark);
+    }
+    if (cfg.theme.secondary) root.style.setProperty("--secondary", cfg.theme.secondary);
+    if (cfg.theme.background) root.style.setProperty("--background", cfg.theme.background);
+    if (cfg.theme.surface) root.style.setProperty("--surface", cfg.theme.surface);
+    if (cfg.theme.text) root.style.setProperty("--text", cfg.theme.text);
+    if (cfg.theme.textLight) root.style.setProperty("--text-light", cfg.theme.textLight);
+    if (cfg.theme.textDark) root.style.setProperty("--text-dark", cfg.theme.textDark);
+    if (cfg.theme.loaderBg) root.style.setProperty("--loader-bg", cfg.theme.loaderBg);
+    if (cfg.theme.loaderColor) root.style.setProperty("--loader-color", cfg.theme.loaderColor);
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme && cfg.theme.primary) {
+        metaTheme.setAttribute("content", cfg.theme.primary);
+    }
+};
+
 function applySiteConfig() {
     const cfg = window.SITE_CONFIG;
     if (!cfg) return;
 
     const root = document.documentElement;
 
-    // 1. Inyectar variables CSS (:root)
+    // 1. Inyectar variables CSS (:root) respetando el modo oscuro activo
     if (cfg.theme) {
-        if (cfg.theme.primary) {
-            root.style.setProperty("--primary", cfg.theme.primary);
-            root.style.setProperty("--gold-light", cfg.theme.primary);
-        }
-        if (cfg.theme.primaryDark) {
-            root.style.setProperty("--primary-dark", cfg.theme.primaryDark);
-            root.style.setProperty("--gold-dark", cfg.theme.primaryDark);
-        }
-        if (cfg.theme.secondary) root.style.setProperty("--secondary", cfg.theme.secondary);
-        if (cfg.theme.background) root.style.setProperty("--background", cfg.theme.background);
-        if (cfg.theme.surface) root.style.setProperty("--surface", cfg.theme.surface);
-        if (cfg.theme.text) root.style.setProperty("--text", cfg.theme.text);
-        if (cfg.theme.textLight) root.style.setProperty("--text-light", cfg.theme.textLight);
-        if (cfg.theme.textDark) root.style.setProperty("--text-dark", cfg.theme.textDark);
-        if (cfg.theme.loaderBg) root.style.setProperty("--loader-bg", cfg.theme.loaderBg);
-        if (cfg.theme.loaderColor) root.style.setProperty("--loader-color", cfg.theme.loaderColor);
         if (cfg.theme.fontFamily) root.style.setProperty("--font-main", cfg.theme.fontFamily);
-
-        const metaTheme = document.querySelector('meta[name="theme-color"]');
-        if (metaTheme && cfg.theme.primary) {
-            metaTheme.setAttribute("content", cfg.theme.primary);
-        }
+        window.applyBrandThemeColors();
     }
 
     // 1.1 Inicializar metadatos SEO y Open Graph base desde config.js

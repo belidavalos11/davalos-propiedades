@@ -2200,6 +2200,35 @@ h1, h2, h3, h4 {
     color: var(--text);
 }
 
+[data-theme="dark"] .user-name,
+[data-theme="dark"] .kpi-value,
+[data-theme="dark"] .panel-header h2,
+[data-theme="dark"] .topbar-title {
+    color: var(--text-dark);
+}
+
+[data-theme="dark"] .user-role,
+[data-theme="dark"] .kpi-label,
+[data-theme="dark"] .kpi-sub,
+[data-theme="dark"] .topbar-subtitle {
+    color: var(--text-light);
+}
+
+[data-theme="dark"] .nav-item {
+    color: var(--text);
+}
+
+[data-theme="dark"] .btn-primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .btn-primary:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
 [data-theme="dark"] .nav-item:hover {
     background: var(--surface-muted);
     color: var(--text-dark);
