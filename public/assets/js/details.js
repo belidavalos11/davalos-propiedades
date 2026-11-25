@@ -1369,13 +1369,28 @@ function updateDetailsAuthUI() {
     }
 
     if (logged) {
-        const name = window.AuthManager.getDisplayName();
-        const role = window.AuthManager.getUserRole();
+        const manager = window.AuthManager;
+        const name = manager.getDisplayName();
+        const role = manager.getUserRole();
         const roleLabels = { SUPER_ADMIN: "Super Administrador", ADMIN: "Administrador", AGENT: "Asesor Comercial", EDITOR: "Editor" };
         const drawerUserName = document.getElementById("drawer-user-name");
         const drawerUserRole = document.getElementById("drawer-user-role");
         if (drawerUserName) drawerUserName.textContent = name || "Usuario";
         if (drawerUserRole) drawerUserRole.textContent = roleLabels[role] || role || "Miembro del equipo";
+
+        const isSuperAdmin = Boolean(
+            manager &&
+            ((manager.Permissions && manager.hasPermission(manager.Permissions.MANAGE_USERS)) || role === "SUPER_ADMIN")
+        );
+        const btnGestionCrm = document.getElementById("btn-gestion-crm");
+        const btnTeam = document.getElementById("btn-team");
+        if (btnGestionCrm) btnGestionCrm.style.display = isSuperAdmin ? "flex" : "none";
+        if (btnTeam) btnTeam.style.display = isSuperAdmin ? "flex" : "none";
+    } else {
+        const btnGestionCrm = document.getElementById("btn-gestion-crm");
+        const btnTeam = document.getElementById("btn-team");
+        if (btnGestionCrm) btnGestionCrm.style.display = "none";
+        if (btnTeam) btnTeam.style.display = "none";
     }
 }
 
