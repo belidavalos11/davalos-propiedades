@@ -886,13 +886,26 @@
 
             if (query) {
                 const owner = getClientById(p.ownerId);
+                const propContracts = getPropertyContracts(p.id);
+                const mainContract = propContracts[0] || null;
+                const activeTenant = mainContract && isContractActive(mainContract)
+                    ? getClientById(mainContract.tenantId)
+                    : null;
                 const haystack = [
                     p.alias || "",
                     p.address || "",
                     p.neighborhood || "",
                     p.catastro || "",
                     p.nis || "",
-                    owner ? owner.fullName : ""
+                    p.gasAccount || "",
+                    p.waterAccount || "",
+                    p.municipalAccount || "",
+                    p.consorcioName || "",
+                    p.consorcioContact || "",
+                    p.portero || "",
+                    p.notes || "",
+                    owner ? owner.fullName : "",
+                    activeTenant ? activeTenant.fullName : ""
                 ]
                     .join(" ")
                     .toLowerCase();
@@ -942,27 +955,42 @@
                 const nisHtml = p.nis
                     ? `<div class="nis-inline">
                            <span class="cell-mono">${escapeHtml(p.nis)}</span>
-                           <button type="button" class="btn-copy-mini" data-copy-value="${escapeHtml(p.nis)}" title="Copiar NIS">Copiar</button>
+                           <button type="button" class="btn-copy-mini" data-copy-value="${escapeHtml(p.nis)}" title="Copiar NIS EDESA">Copiar</button>
                        </div>`
-                    : `<button type="button" class="btn-assign-mini" data-quick-edit="property" data-id="${escapeHtml(p.id)}" data-focus="property-nis">+ Cargar</button>`;
+                    : `<button type="button" class="btn-assign-mini" data-quick-edit="property" data-id="${escapeHtml(p.id)}" data-focus="property-nis">+ Cargar NIS</button>`;
+
+                const extraServices = [
+                    p.gasAccount ? `Naturgy: ${p.gasAccount}` : "",
+                    p.waterAccount ? `Agua: ${p.waterAccount}` : ""
+                ].filter(Boolean);
+
+                const primaryTitle = p.alias || p.address || "Sin nombre";
+                const showAddressSub = Boolean(p.address && p.alias && p.address.trim().toLowerCase() !== p.alias.trim().toLowerCase());
+                const addressSubParts = [
+                    showAddressSub ? p.address : "",
+                    p.neighborhood || ""
+                ].filter(Boolean);
 
                 return `
                     <tr class="row-clickable" data-open-property="${escapeHtml(p.id)}">
                         <td data-label="Dirección / Alias">
                             <div class="cell-stack">
-                                <span class="cell-primary">${escapeHtml(p.alias || p.address || "Sin nombre")}</span>
-                                <span class="cell-secondary">
-                                    ${escapeHtml(p.address || "")}${p.neighborhood ? ` · ${escapeHtml(p.neighborhood)}` : ""}
-                                </span>
+                                <span class="cell-primary">${escapeHtml(primaryTitle)}</span>
+                                ${addressSubParts.length ? `<span class="cell-secondary">${escapeHtml(addressSubParts.join(" · "))}</span>` : ""}
                             </div>
                         </td>
-                        <td data-label="Propietario">
+                        <td data-label="Propietario / Catastro">
                             <div class="cell-stack">
                                 ${ownerHtml}
                                 ${p.catastro ? `<span class="cell-secondary">Catastro: ${escapeHtml(p.catastro)}</span>` : ""}
                             </div>
                         </td>
-                        <td data-label="NIS Luz">${nisHtml}</td>
+                        <td data-label="Servicios">
+                            <div class="cell-stack">
+                                ${nisHtml}
+                                ${extraServices.map((line) => `<span class="service-line-secondary">${escapeHtml(line)}</span>`).join("")}
+                            </div>
+                        </td>
                         <td data-label="Estado">
                             <div class="cell-stack">
                                 ${statusBadge}
@@ -1263,6 +1291,7 @@
             document.getElementById("property-municipal").value = prop.municipalAccount || "";
             document.getElementById("property-consorcio-name").value = prop.consorcioName || "";
             document.getElementById("property-consorcio-contact").value = prop.consorcioContact || "";
+            document.getElementById("property-portero").value = prop.portero || "";
             document.getElementById("property-notes").value = prop.notes || "";
 
             const eff = getPropertyEffectiveStatus(prop);
@@ -1276,7 +1305,7 @@
         }
 
         openModal("modal-property");
-        document.getElementById("property-alias").focus();
+        document.getElementById("property-address").focus();
     }
 
     async function handleSaveProperty(event) {
@@ -1284,8 +1313,9 @@
         setFormError("property-form-error", "");
 
         const id = document.getElementById("property-id").value.trim();
-        const alias = document.getElementById("property-alias").value.trim();
         const address = document.getElementById("property-address").value.trim();
+        const rawAlias = document.getElementById("property-alias").value.trim();
+        const alias = rawAlias || address;
         const neighborhood = document.getElementById("property-neighborhood").value.trim();
         const ownerId = document.getElementById("property-owner").value;
         const catastro = document.getElementById("property-catastro").value.trim();
@@ -1296,12 +1326,9 @@
         const municipalAccount = document.getElementById("property-municipal").value.trim();
         const consorcioName = document.getElementById("property-consorcio-name").value.trim();
         const consorcioContact = document.getElementById("property-consorcio-contact").value.trim();
+        const portero = document.getElementById("property-portero").value.trim();
         const notes = document.getElementById("property-notes").value.trim();
 
-        if (!alias) {
-            setFormError("property-form-error", "Ingresá un alias o nombre interno para la propiedad.");
-            return;
-        }
         if (!address) {
             setFormError("property-form-error", "Ingresá la dirección real de la propiedad.");
             return;
@@ -1326,6 +1353,7 @@
                 municipalAccount,
                 consorcioName,
                 consorcioContact,
+                portero,
                 notes,
                 updatedAt: nowIso
             };
@@ -1548,6 +1576,7 @@
                         municipalAccount: "",
                         consorcioName: "",
                         consorcioContact: expensasNote,
+                        portero: "",
                         notes: notesParts.join(" · "),
                         createdAt: nowIso,
                         updatedAt: nowIso,
@@ -1569,6 +1598,645 @@
             await loadAllData();
         } catch (err) {
             handleFirestoreError(err, "importar las propiedades del catálogo");
+        }
+    }
+
+    // ==================== IMPORT FROM EXCEL / CSV ====================
+    const excelImportState = {
+        workbook: null,
+        csvMatrix: null,
+        sheetName: "",
+        fileName: "",
+        parsedRows: [],
+        plan: null
+    };
+
+    function normalizeHeaderKey(value) {
+        return String(value || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[°ºª.:;/\-_#"'()]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function normalizeMatchKey(value) {
+        return String(value || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function isPlaceholderValue(value) {
+        const clean = normalizeMatchKey(value);
+        if (!clean) return true;
+        return /^(x+|-+|_+|\.+|n\/?a|s\/?n|ninguno|ninguna|sin inquilino|vacio|desocupado|libre)$/.test(clean);
+    }
+
+    function cleanCellText(value) {
+        if (value === null || value === undefined) return "";
+        if (typeof value === "number") {
+            return Number.isInteger(value) ? String(value) : String(value).trim();
+        }
+        return String(value).replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    function splitAdminField(raw) {
+        const text = cleanCellText(raw);
+        if (!text || isPlaceholderValue(text)) return { name: "", contact: "" };
+
+        // Solo teléfono / números y símbolos de teléfono
+        if (/^[+\d\s\-().\/]+$/.test(text)) {
+            return { name: "", contact: text };
+        }
+
+        // Separador explícito "Nombre - Teléfono" o "Teléfono - Nombre"
+        const dashParts = text.split(/\s+-\s+|\s+\/\s+/);
+        if (dashParts.length === 2) {
+            const [a, b] = dashParts.map((s) => s.trim());
+            const aDigits = (a.match(/\d/g) || []).length;
+            const bDigits = (b.match(/\d/g) || []).length;
+            if (bDigits >= 6 && aDigits < 6) return { name: a, contact: b };
+            if (aDigits >= 6 && bDigits < 6) return { name: b, contact: a };
+        }
+
+        // Si contiene al menos 6 dígitos y texto (ej. "3876108166 Vidal"), guardarlo completo en contacto o separar
+        const digitsCount = (text.match(/\d/g) || []).length;
+        if (digitsCount >= 6) {
+            return { name: "", contact: text };
+        }
+        return { name: text, contact: "" };
+    }
+
+    function detectColumnRole(headerText) {
+        const h = normalizeHeaderKey(headerText);
+        if (!h) return null;
+        if (h.includes("direccion") || h.includes("domicilio") || h === "inmueble" || h === "propiedad") return "address";
+        if (h.includes("alias") || h.includes("nombre interno")) return "alias";
+        if (h.includes("barrio") || h.includes("zona")) return "neighborhood";
+        if (h.includes("catastro") || h.includes("matricula")) return "catastro";
+        if (h.includes("propietario") || h.includes("dueno")) return "owner";
+        if (h.includes("inquilino") || h.includes("locatario")) return "tenant";
+        if (h.includes("edesa") || h === "nis" || h.startsWith("nis ") || h.includes("nis luz") || h === "luz") return "nis";
+        if (h.includes("naturgy") || h.includes("gas") || h.includes("gasnor")) return "gas";
+        if (h.includes("aguas") || h.includes("agua") || h.includes("cosaysa")) return "water";
+        if (h.includes("municipal") || h.includes("inmobiliario") || h.includes("partida")) return "municipal";
+        if (h.includes("administracion") || h.includes("admin") || h.includes("consorcio") || h.includes("expensa")) return "admin";
+        if (h.includes("portero") || h.includes("encargado")) return "portero";
+        if (h.includes("nota") || h.includes("observacion") || h.includes("comentario")) return "notes";
+        return null;
+    }
+
+    function parseCsvText(text) {
+        const clean = String(text || "").replace(/^\uFEFF/, "");
+        const firstLine = clean.split(/\r?\n/).find((l) => l.trim().length > 0) || "";
+        const semiCount = (firstLine.match(/;/g) || []).length;
+        const commaCount = (firstLine.match(/,/g) || []).length;
+        const tabCount = (firstLine.match(/\t/g) || []).length;
+        const delimiter = tabCount > semiCount && tabCount > commaCount ? "\t" : (semiCount > commaCount ? ";" : ",");
+
+        const rows = [];
+        let currentRow = [];
+        let currentVal = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < clean.length; i++) {
+            const ch = clean[i];
+            const next = clean[i + 1];
+            if (inQuotes) {
+                if (ch === '"' && next === '"') {
+                    currentVal += '"';
+                    i++;
+                } else if (ch === '"') {
+                    inQuotes = false;
+                } else {
+                    currentVal += ch;
+                }
+            } else if (ch === '"') {
+                inQuotes = true;
+            } else if (ch === delimiter) {
+                currentRow.push(currentVal);
+                currentVal = "";
+            } else if (ch === "\r" && next === "\n") {
+                currentRow.push(currentVal);
+                rows.push(currentRow);
+                currentRow = [];
+                currentVal = "";
+                i++;
+            } else if (ch === "\n" || ch === "\r") {
+                currentRow.push(currentVal);
+                rows.push(currentRow);
+                currentRow = [];
+                currentVal = "";
+            } else {
+                currentVal += ch;
+            }
+        }
+        if (currentVal.length > 0 || currentRow.length > 0) {
+            currentRow.push(currentVal);
+            rows.push(currentRow);
+        }
+        return rows;
+    }
+
+    function parseMatrixToRows(matrix) {
+        if (!Array.isArray(matrix) || matrix.length === 0) {
+            return { rows: [], error: "La hoja seleccionada está vacía." };
+        }
+
+        let headerIdx = -1;
+        let bestScore = 0;
+        let bestColMap = {};
+
+        const maxScan = Math.min(matrix.length, 15);
+        for (let r = 0; r < maxScan; r++) {
+            const row = matrix[r] || [];
+            const colMap = {};
+            let score = 0;
+            row.forEach((cell, cIdx) => {
+                const role = detectColumnRole(cell);
+                if (role && colMap[role] === undefined) {
+                    colMap[role] = cIdx;
+                    score++;
+                }
+            });
+            if (score > bestScore) {
+                bestScore = score;
+                headerIdx = r;
+                bestColMap = colMap;
+            }
+        }
+
+        if (headerIdx === -1 || bestScore < 2) {
+            return {
+                rows: [],
+                error: "No se reconocieron los encabezados de la planilla. Verificá que tenga columnas como DIRECCION, N° CATASTRO, PROPIETARIO, NIS EDESA, NATURGY, etc."
+            };
+        }
+
+        const parsed = [];
+        for (let r = headerIdx + 1; r < matrix.length; r++) {
+            const raw = matrix[r] || [];
+            const get = (role) => (bestColMap[role] !== undefined ? cleanCellText(raw[bestColMap[role]]) : "");
+
+            const rawAddress = get("address");
+            const rawAlias = get("alias");
+            const neighborhood = get("neighborhood");
+            const catastro = isPlaceholderValue(get("catastro")) ? "" : get("catastro");
+            const ownerName = isPlaceholderValue(get("owner")) ? "" : get("owner");
+            const tenantName = isPlaceholderValue(get("tenant")) ? "" : get("tenant");
+            const nis = isPlaceholderValue(get("nis")) ? "" : get("nis");
+            const gasAccount = isPlaceholderValue(get("gas")) ? "" : get("gas");
+            const waterAccount = isPlaceholderValue(get("water")) ? "" : get("water");
+            const municipalAccount = isPlaceholderValue(get("municipal")) ? "" : get("municipal");
+            const adminRaw = get("admin");
+            const portero = isPlaceholderValue(get("portero")) ? "" : get("portero");
+            const notes = get("notes");
+
+            const hasAnyData = Boolean(
+                rawAddress || rawAlias || catastro || ownerName || tenantName || nis || gasAccount || waterAccount || adminRaw || portero
+            );
+            if (!hasAnyData) continue;
+
+            let address = rawAddress;
+            if (!address) {
+                if (rawAlias) address = rawAlias;
+                else if (nis) address = `Propiedad sin dirección (NIS ${nis})`;
+                else if (catastro) address = `Propiedad sin dirección (Catastro ${catastro})`;
+                else if (ownerName) address = `Propiedad de ${ownerName} (fila ${r + 1})`;
+                else address = `Propiedad fila ${r + 1}`;
+            }
+
+            const alias = rawAlias || address;
+            const adminSplit = splitAdminField(adminRaw);
+
+            parsed.push({
+                rowNumber: r + 1,
+                address,
+                alias,
+                neighborhood,
+                catastro,
+                ownerName,
+                tenantName,
+                nis,
+                gasAccount,
+                waterAccount,
+                municipalAccount,
+                adminRaw: isPlaceholderValue(adminRaw) ? "" : adminRaw,
+                consorcioName: adminSplit.name,
+                consorcioContact: adminSplit.contact,
+                portero,
+                notes
+            });
+        }
+
+        if (parsed.length === 0) {
+            return { rows: [], error: "Se encontraron encabezados, pero no hay filas con datos para importar." };
+        }
+
+        return { rows: parsed, error: "" };
+    }
+
+    function findMatchingExistingProperty(row) {
+        const rowNis = normalizeMatchKey(row.nis);
+        const rowCatastro = normalizeMatchKey(row.catastro);
+        const rowAddr = normalizeMatchKey(row.address);
+
+        if (rowNis) {
+            const byNis = state.properties.find((p) => normalizeMatchKey(p.nis) === rowNis);
+            if (byNis) return byNis;
+        }
+        if (rowCatastro) {
+            const byCat = state.properties.find((p) => normalizeMatchKey(p.catastro) === rowCatastro);
+            if (byCat) return byCat;
+        }
+        if (rowAddr && !rowAddr.startsWith("propiedad sin direccion")) {
+            const byAddr = state.properties.find(
+                (p) => normalizeMatchKey(p.address) === rowAddr || normalizeMatchKey(p.alias) === rowAddr
+            );
+            if (byAddr) return byAddr;
+        }
+        return null;
+    }
+
+    function buildExcelImportPlan(parsedRows) {
+        const allowUpdate = document.getElementById("excel-opt-update").checked;
+        const includeTenants = document.getElementById("excel-opt-tenants").checked;
+
+        const existingClientKeys = new Set(
+            state.clients.map((c) => normalizeMatchKey(c.fullName)).filter(Boolean)
+        );
+        const newOwnerKeys = new Set();
+        const newTenantKeys = new Set();
+
+        let createCount = 0;
+        let updateCount = 0;
+        let skipCount = 0;
+
+        const items = parsedRows.map((row) => {
+            const existing = findMatchingExistingProperty(row);
+            let action = "create";
+            if (existing) {
+                action = allowUpdate ? "update" : "skip";
+            }
+
+            if (action === "create") createCount++;
+            else if (action === "update") updateCount++;
+            else skipCount++;
+
+            if (action !== "skip") {
+                if (row.ownerName) {
+                    const oKey = normalizeMatchKey(row.ownerName);
+                    if (oKey && !existingClientKeys.has(oKey)) newOwnerKeys.add(oKey);
+                }
+                if (includeTenants && row.tenantName) {
+                    const tKey = normalizeMatchKey(row.tenantName);
+                    if (tKey && !existingClientKeys.has(tKey) && !newOwnerKeys.has(tKey)) {
+                        newTenantKeys.add(tKey);
+                    }
+                }
+            }
+
+            return { row, existing, action };
+        });
+
+        return {
+            items,
+            createCount,
+            updateCount,
+            skipCount,
+            newOwnersCount: newOwnerKeys.size,
+            newTenantsCount: newTenantKeys.size,
+            includeTenants
+        };
+    }
+
+    function renderExcelPreview() {
+        const previewSection = document.getElementById("excel-preview-section");
+        const pillsEl = document.getElementById("excel-summary-pills");
+        const tbody = document.getElementById("excel-preview-tbody");
+        const noteEl = document.getElementById("excel-preview-note");
+        const confirmBtn = document.getElementById("btn-confirm-excel-import");
+
+        if (!excelImportState.parsedRows.length) {
+            previewSection.classList.add("hidden");
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = "Importar propiedades";
+            return;
+        }
+
+        const plan = buildExcelImportPlan(excelImportState.parsedRows);
+        excelImportState.plan = plan;
+
+        const pills = [];
+        if (plan.createCount > 0) pills.push(`<span class="excel-pill excel-pill-success">+ ${plan.createCount} nueva(s)</span>`);
+        if (plan.updateCount > 0) pills.push(`<span class="excel-pill excel-pill-warning">↻ ${plan.updateCount} a actualizar</span>`);
+        if (plan.skipCount > 0) pills.push(`<span class="excel-pill excel-pill-muted">${plan.skipCount} omitida(s)</span>`);
+        if (plan.newOwnersCount > 0) pills.push(`<span class="excel-pill">+ ${plan.newOwnersCount} propietario(s) nuevo(s)</span>`);
+        if (plan.newTenantsCount > 0) pills.push(`<span class="excel-pill">+ ${plan.newTenantsCount} inquilino(s) nuevo(s)</span>`);
+        pillsEl.innerHTML = pills.join("");
+
+        const maxPreview = 50;
+        const visible = plan.items.slice(0, maxPreview);
+        tbody.innerHTML = visible
+            .map(({ row, action }) => {
+                const badge =
+                    action === "create"
+                        ? '<span class="badge badge-success">Nueva</span>'
+                        : action === "update"
+                            ? '<span class="badge badge-warning">Actualizar</span>'
+                            : '<span class="badge badge-neutral">Omitir</span>';
+                return `
+                    <tr class="${action === "skip" ? "row-skip" : ""}">
+                        <td>${badge}</td>
+                        <td class="cell-wrap">${escapeHtml(row.address)}</td>
+                        <td class="cell-mono">${escapeHtml(row.catastro || "—")}</td>
+                        <td>${escapeHtml(row.ownerName || "—")}</td>
+                        <td>${escapeHtml(row.tenantName || "—")}</td>
+                        <td class="cell-mono">${escapeHtml(row.nis || "—")}</td>
+                        <td class="cell-mono">${escapeHtml(row.gasAccount || "—")}</td>
+                        <td class="cell-mono">${escapeHtml(row.waterAccount || "—")}</td>
+                        <td class="cell-wrap">${escapeHtml(row.adminRaw || "—")}</td>
+                        <td>${escapeHtml(row.portero || "—")}</td>
+                    </tr>
+                `;
+            })
+            .join("");
+
+        noteEl.textContent =
+            plan.items.length > maxPreview
+                ? `Mostrando las primeras ${maxPreview} de ${plan.items.length} filas detectadas.`
+                : `Total detectado: ${plan.items.length} fila(s).`;
+
+        const actionable = plan.createCount + plan.updateCount;
+        confirmBtn.disabled = actionable === 0;
+        confirmBtn.textContent = actionable > 0 ? `Importar (${actionable})` : "Nada para importar";
+        previewSection.classList.remove("hidden");
+    }
+
+    function loadSelectedExcelSheet(sheetName) {
+        setFormError("excel-import-error", "");
+        let matrix = [];
+
+        if (excelImportState.workbook && window.XLSX) {
+            const ws = excelImportState.workbook.Sheets[sheetName];
+            matrix = ws ? window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) : [];
+        } else if (excelImportState.csvMatrix) {
+            matrix = excelImportState.csvMatrix;
+        }
+
+        const { rows, error } = parseMatrixToRows(matrix);
+        excelImportState.sheetName = sheetName;
+        excelImportState.parsedRows = rows;
+
+        if (error) {
+            setFormError("excel-import-error", error);
+        }
+        renderExcelPreview();
+    }
+
+    function openExcelImportModal() {
+        excelImportState.workbook = null;
+        excelImportState.csvMatrix = null;
+        excelImportState.sheetName = "";
+        excelImportState.fileName = "";
+        excelImportState.parsedRows = [];
+        excelImportState.plan = null;
+
+        document.getElementById("excel-file-input").value = "";
+        document.getElementById("excel-dropzone-title").textContent = "Hacé clic para elegir un archivo Excel o arrastralo acá";
+        document.getElementById("excel-dropzone-sub").textContent = "Formatos compatibles: .xlsx, .xls, .csv";
+        document.getElementById("excel-sheet-bar").classList.add("hidden");
+        document.getElementById("excel-preview-section").classList.add("hidden");
+        document.getElementById("btn-confirm-excel-import").disabled = true;
+        document.getElementById("btn-confirm-excel-import").textContent = "Importar propiedades";
+        setFormError("excel-import-error", "");
+
+        openModal("modal-import-excel");
+    }
+
+    async function handleExcelFileSelected(file) {
+        if (!file) return;
+        setFormError("excel-import-error", "");
+        excelImportState.fileName = file.name;
+        document.getElementById("excel-dropzone-title").textContent = file.name;
+        document.getElementById("excel-dropzone-sub").textContent = `${(file.size / 1024).toFixed(1)} KB · Analizando planilla...`;
+
+        const lowerName = file.name.toLowerCase();
+        const isCsv = lowerName.endsWith(".csv");
+
+        try {
+            if (isCsv && !window.XLSX) {
+                const text = await file.text();
+                excelImportState.workbook = null;
+                excelImportState.csvMatrix = parseCsvText(text);
+                document.getElementById("excel-sheet-picker-wrap").classList.add("hidden");
+                document.getElementById("excel-sheet-bar").classList.remove("hidden");
+                document.getElementById("excel-dropzone-sub").textContent = "Archivo CSV cargado correctamente.";
+                loadSelectedExcelSheet("CSV");
+                return;
+            }
+
+            if (!window.XLSX) {
+                setFormError("excel-import-error", "No se pudo cargar el lector de Excel. Recargá la página o subí el archivo en formato .csv.");
+                return;
+            }
+
+            const buffer = await file.arrayBuffer();
+            const wb = window.XLSX.read(buffer, { type: "array" });
+            excelImportState.workbook = wb;
+            excelImportState.csvMatrix = null;
+
+            const sheetSelect = document.getElementById("excel-sheet-select");
+            sheetSelect.innerHTML = wb.SheetNames
+                .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+                .join("");
+
+            const pickerWrap = document.getElementById("excel-sheet-picker-wrap");
+            if (wb.SheetNames.length > 1) {
+                pickerWrap.classList.remove("hidden");
+            } else {
+                pickerWrap.classList.add("hidden");
+            }
+
+            document.getElementById("excel-sheet-bar").classList.remove("hidden");
+            document.getElementById("excel-dropzone-sub").textContent =
+                wb.SheetNames.length > 1
+                    ? `${wb.SheetNames.length} hojas detectadas. Elegí cuál querés importar.`
+                    : `Hoja "${wb.SheetNames[0]}" cargada correctamente.`;
+
+            loadSelectedExcelSheet(wb.SheetNames[0]);
+        } catch (err) {
+            console.error("[Gestion] Error leyendo Excel:", err);
+            setFormError("excel-import-error", "No se pudo leer el archivo. Verificá que sea un .xlsx, .xls o .csv válido.");
+        }
+    }
+
+    async function executeExcelImport() {
+        const plan = excelImportState.plan;
+        if (!plan) return;
+        const actionableItems = plan.items.filter((it) => it.action !== "skip");
+        if (actionableItems.length === 0) return;
+
+        const btn = document.getElementById("btn-confirm-excel-import");
+        btn.disabled = true;
+        btn.textContent = "Importando...";
+
+        try {
+            assertAuthorizedAndDb();
+            const nowIso = new Date().toISOString();
+            const currentUser = window.AuthManager ? window.AuthManager.getCurrentUser() : "SUPER_ADMIN";
+
+            // Mapa de clientes existentes por nombre normalizado
+            const clientsByKey = new Map();
+            state.clients.forEach((c) => {
+                const key = normalizeMatchKey(c.fullName);
+                if (key) clientsByKey.set(key, { id: c.id, type: c.type || "propietario", isNew: false });
+            });
+
+            const pendingOps = [];
+            let createdOwners = 0;
+            let createdTenants = 0;
+            let createdProps = 0;
+            let updatedProps = 0;
+
+            const ensureClient = (fullName, roleType) => {
+                const key = normalizeMatchKey(fullName);
+                if (!key) return "";
+                const existing = clientsByKey.get(key);
+                if (existing) {
+                    if (existing.type !== roleType && existing.type !== "ambos") {
+                        existing.type = "ambos";
+                        if (existing.isNew && existing.pendingData) {
+                            existing.pendingData.type = "ambos";
+                        } else {
+                            pendingOps.push({
+                                kind: "update",
+                                ref: window.db.collection(COLLECTIONS.clients).doc(existing.id),
+                                data: { type: "ambos", updatedAt: nowIso }
+                            });
+                        }
+                    }
+                    return existing.id;
+                }
+
+                const newRef = window.db.collection(COLLECTIONS.clients).doc();
+                const data = {
+                    fullName: fullName.trim(),
+                    type: roleType,
+                    dni: "",
+                    phone: "",
+                    email: "",
+                    address: "",
+                    notes: `Importado desde Excel (${excelImportState.fileName || "planilla"}).`,
+                    createdAt: nowIso,
+                    updatedAt: nowIso,
+                    createdBy: currentUser
+                };
+                clientsByKey.set(key, { id: newRef.id, type: roleType, isNew: true, pendingData: data });
+                pendingOps.push({ kind: "set", ref: newRef, data });
+                if (roleType === "propietario") createdOwners++;
+                if (roleType === "inquilino") createdTenants++;
+                return newRef.id;
+            };
+
+            for (const item of actionableItems) {
+                const { row, existing, action } = item;
+                const ownerId = row.ownerName ? ensureClient(row.ownerName, "propietario") : "";
+                if (plan.includeTenants && row.tenantName) {
+                    ensureClient(row.tenantName, "inquilino");
+                }
+
+                const noteParts = [];
+                if (row.notes) noteParts.push(row.notes);
+                if (row.tenantName) noteParts.push(`Inquilino (Excel): ${row.tenantName}`);
+
+                if (action === "update" && existing) {
+                    const updateData = { updatedAt: nowIso };
+                    if (row.address && !row.address.toLowerCase().startsWith("propiedad sin dirección")) {
+                        updateData.address = row.address;
+                    }
+                    if (row.neighborhood) updateData.neighborhood = row.neighborhood;
+                    if (ownerId) updateData.ownerId = ownerId;
+                    if (row.catastro) updateData.catastro = row.catastro;
+                    if (row.nis) updateData.nis = row.nis;
+                    if (row.gasAccount) updateData.gasAccount = row.gasAccount;
+                    if (row.waterAccount) updateData.waterAccount = row.waterAccount;
+                    if (row.municipalAccount) updateData.municipalAccount = row.municipalAccount;
+                    if (row.consorcioName) updateData.consorcioName = row.consorcioName;
+                    if (row.consorcioContact) updateData.consorcioContact = row.consorcioContact;
+                    if (row.portero) updateData.portero = row.portero;
+                    if (row.tenantName) updateData.status = "alquilada";
+
+                    if (noteParts.length > 0) {
+                        const existingNotes = String(existing.notes || "").trim();
+                        const toAppend = noteParts.filter((p) => !existingNotes.includes(p));
+                        if (toAppend.length > 0) {
+                            updateData.notes = [existingNotes, ...toAppend].filter(Boolean).join(" · ");
+                        }
+                    }
+
+                    pendingOps.push({
+                        kind: "update",
+                        ref: window.db.collection(COLLECTIONS.properties).doc(existing.id),
+                        data: updateData
+                    });
+                    updatedProps++;
+                } else {
+                    const newPropRef = window.db.collection(COLLECTIONS.properties).doc();
+                    pendingOps.push({
+                        kind: "set",
+                        ref: newPropRef,
+                        data: {
+                            alias: row.alias,
+                            address: row.address,
+                            neighborhood: row.neighborhood,
+                            ownerId,
+                            catastro: row.catastro,
+                            status: row.tenantName ? "alquilada" : "disponible",
+                            nis: row.nis,
+                            waterAccount: row.waterAccount,
+                            gasAccount: row.gasAccount,
+                            municipalAccount: row.municipalAccount,
+                            consorcioName: row.consorcioName,
+                            consorcioContact: row.consorcioContact,
+                            portero: row.portero,
+                            notes: noteParts.join(" · "),
+                            createdAt: nowIso,
+                            updatedAt: nowIso,
+                            createdBy: currentUser
+                        }
+                    });
+                    createdProps++;
+                }
+            }
+
+            const chunkSize = 400;
+            for (let i = 0; i < pendingOps.length; i += chunkSize) {
+                const batch = window.db.batch();
+                pendingOps.slice(i, i + chunkSize).forEach((op) => {
+                    if (op.kind === "update") batch.update(op.ref, op.data);
+                    else batch.set(op.ref, op.data);
+                });
+                await batch.commit();
+            }
+
+            const summaryParts = [];
+            if (createdProps > 0) summaryParts.push(`${createdProps} creada(s)`);
+            if (updatedProps > 0) summaryParts.push(`${updatedProps} actualizada(s)`);
+            if (createdOwners > 0) summaryParts.push(`${createdOwners} propietario(s)`);
+            if (createdTenants > 0) summaryParts.push(`${createdTenants} inquilino(s)`);
+
+            closeModal("modal-import-excel");
+            showToast(`¡Importación completa! ${summaryParts.join(" · ")}.`, "success");
+            await loadAllData();
+        } catch (err) {
+            handleFirestoreError(err, "importar propiedades desde Excel");
+            btn.disabled = false;
+            btn.textContent = "Reintentar importación";
         }
     }
 
@@ -2082,23 +2750,38 @@
                </div>`
             : `<div class="rel-empty">Esta propiedad no tiene contratos de alquiler cargados todavía.</div>`;
 
+        const copyValHtml = (val, mono = false) => {
+            if (!val) return "Sin cargar";
+            const cls = mono ? ' class="cell-mono"' : "";
+            return `<span class="nis-inline"><span${cls}>${escapeHtml(val)}</span><button type="button" class="btn-copy-mini" data-copy-value="${escapeHtml(val)}">Copiar</button></span>`;
+        };
+        const adminVal = [prop.consorcioName, prop.consorcioContact].filter(Boolean).join(" · ");
+
         document.getElementById("relations-body").innerHTML = `
             <div class="rel-info-grid">
                 <div class="rel-info-item">
-                    <span class="rel-info-label">NIS (Luz)</span>
-                    <span class="rel-info-val">${prop.nis ? `<span class="nis-inline"><span class="cell-mono">${escapeHtml(prop.nis)}</span><button type="button" class="btn-copy-mini" data-copy-value="${escapeHtml(prop.nis)}">Copiar</button></span>` : "Sin cargar"}</span>
+                    <span class="rel-info-label">NIS EDESA (Luz)</span>
+                    <span class="rel-info-val">${copyValHtml(prop.nis, true)}</span>
                 </div>
                 <div class="rel-info-item">
-                    <span class="rel-info-label">Catastro / Matrícula</span>
-                    <span class="rel-info-val">${escapeHtml(prop.catastro || "Sin cargar")}</span>
+                    <span class="rel-info-label">N° de Catastro</span>
+                    <span class="rel-info-val">${copyValHtml(prop.catastro, true)}</span>
                 </div>
                 <div class="rel-info-item">
-                    <span class="rel-info-label">Agua / Gas</span>
-                    <span class="rel-info-val">${escapeHtml([prop.waterAccount ? `Agua: ${prop.waterAccount}` : "", prop.gasAccount ? `Gas: ${prop.gasAccount}` : ""].filter(Boolean).join(" · ") || "Sin cargar")}</span>
+                    <span class="rel-info-label">Nro. Ref. Naturgy (Gas)</span>
+                    <span class="rel-info-val">${copyValHtml(prop.gasAccount, true)}</span>
                 </div>
                 <div class="rel-info-item">
-                    <span class="rel-info-label">Consorcio / Expensas</span>
-                    <span class="rel-info-val">${escapeHtml([prop.consorcioName, prop.consorcioContact].filter(Boolean).join(" · ") || "Sin cargar")}</span>
+                    <span class="rel-info-label">Aguas del Norte</span>
+                    <span class="rel-info-val">${copyValHtml(prop.waterAccount, true)}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Administración</span>
+                    <span class="rel-info-val">${copyValHtml(adminVal, false)}</span>
+                </div>
+                <div class="rel-info-item">
+                    <span class="rel-info-label">Portero / Encargado</span>
+                    <span class="rel-info-val">${copyValHtml(prop.portero, false)}</span>
                 </div>
             </div>
 
@@ -2364,8 +3047,49 @@
         document.getElementById("btn-new-contract").addEventListener("click", () => openContractModal());
         document.getElementById("btn-quick-new-contract").addEventListener("click", () => openContractModal());
         document.getElementById("btn-new-property").addEventListener("click", () => openPropertyModal());
+        document.getElementById("btn-import-excel").addEventListener("click", openExcelImportModal);
         document.getElementById("btn-import-catalog").addEventListener("click", requestImportFromCatalog);
         document.getElementById("btn-new-client").addEventListener("click", () => openClientModal());
+
+        // Excel / CSV import modal listeners
+        const excelDropzone = document.getElementById("excel-dropzone");
+        const excelFileInput = document.getElementById("excel-file-input");
+        if (excelDropzone && excelFileInput) {
+            excelDropzone.addEventListener("click", () => excelFileInput.click());
+            excelDropzone.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    excelFileInput.click();
+                }
+            });
+            excelDropzone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                excelDropzone.classList.add("drag-over");
+            });
+            excelDropzone.addEventListener("dragleave", () => {
+                excelDropzone.classList.remove("drag-over");
+            });
+            excelDropzone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                excelDropzone.classList.remove("drag-over");
+                const file = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files[0] : null;
+                if (file) handleExcelFileSelected(file);
+            });
+            excelFileInput.addEventListener("change", (e) => {
+                const file = e.target.files ? e.target.files[0] : null;
+                if (file) handleExcelFileSelected(file);
+            });
+        }
+        const excelSheetSelect = document.getElementById("excel-sheet-select");
+        if (excelSheetSelect) {
+            excelSheetSelect.addEventListener("change", (e) => loadSelectedExcelSheet(e.target.value));
+        }
+        const excelOptUpdate = document.getElementById("excel-opt-update");
+        if (excelOptUpdate) excelOptUpdate.addEventListener("change", renderExcelPreview);
+        const excelOptTenants = document.getElementById("excel-opt-tenants");
+        if (excelOptTenants) excelOptTenants.addEventListener("change", renderExcelPreview);
+        const btnConfirmExcel = document.getElementById("btn-confirm-excel-import");
+        if (btnConfirmExcel) btnConfirmExcel.addEventListener("click", executeExcelImport);
 
         // Search & Filter listeners
         document.getElementById("contracts-search").addEventListener("input", renderContractsTable);

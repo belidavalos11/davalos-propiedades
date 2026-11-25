@@ -19,7 +19,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/gestion.css?v=8">
+    <link rel="stylesheet" href="assets/css/gestion.css?v=9">
 </head>
 
 <body>
@@ -349,7 +349,7 @@
                                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                                     </svg>
                                     <input type="search" id="properties-search"
-                                        placeholder="Buscar por alias, dirección, propietario, NIS...">
+                                        placeholder="Buscar por dirección, catastro, propietario, inquilino, NIS, Naturgy...">
                                 </div>
                                 <select id="properties-filter-status" aria-label="Filtrar por estado">
                                     <option value="todos">Estado: Todos</option>
@@ -358,6 +358,7 @@
                                 </select>
                             </div>
                             <div class="toolbar-actions">
+                                <button type="button" class="btn btn-outline" id="btn-import-excel">Importar Excel</button>
                                 <button type="button" class="btn btn-outline" id="btn-import-catalog">Importar del catálogo</button>
                                 <button type="button" class="btn btn-primary" id="btn-new-property">+ Nueva propiedad</button>
                             </div>
@@ -369,9 +370,9 @@
                             <table class="data-table" id="properties-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 34%;">Dirección / Alias</th>
-                                        <th style="width: 24%;">Propietario</th>
-                                        <th style="width: 20%;">NIS Luz</th>
+                                        <th style="width: 32%;">Dirección / Alias</th>
+                                        <th style="width: 24%;">Propietario / Catastro</th>
+                                        <th style="width: 22%;">Servicios (NIS / Naturgy / Agua)</th>
                                         <th style="width: 15%;">Estado</th>
                                         <th style="width: 7%;" class="col-actions">Acc.</th>
                                     </tr>
@@ -598,12 +599,12 @@
                 <div class="form-section-title">Datos básicos</div>
                 <div class="form-grid-2">
                     <div class="form-group">
-                        <label for="property-alias">Alias / Nombre interno <span class="req">*</span></label>
-                        <input type="text" id="property-alias" required placeholder="Ej. Depto Tres Cerritos 2B">
+                        <label for="property-address">Dirección real <span class="req">*</span></label>
+                        <input type="text" id="property-address" required placeholder="Ej. SARMIENTO 750 6° &quot;A&quot;">
                     </div>
                     <div class="form-group">
-                        <label for="property-address">Dirección real <span class="req">*</span></label>
-                        <input type="text" id="property-address" required placeholder="Ej. Av. Bicentenario 1240, Piso 2 B">
+                        <label for="property-alias">Alias / Nombre interno</label>
+                        <input type="text" id="property-alias" placeholder="Opcional (si se deja vacío usa la dirección)">
                     </div>
                 </div>
 
@@ -622,9 +623,9 @@
 
                 <div class="form-grid-2">
                     <div class="form-group">
-                        <label for="property-catastro">N° de Catastro / Matrícula</label>
+                        <label for="property-catastro">N° de Catastro</label>
                         <div class="copy-input-group">
-                            <input type="text" id="property-catastro" placeholder="Ej. Catastro 145820">
+                            <input type="text" id="property-catastro" placeholder="Ej. 175920">
                             <button type="button" class="btn-copy" data-copy-target="property-catastro" title="Copiar N° de Catastro">Copiar</button>
                         </div>
                     </div>
@@ -639,30 +640,30 @@
                 </div>
 
                 <div class="services-box">
-                    <div class="form-section-title">Servicios e Impuestos</div>
+                    <div class="form-section-title">Servicios, Administración y Edificio</div>
                     <div class="form-grid-2">
                         <div class="form-group">
-                            <label for="property-nis">NIS (Luz / EDESA)</label>
+                            <label for="property-nis">NIS EDESA (Luz)</label>
                             <div class="copy-input-group">
-                                <input type="text" id="property-nis" placeholder="Ej. 3045128">
-                                <button type="button" class="btn-copy" data-copy-target="property-nis" title="Copiar NIS">Copiar</button>
+                                <input type="text" id="property-nis" placeholder="Ej. 5282096">
+                                <button type="button" class="btn-copy" data-copy-target="property-nis" title="Copiar NIS EDESA">Copiar</button>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="property-water">N° de Cuenta / Usuario Agua</label>
+                            <label for="property-gas">Nro. Ref. Naturgy (Gas)</label>
                             <div class="copy-input-group">
-                                <input type="text" id="property-water" placeholder="Ej. 00123456">
-                                <button type="button" class="btn-copy" data-copy-target="property-water" title="Copiar cuenta de Agua">Copiar</button>
+                                <input type="text" id="property-gas" placeholder="Ej. 15584656">
+                                <button type="button" class="btn-copy" data-copy-target="property-gas" title="Copiar Nro. Ref. Naturgy">Copiar</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="form-grid-2">
                         <div class="form-group">
-                            <label for="property-gas">N° de Cuenta Gas</label>
+                            <label for="property-water">Aguas del Norte</label>
                             <div class="copy-input-group">
-                                <input type="text" id="property-gas" placeholder="Ej. 88901234">
-                                <button type="button" class="btn-copy" data-copy-target="property-gas" title="Copiar cuenta de Gas">Copiar</button>
+                                <input type="text" id="property-water" placeholder="Ej. 367600">
+                                <button type="button" class="btn-copy" data-copy-target="property-water" title="Copiar Aguas del Norte">Copiar</button>
                             </div>
                         </div>
                         <div class="form-group">
@@ -676,17 +677,27 @@
 
                     <div class="form-grid-2">
                         <div class="form-group">
-                            <label for="property-consorcio-name">Consorcio / Expensas (Nombre)</label>
+                            <label for="property-consorcio-name">Administración (Nombre / Consorcio)</label>
                             <div class="copy-input-group">
-                                <input type="text" id="property-consorcio-name" placeholder="Ej. Adm. Norte SRL">
-                                <button type="button" class="btn-copy" data-copy-target="property-consorcio-name" title="Copiar nombre del consorcio">Copiar</button>
+                                <input type="text" id="property-consorcio-name" placeholder="Ej. Adolfo Suarez / Adm. Norte">
+                                <button type="button" class="btn-copy" data-copy-target="property-consorcio-name" title="Copiar administración">Copiar</button>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="property-consorcio-contact">Consorcio / Expensas (Contacto)</label>
+                            <label for="property-consorcio-contact">Administración (Teléfono / Contacto)</label>
                             <div class="copy-input-group">
-                                <input type="text" id="property-consorcio-contact" placeholder="Ej. 387-5123456 / expensas@...">
-                                <button type="button" class="btn-copy" data-copy-target="property-consorcio-contact" title="Copiar contacto del consorcio">Copiar</button>
+                                <input type="text" id="property-consorcio-contact" placeholder="Ej. 3875 29-8199">
+                                <button type="button" class="btn-copy" data-copy-target="property-consorcio-contact" title="Copiar contacto de administración">Copiar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="property-portero">Portero / Encargado</label>
+                            <div class="copy-input-group">
+                                <input type="text" id="property-portero" placeholder="Ej. Juan Pérez - 387 4123456">
+                                <button type="button" class="btn-copy" data-copy-target="property-portero" title="Copiar datos del portero">Copiar</button>
                             </div>
                         </div>
                     </div>
@@ -789,6 +800,78 @@
             </div>
             <div class="modal-footer" id="relations-footer">
                 <button type="button" class="btn btn-ghost" data-close-modal="modal-relations">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: IMPORTAR EXCEL / CSV ==================== -->
+    <div id="modal-import-excel" class="modal" role="dialog" aria-modal="true" aria-labelledby="import-excel-title">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-header">
+                <div>
+                    <h2 id="import-excel-title">Importar propiedades desde Excel / CSV</h2>
+                    <p>Subí tu planilla (.xlsx, .xls o .csv) con columnas como Dirección, N° Catastro, Propietario, Inquilino, NIS EDESA, Naturgy, Aguas del Norte, Administración y Portero.</p>
+                </div>
+                <button type="button" class="modal-close" data-close-modal="modal-import-excel" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body-pad excel-import-body">
+                <div id="excel-dropzone" class="excel-dropzone" tabindex="0" role="button" aria-label="Seleccionar archivo Excel o CSV">
+                    <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" hidden>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <polyline points="9 15 12 12 15 15"></polyline>
+                    </svg>
+                    <strong id="excel-dropzone-title">Hacé clic para elegir un archivo Excel o arrastralo acá</strong>
+                    <span id="excel-dropzone-sub">Formatos compatibles: .xlsx, .xls, .csv</span>
+                </div>
+
+                <div id="excel-sheet-bar" class="excel-options-bar hidden">
+                    <div class="excel-sheet-picker" id="excel-sheet-picker-wrap">
+                        <label for="excel-sheet-select">Hoja del archivo:</label>
+                        <select id="excel-sheet-select"></select>
+                    </div>
+                    <label class="excel-check">
+                        <input type="checkbox" id="excel-opt-update" checked>
+                        <span>Actualizar propiedades existentes (si coincide NIS, Catastro o Dirección)</span>
+                    </label>
+                    <label class="excel-check">
+                        <input type="checkbox" id="excel-opt-tenants" checked>
+                        <span>Registrar inquilinos en Clientes (ignora "XXX" o vacíos)</span>
+                    </label>
+                </div>
+
+                <p id="excel-import-error" class="form-error hidden" role="alert"></p>
+
+                <div id="excel-preview-section" class="excel-preview-section hidden">
+                    <div id="excel-summary-pills" class="excel-summary-pills"></div>
+                    <div class="excel-preview-table-wrap">
+                        <table class="excel-preview-table">
+                            <thead>
+                                <tr>
+                                    <th>Acción</th>
+                                    <th>Dirección</th>
+                                    <th>Catastro</th>
+                                    <th>Propietario</th>
+                                    <th>Inquilino</th>
+                                    <th>NIS EDESA</th>
+                                    <th>Naturgy</th>
+                                    <th>Aguas del Norte</th>
+                                    <th>Administración</th>
+                                    <th>Portero</th>
+                                </tr>
+                            </thead>
+                            <tbody id="excel-preview-tbody"></tbody>
+                        </table>
+                    </div>
+                    <p id="excel-preview-note" class="field-hint"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-close-modal="modal-import-excel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-excel-import" disabled>Importar propiedades</button>
             </div>
         </div>
     </div>
@@ -900,7 +983,8 @@
     <script src="assets/js/config.js?v=12"></script>
     <script src="assets/js/firebase-config.js"></script>
     <script src="assets/js/auth.js?v=17"></script>
-    <script src="assets/js/gestion.js?v=9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script src="assets/js/gestion.js?v=10"></script>
 </body>
 
 </html>
