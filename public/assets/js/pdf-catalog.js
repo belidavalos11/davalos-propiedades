@@ -219,34 +219,116 @@
         return `${slugParts.join("-")}.pdf`;
     }
 
+    function setTypeDropdownOpen(isOpen) {
+        const dropdown = document.getElementById("pdf-type-dropdown");
+        const trigger = document.getElementById("pdf-type-trigger");
+        const menu = document.getElementById("pdf-type-menu");
+        if (!dropdown || !trigger || !menu) return;
+        dropdown.classList.toggle("is-open", isOpen);
+        trigger.setAttribute("aria-expanded", String(isOpen));
+        menu.hidden = !isOpen;
+    }
+
+    function updateTypeTriggerLabel() {
+        const labelEl = document.getElementById("pdf-type-trigger-label");
+        if (!labelEl) return;
+        if (pdfState.selectedTypes.size === 0) {
+            labelEl.textContent = "Todas las categorías";
+            return;
+        }
+        const selectedLabels = CATEGORY_OPTIONS
+            .filter((o) => pdfState.selectedTypes.has(o.id))
+            .map((o) => o.label);
+        if (selectedLabels.length <= 2) {
+            labelEl.textContent = selectedLabels.join(", ");
+        } else {
+            labelEl.textContent = `${selectedLabels.length} categorías seleccionadas`;
+        }
+    }
+
     function renderChipsAndPreview() {
         const available = getAvailableProperties();
 
-        // Actualizar chips de operación
-        document.querySelectorAll("#pdf-op-chips .pdf-chip").forEach((btn) => {
-            const op = btn.dataset.pdfOp;
-            const count = available.filter((p) => getOperationKey(p) === op).length;
-            const baseLabel = op === "venta" ? "En Venta" : "En Alquiler";
-            btn.textContent = `${baseLabel} (${count})`;
-            btn.classList.toggle("active", pdfState.selectedOps.has(op));
-        });
+        // Actualizar opciones del desplegable de operación con conteos en vivo
+        const opSelect = document.getElementById("pdf-filter-op");
+        if (opSelect) {
+            const ventaCount = available.filter((p) => getOperationKey(p) === "venta").length;
+            const alquilerCount = available.filter((p) => getOperationKey(p) === "alquiler").length;
+            const optAll = opSelect.querySelector('option[value="todas"]');
+            const optVenta = opSelect.querySelector('option[value="venta"]');
+            const optAlq = opSelect.querySelector('option[value="alquiler"]');
+            if (optAll) optAll.textContent = `Todas (${available.length})`;
+            if (optVenta) optVenta.textContent = `En Venta (${ventaCount})`;
+            if (optAlq) optAlq.textContent = `En Alquiler (${alquilerCount})`;
 
-        // Renderizar chips de categorías con conteo en vivo (respetando filtro de operación)
-        const typeWrap = document.getElementById("pdf-type-chips");
-        if (typeWrap) {
+            if (pdfState.selectedOps.size === 1) {
+                opSelect.value = pdfState.selectedOps.has("venta") ? "venta" : "alquiler";
+            } else {
+                opSelect.value = "todas";
+            }
+        }
+
+        // Renderizar o actualizar opciones del desplegable multi-selección de categorías
+        const typeOptionsEl = document.getElementById("pdf-type-options");
+        if (typeOptionsEl) {
             const opFiltered = pdfState.selectedOps.size > 0
                 ? available.filter((p) => pdfState.selectedOps.has(getOperationKey(p)))
                 : available;
 
-            typeWrap.innerHTML = CATEGORY_OPTIONS.map((opt) => {
-                const count = opFiltered.filter((p) => matchesType(p, opt.id)).length;
-                const active = pdfState.selectedTypes.has(opt.id);
-                return `
-                    <button type="button" class="pdf-chip ${active ? "active" : ""} ${count === 0 ? "is-empty" : ""}" data-pdf-type="${opt.id}">
-                        ${opt.label} <span class="pdf-chip-count">(${count})</span>
-                    </button>
-                `;
-            }).join("");
+            const existingInputs = typeOptionsEl.querySelectorAll('input[type="checkbox"]');
+            if (existingInputs.length === CATEGORY_OPTIONS.length) {
+                CATEGORY_OPTIONS.forEach((opt) => {
+                    const count = opFiltered.filter((p) => matchesType(p, opt.id)).length;
+                    const input = typeOptionsEl.querySelector(`input[value="${opt.id}"]`);
+                    if (!input) return;
+                    input.checked = pdfState.selectedTypes.has(opt.id);
+                    const row = input.closest(".pdf-dropdown-option");
+                    if (row) {
+                        row.classList.toggle("is-empty", count === 0);
+                        const countSpan = row.querySelector(".pdf-dropdown-option-count");
+                        if (countSpan) countSpan.textContent = `(${count})`;
+                    }
+                });
+            } else {
+                typeOptionsEl.innerHTML = CATEGORY_OPTIONS.map((opt) => {
+                    const count = opFiltered.filter((p) => matchesType(p, opt.id)).length;
+                    const checked = pdfState.selectedTypes.has(opt.id);
+                    return `
+                        <label class="pdf-dropdown-option ${count === 0 ? "is-empty" : ""}">
+                            <input type="checkbox" value="${opt.id}" ${checked ? "checked" : ""}>
+                            <span class="pdf-dropdown-option-name">${opt.label}</span>
+                            <span class="pdf-dropdown-option-count">(${count})</span>
+                        </label>
+                    `;
+                }).join("");
+            }
+        }
+        updateTypeTriggerLabel();
+
+        // Indicador de filtros avanzados activos
+        const advancedCount =
+            (pdfState.currency !== "todas" ? 1 : 0) +
+            (pdfState.sort !== "type-op" ? 1 : 0) +
+            (pdfState.searchText.trim() ? 1 : 0) +
+            (!pdfState.includePhotos ? 1 : 0) +
+            (!pdfState.includeLinks ? 1 : 0);
+
+        const advBadge = document.getElementById("pdf-advanced-badge");
+        if (advBadge) {
+            advBadge.hidden = advancedCount === 0;
+            if (advancedCount > 0) {
+                advBadge.textContent = `${advancedCount} activo${advancedCount === 1 ? "" : "s"}`;
+            }
+        }
+
+        // Botón "Limpiar filtros" visible solo si hay algún filtro aplicado
+        const hasAnyFilter =
+            pdfState.selectedOps.size > 0 ||
+            pdfState.selectedTypes.size > 0 ||
+            advancedCount > 0;
+        const resetBtn = document.getElementById("btn-reset-pdf-filters");
+        if (resetBtn) {
+            resetBtn.hidden = !hasAnyFilter;
         }
 
         // Vista previa de propiedades filtradas
@@ -257,7 +339,7 @@
         const genBtn = document.getElementById("btn-generate-pdf-catalog");
 
         if (countEl) {
-            countEl.textContent = `${filtered.length} propiedad${filtered.length === 1 ? "" : "es"} disponible${filtered.length === 1 ? "" : "s"}`;
+            countEl.textContent = `${filtered.length} propiedad${filtered.length === 1 ? "" : "es"} incluida${filtered.length === 1 ? "" : "s"}`;
         }
         if (summaryEl) {
             summaryEl.textContent = buildFilterSummaryText();
@@ -266,11 +348,11 @@
             genBtn.disabled = filtered.length === 0;
             genBtn.textContent = filtered.length > 0
                 ? `Descargar PDF (${filtered.length})`
-                : "Sin propiedades para exportar";
+                : "Sin propiedades";
         }
         if (listEl) {
             if (filtered.length === 0) {
-                listEl.innerHTML = `<div class="pdf-preview-empty">No hay propiedades disponibles que coincidan con esta combinación de filtros.</div>`;
+                listEl.innerHTML = `<div class="pdf-preview-empty">No hay propiedades disponibles con estos filtros.</div>`;
             } else {
                 const maxShow = 12;
                 const rowsHtml = filtered.slice(0, maxShow).map((p) => {
@@ -313,6 +395,13 @@
             statusEl.textContent = "";
         }
 
+        // Arrancar siempre con desplegables cerrados para vista limpia
+        setTypeDropdownOpen(false);
+        const advDetails = document.getElementById("pdf-advanced-filters");
+        const prevDetails = document.getElementById("pdf-preview-accordion");
+        if (advDetails) advDetails.open = false;
+        if (prevDetails) prevDetails.open = false;
+
         renderChipsAndPreview();
         modal.classList.add("active");
         modal.style.display = "flex";
@@ -322,6 +411,7 @@
     function closePdfCatalogModal() {
         const modal = document.getElementById("pdf-catalog-modal");
         if (!modal) return;
+        setTypeDropdownOpen(false);
         modal.classList.remove("active");
         modal.style.display = "none";
         document.body.style.overflow = "";
@@ -842,55 +932,94 @@
         });
 
         document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape" && modal.classList.contains("active")) {
-                closePdfCatalogModal();
+            if (e.key !== "Escape" || !modal.classList.contains("active")) return;
+            const dropdown = document.getElementById("pdf-type-dropdown");
+            if (dropdown && dropdown.classList.contains("is-open")) {
+                setTypeDropdownOpen(false);
+                return;
             }
+            closePdfCatalogModal();
         });
 
-        // Presets rápidos
-        document.querySelectorAll("[data-pdf-preset]").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const preset = btn.dataset.pdfPreset;
+        // Desplegable de operación
+        const opSelect = document.getElementById("pdf-filter-op");
+        if (opSelect) {
+            opSelect.addEventListener("change", (e) => {
                 pdfState.selectedOps.clear();
-                pdfState.selectedTypes.clear();
-                pdfState.currency = "todas";
-                pdfState.searchText = "";
-                const curSel = document.getElementById("pdf-filter-currency");
-                const txtInp = document.getElementById("pdf-filter-text");
-                if (curSel) curSel.value = "todas";
-                if (txtInp) txtInp.value = "";
-
-                if (preset === "venta") pdfState.selectedOps.add("venta");
-                else if (preset === "alquiler") pdfState.selectedOps.add("alquiler");
-
-                renderChipsAndPreview();
-            });
-        });
-
-        // Chips de operación (acumulables)
-        document.querySelectorAll("#pdf-op-chips .pdf-chip").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const op = btn.dataset.pdfOp;
-                if (pdfState.selectedOps.has(op)) pdfState.selectedOps.delete(op);
-                else pdfState.selectedOps.add(op);
-                renderChipsAndPreview();
-            });
-        });
-
-        // Chips de categorías (delegado, acumulables)
-        const typeWrap = document.getElementById("pdf-type-chips");
-        if (typeWrap) {
-            typeWrap.addEventListener("click", (e) => {
-                const chip = e.target.closest("[data-pdf-type]");
-                if (!chip) return;
-                const tId = chip.dataset.pdfType;
-                if (pdfState.selectedTypes.has(tId)) pdfState.selectedTypes.delete(tId);
-                else pdfState.selectedTypes.add(tId);
+                if (e.target.value === "venta" || e.target.value === "alquiler") {
+                    pdfState.selectedOps.add(e.target.value);
+                }
                 renderChipsAndPreview();
             });
         }
 
-        // Selects e inputs
+        // Desplegable multi-selección de categorías
+        const typeDropdown = document.getElementById("pdf-type-dropdown");
+        const typeTrigger = document.getElementById("pdf-type-trigger");
+        const typeOptionsEl = document.getElementById("pdf-type-options");
+        const typeAllBtn = document.getElementById("btn-pdf-types-all");
+
+        if (typeTrigger && typeDropdown) {
+            typeTrigger.addEventListener("click", (e) => {
+                e.stopPropagation();
+                setTypeDropdownOpen(!typeDropdown.classList.contains("is-open"));
+            });
+        }
+
+        if (typeOptionsEl) {
+            typeOptionsEl.addEventListener("change", (e) => {
+                const input = e.target;
+                if (!input || input.type !== "checkbox") return;
+                const tId = input.value;
+                if (input.checked) pdfState.selectedTypes.add(tId);
+                else pdfState.selectedTypes.delete(tId);
+                renderChipsAndPreview();
+            });
+        }
+
+        if (typeAllBtn) {
+            typeAllBtn.addEventListener("click", () => {
+                pdfState.selectedTypes.clear();
+                renderChipsAndPreview();
+            });
+        }
+
+        document.addEventListener("click", (e) => {
+            if (!typeDropdown || !typeDropdown.classList.contains("is-open")) return;
+            if (!typeDropdown.contains(e.target)) {
+                setTypeDropdownOpen(false);
+            }
+        });
+
+        // Botón limpiar filtros
+        const resetBtn = document.getElementById("btn-reset-pdf-filters");
+        if (resetBtn) {
+            resetBtn.addEventListener("click", () => {
+                pdfState.selectedOps.clear();
+                pdfState.selectedTypes.clear();
+                pdfState.currency = "todas";
+                pdfState.sort = "type-op";
+                pdfState.searchText = "";
+                pdfState.includePhotos = true;
+                pdfState.includeLinks = true;
+
+                const curSelEl = document.getElementById("pdf-filter-currency");
+                const sortSelEl = document.getElementById("pdf-filter-sort");
+                const txtInpEl = document.getElementById("pdf-filter-text");
+                const optPhotosEl = document.getElementById("pdf-opt-photos");
+                const optLinksEl = document.getElementById("pdf-opt-links");
+                if (curSelEl) curSelEl.value = "todas";
+                if (sortSelEl) sortSelEl.value = "type-op";
+                if (txtInpEl) txtInpEl.value = "";
+                if (optPhotosEl) optPhotosEl.checked = true;
+                if (optLinksEl) optLinksEl.checked = true;
+
+                setTypeDropdownOpen(false);
+                renderChipsAndPreview();
+            });
+        }
+
+        // Selects e inputs avanzados
         const curSel = document.getElementById("pdf-filter-currency");
         if (curSel) {
             curSel.addEventListener("change", (e) => {
@@ -916,12 +1045,14 @@
         if (optPhotos) {
             optPhotos.addEventListener("change", (e) => {
                 pdfState.includePhotos = e.target.checked;
+                renderChipsAndPreview();
             });
         }
         const optLinks = document.getElementById("pdf-opt-links");
         if (optLinks) {
             optLinks.addEventListener("change", (e) => {
                 pdfState.includeLinks = e.target.checked;
+                renderChipsAndPreview();
             });
         }
 

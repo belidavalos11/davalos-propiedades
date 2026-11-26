@@ -44,7 +44,7 @@
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <script src="assets/js/theme.js?v=2"></script>
-    <link rel="stylesheet" href="assets/css/style.css?v=26">
+    <link rel="stylesheet" href="assets/css/style.css?v=27">
     <link rel="stylesheet" href="assets/css/loader.css?v=5">
     <!-- Leaflet & MarkerCluster CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -891,85 +891,133 @@
         <div class="modal-content pdf-catalog-modal-content">
             <button type="button" class="close-modal" id="btn-close-pdf-modal" aria-label="Cerrar">&times;</button>
             <div class="modal-header pdf-modal-header">
-                <div class="pdf-modal-eyebrow">DOCUMENTO COMERCIAL · SOLO ADMINISTRADORES</div>
                 <h2 id="pdf-catalog-title">Descargar Catálogo en PDF</h2>
-                <p>Combiná los filtros que necesites para armar una hoja profesional con las propiedades disponibles.</p>
+                <p>Elegí qué propiedades incluir y descargá el archivo.</p>
             </div>
 
             <div class="pdf-modal-body">
-                <div class="pdf-quick-presets">
-                    <button type="button" class="pdf-preset-btn" data-pdf-preset="all">Todo el catálogo</button>
-                    <button type="button" class="pdf-preset-btn" data-pdf-preset="venta">Todas en Venta</button>
-                    <button type="button" class="pdf-preset-btn" data-pdf-preset="alquiler">Todas en Alquiler</button>
-                    <button type="button" class="pdf-preset-btn pdf-preset-clear" data-pdf-preset="clear">Limpiar filtros</button>
-                </div>
-
-                <div class="pdf-filter-block">
-                    <div class="pdf-filter-label">Operación <small>(podés elegir una o ambas)</small></div>
-                    <div id="pdf-op-chips" class="pdf-chips-group">
-                        <button type="button" class="pdf-chip" data-pdf-op="venta">En Venta</button>
-                        <button type="button" class="pdf-chip" data-pdf-op="alquiler">En Alquiler</button>
-                    </div>
-                </div>
-
-                <div class="pdf-filter-block">
-                    <div class="pdf-filter-label">Categorías de propiedades <small>(acumulables; si no marcás ninguna, incluye todas)</small></div>
-                    <div id="pdf-type-chips" class="pdf-chips-group">
-                        <!-- Renderizado dinámicamente por pdf-catalog.js -->
-                    </div>
-                </div>
-
-                <div class="pdf-filter-grid">
+                <!-- Filtros principales: 2 desplegables compactos -->
+                <div class="pdf-primary-filters">
                     <div class="pdf-field">
-                        <label for="pdf-filter-currency">Moneda</label>
-                        <select id="pdf-filter-currency">
-                            <option value="todas">Todas (U$D y AR$)</option>
-                            <option value="USD">Solo Dólares (U$D)</option>
-                            <option value="ARS">Solo Pesos (AR$)</option>
+                        <label for="pdf-filter-op">Operación</label>
+                        <select id="pdf-filter-op">
+                            <option value="todas">Todas</option>
+                            <option value="venta">En Venta</option>
+                            <option value="alquiler">En Alquiler</option>
                         </select>
                     </div>
+
                     <div class="pdf-field">
-                        <label for="pdf-filter-sort">Orden del catálogo</label>
-                        <select id="pdf-filter-sort">
-                            <option value="type-op">Agrupado por operación y tipo</option>
-                            <option value="price-asc">Precio: menor a mayor</option>
-                            <option value="price-desc">Precio: mayor a menor</option>
-                            <option value="recent">Más recientes primero</option>
-                        </select>
-                    </div>
-                    <div class="pdf-field pdf-field-wide">
-                        <label for="pdf-filter-text">Zona, barrio o palabra clave (opcional)</label>
-                        <input type="text" id="pdf-filter-text" placeholder="Ej. Tres Cerritos, San Lorenzo, pileta...">
+                        <label for="pdf-type-trigger">Categorías</label>
+                        <div class="pdf-dropdown" id="pdf-type-dropdown">
+                            <button type="button" id="pdf-type-trigger" class="pdf-dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+                                <span id="pdf-type-trigger-label" class="pdf-dropdown-label">Todas las categorías</span>
+                                <svg class="pdf-chevron" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="6 8 10 12 14 8"></polyline>
+                                </svg>
+                            </button>
+                            <div class="pdf-dropdown-menu" id="pdf-type-menu" role="listbox" aria-multiselectable="true" hidden>
+                                <div class="pdf-dropdown-menu-head">
+                                    <span>Seleccioná una o varias</span>
+                                    <button type="button" id="btn-pdf-types-all" class="pdf-dropdown-clear">Todas</button>
+                                </div>
+                                <div id="pdf-type-options" class="pdf-dropdown-options">
+                                    <!-- Renderizado dinámicamente por pdf-catalog.js -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="pdf-options-row">
-                    <label class="pdf-check">
-                        <input type="checkbox" id="pdf-opt-photos" checked>
-                        <span>Incluir foto principal de cada propiedad</span>
-                    </label>
-                    <label class="pdf-check">
-                        <input type="checkbox" id="pdf-opt-links" checked>
-                        <span>Incluir enlace clickeable a la ficha online</span>
-                    </label>
-                </div>
+                <!-- Desplegable: Más filtros y opciones -->
+                <details id="pdf-advanced-filters" class="pdf-accordion">
+                    <summary class="pdf-accordion-summary">
+                        <span class="pdf-accordion-title">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <line x1="4" y1="21" x2="4" y2="14"></line>
+                                <line x1="4" y1="10" x2="4" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12" y2="3"></line>
+                                <line x1="20" y1="21" x2="20" y2="16"></line>
+                                <line x1="20" y1="12" x2="20" y2="3"></line>
+                                <line x1="1" y1="14" x2="7" y2="14"></line>
+                                <line x1="9" y1="8" x2="15" y2="8"></line>
+                                <line x1="17" y1="16" x2="23" y2="16"></line>
+                            </svg>
+                            <span>Más filtros y opciones</span>
+                            <span id="pdf-advanced-badge" class="pdf-accordion-badge" hidden></span>
+                        </span>
+                        <svg class="pdf-chevron" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="6 8 10 12 14 8"></polyline>
+                        </svg>
+                    </summary>
 
-                <div class="pdf-preview-box">
-                    <div class="pdf-preview-head">
-                        <strong id="pdf-preview-count">0 propiedades disponibles seleccionadas</strong>
-                        <span id="pdf-preview-summary" class="pdf-preview-summary"></span>
+                    <div class="pdf-accordion-body">
+                        <div class="pdf-filter-grid">
+                            <div class="pdf-field">
+                                <label for="pdf-filter-currency">Moneda</label>
+                                <select id="pdf-filter-currency">
+                                    <option value="todas">Todas (U$D y AR$)</option>
+                                    <option value="USD">Solo Dólares (U$D)</option>
+                                    <option value="ARS">Solo Pesos (AR$)</option>
+                                </select>
+                            </div>
+                            <div class="pdf-field">
+                                <label for="pdf-filter-sort">Orden</label>
+                                <select id="pdf-filter-sort">
+                                    <option value="type-op">Operación y tipo</option>
+                                    <option value="price-asc">Precio: menor a mayor</option>
+                                    <option value="price-desc">Precio: mayor a menor</option>
+                                    <option value="recent">Más recientes primero</option>
+                                </select>
+                            </div>
+                            <div class="pdf-field pdf-field-wide">
+                                <label for="pdf-filter-text">Zona, barrio o palabra clave</label>
+                                <input type="text" id="pdf-filter-text" placeholder="Ej. Tres Cerritos, San Lorenzo, pileta...">
+                            </div>
+                        </div>
+
+                        <div class="pdf-options-row">
+                            <label class="pdf-check">
+                                <input type="checkbox" id="pdf-opt-photos" checked>
+                                <span>Incluir foto principal</span>
+                            </label>
+                            <label class="pdf-check">
+                                <input type="checkbox" id="pdf-opt-links" checked>
+                                <span>Incluir enlace a la ficha online</span>
+                            </label>
+                        </div>
                     </div>
+                </details>
+
+                <!-- Resumen compacto + vista previa desplegable -->
+                <details id="pdf-preview-accordion" class="pdf-preview-accordion">
+                    <summary class="pdf-preview-head">
+                        <div class="pdf-preview-meta">
+                            <strong id="pdf-preview-count">0 propiedades seleccionadas</strong>
+                            <span id="pdf-preview-summary" class="pdf-preview-summary"></span>
+                        </div>
+                        <span class="pdf-preview-toggle">
+                            <span>Ver listado</span>
+                            <svg class="pdf-chevron" viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="6 8 10 12 14 8"></polyline>
+                            </svg>
+                        </span>
+                    </summary>
                     <div id="pdf-preview-list" class="pdf-preview-list"></div>
-                </div>
+                </details>
 
                 <p id="pdf-export-status" class="pdf-export-status" hidden></p>
             </div>
 
             <div class="pdf-modal-footer">
-                <button type="button" class="btn btn-outline" id="btn-cancel-pdf-modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn-generate-pdf-catalog">
-                    Descargar PDF
-                </button>
+                <button type="button" class="pdf-reset-link" id="btn-reset-pdf-filters" hidden>Limpiar filtros</button>
+                <div class="pdf-modal-footer-actions">
+                    <button type="button" class="btn btn-outline" id="btn-cancel-pdf-modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-generate-pdf-catalog">
+                        Descargar PDF
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -996,7 +1044,7 @@
     <script src="assets/js/loader.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
     <script src="assets/js/script.js?v=46"></script>
-    <script src="assets/js/pdf-catalog.js?v=2" defer></script>
+    <script src="assets/js/pdf-catalog.js?v=3" defer></script>
     <script>
         const menuToggle = document.getElementById('mobile-menu-toggle');
         const navMain = document.querySelector('.nav-main');
