@@ -328,20 +328,44 @@
     }
 
     // ==================== IMAGE / LOGO CANVAS HELPERS ====================
-    function loadImageAsDataUrl(url, options = {}) {
-        const {
-            width = 360,
-            height = 250,
-            cover = true,
-            invertToWhite = false,
-            timeoutMs = 3500
-        } = options;
+    function renderImageElementToDataUrl(img, options) {
+        const { width = 360, height = 250, cover = true, invertToWhite = false } = options;
+        const canvas = document.createElement("canvas");
+        const naturalW = img.naturalWidth || width;
+        const naturalH = img.naturalHeight || height;
 
+        if (cover) {
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#f4f3ef";
+            ctx.fillRect(0, 0, width, height);
+
+            const scale = Math.max(width / naturalW, height / naturalH);
+            const drawW = naturalW * scale;
+            const drawH = naturalH * scale;
+            const dx = (width - drawW) / 2;
+            const dy = (height - drawH) / 2;
+            ctx.drawImage(img, dx, dy, drawW, drawH);
+            return { dataUrl: canvas.toDataURL("image/jpeg", 0.84), format: "JPEG", aspect: width / height };
+        }
+
+        const scale = Math.min(width / naturalW, height / naturalH);
+        const drawW = Math.max(1, Math.round(naturalW * scale));
+        const drawH = Math.max(1, Math.round(naturalH * scale));
+        canvas.width = drawW;
+        canvas.height = drawH;
+        const ctx = canvas.getContext("2d");
+        if (invertToWhite) {
+            ctx.filter = "brightness(0) invert(1)";
+        }
+        ctx.drawImage(img, 0, 0, drawW, drawH);
+        return { dataUrl: canvas.toDataURL("image/png"), format: "PNG", aspect: drawW / drawH };
+    }
+
+    function loadViaImageTag(src, options, useCrossOrigin) {
+        const { timeoutMs = 7000 } = options;
         return new Promise((resolve) => {
-            if (!url) {
-                resolve(null);
-                return;
-            }
             let settled = false;
             const done = (val) => {
                 if (!settled) {
@@ -350,43 +374,12 @@
                 }
             };
             const timer = setTimeout(() => done(null), timeoutMs);
-
             const img = new Image();
-            img.crossOrigin = "anonymous";
+            if (useCrossOrigin) img.crossOrigin = "anonymous";
             img.onload = () => {
                 clearTimeout(timer);
                 try {
-                    const canvas = document.createElement("canvas");
-                    const naturalW = img.naturalWidth || width;
-                    const naturalH = img.naturalHeight || height;
-
-                    if (cover) {
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext("2d");
-                        ctx.fillStyle = "#f4f3ef";
-                        ctx.fillRect(0, 0, width, height);
-
-                        const scale = Math.max(width / naturalW, height / naturalH);
-                        const drawW = naturalW * scale;
-                        const drawH = naturalH * scale;
-                        const dx = (width - drawW) / 2;
-                        const dy = (height - drawH) / 2;
-                        ctx.drawImage(img, dx, dy, drawW, drawH);
-                        done({ dataUrl: canvas.toDataURL("image/jpeg", 0.84), format: "JPEG", aspect: width / height });
-                    } else {
-                        const scale = Math.min(width / naturalW, height / naturalH);
-                        const drawW = Math.max(1, Math.round(naturalW * scale));
-                        const drawH = Math.max(1, Math.round(naturalH * scale));
-                        canvas.width = drawW;
-                        canvas.height = drawH;
-                        const ctx = canvas.getContext("2d");
-                        if (invertToWhite) {
-                            ctx.filter = "brightness(0) invert(1)";
-                        }
-                        ctx.drawImage(img, 0, 0, drawW, drawH);
-                        done({ dataUrl: canvas.toDataURL("image/png"), format: "PNG", aspect: drawW / drawH });
-                    }
+                    done(renderImageElementToDataUrl(img, options));
                 } catch (_) {
                     done(null);
                 }
@@ -395,18 +388,63 @@
                 clearTimeout(timer);
                 done(null);
             };
-            img.src = url;
+            img.src = src;
         });
     }
 
-    function getMainPropertyImageUrl(prop) {
-        if (Array.isArray(prop.images) && prop.images.length > 0) {
-            const first = prop.images[0];
-            if (typeof first === "string" && first.trim()) return first.trim();
-            if (first && typeof first.url === "string" && first.url.trim()) return first.url.trim();
+    async function loadImageAsDataUrl(url, options = {}) {
+        const { timeoutMs = 7000 } = options;
+        if (!url) return null;
+
+        // 1. Para URLs remotas (Firebase Storage, etc.) usar fetch con cache: "no-store"
+        //    para evitar el cache de <img> sin headers CORS que rompe las primeras tarjetas.
+        if (/^https?:\/\//i.test(url)) {
+            let objectUrl = null;
+            try {
+                const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+                const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+                const resp = await fetch(url, {
+                    mode: "cors",
+                    cache: "no-store",
+                    signal: controller ? controller.signal : undefined
+                });
+                if (timer) clearTimeout(timer);
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    objectUrl = URL.createObjectURL(blob);
+                    const result = await loadViaImageTag(objectUrl, options, false);
+                    URL.revokeObjectURL(objectUrl);
+                    objectUrl = null;
+                    if (result) return result;
+                }
+            } catch (_) {
+                if (objectUrl) {
+                    try { URL.revokeObjectURL(objectUrl); } catch (__) {}
+                }
+            }
+
+            // 2. Fallback: Image con parámetro cache-buster para forzar petición CORS fresca
+            const sep = url.includes("?") ? "&" : "?";
+            const bustUrl = `${url}${sep}pdfcors=${Date.now()}`;
+            return await loadViaImageTag(bustUrl, options, true);
         }
-        if (typeof prop.image === "string" && prop.image.trim()) return prop.image.trim();
-        return "";
+
+        // Rutas locales/relativas (ej. logo-horizontal.svg) o data:image
+        return await loadViaImageTag(url, options, false);
+    }
+
+    function getPropertyImageCandidates(prop) {
+        const urls = [];
+        if (Array.isArray(prop.images)) {
+            prop.images.forEach((item) => {
+                const u = typeof item === "string" ? item.trim() : (item && typeof item.url === "string" ? item.url.trim() : "");
+                if (u && !urls.includes(u)) urls.push(u);
+            });
+        }
+        if (typeof prop.image === "string" && prop.image.trim() && !urls.includes(prop.image.trim())) {
+            urls.push(prop.image.trim());
+        }
+        return urls;
     }
 
     function buildSpecsLine(prop) {
@@ -525,15 +563,19 @@
                     const slice = filtered.slice(i, i + batchSize);
                     await Promise.all(
                         slice.map(async (prop) => {
-                            const url = getMainPropertyImageUrl(prop);
-                            if (!url) return;
-                            const imgData = await loadImageAsDataUrl(url, {
-                                width: 320,
-                                height: 225,
-                                cover: true,
-                                timeoutMs: 3500
-                            });
-                            if (imgData) photoMap.set(prop.docId || prop.id, imgData);
+                            const candidates = getPropertyImageCandidates(prop).slice(0, 2);
+                            for (const url of candidates) {
+                                const imgData = await loadImageAsDataUrl(url, {
+                                    width: 320,
+                                    height: 225,
+                                    cover: true,
+                                    timeoutMs: 7000
+                                });
+                                if (imgData) {
+                                    photoMap.set(prop.docId || prop.id, imgData);
+                                    break;
+                                }
+                            }
                         })
                     );
                 }
