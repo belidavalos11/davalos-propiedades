@@ -44,7 +44,7 @@
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <script src="assets/js/theme.js?v=2"></script>
-    <link rel="stylesheet" href="assets/css/style.css?v=25">
+    <link rel="stylesheet" href="assets/css/style.css?v=26">
     <link rel="stylesheet" href="assets/css/loader.css?v=5">
     <!-- Leaflet & MarkerCluster CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -550,6 +550,15 @@
                     </svg>
                     <span>Publicar Propiedad</span>
                 </button>
+                <button type="button" id="btn-export-pdf-catalog" class="btn-drawer-action" style="display: none;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <polyline points="9 15 12 18 15 15"></polyline>
+                    </svg>
+                    <span>Descargar Catálogo PDF</span>
+                </button>
             </div>
 
             <div class="admin-drawer-section" id="drawer-mgmt-section">
@@ -877,6 +886,94 @@
         </div>
     </div>
 
+    <!-- Modal Descargar Catálogo PDF (solo ADMIN y SUPER_ADMIN) -->
+    <div id="pdf-catalog-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pdf-catalog-title">
+        <div class="modal-content pdf-catalog-modal-content">
+            <button type="button" class="close-modal" id="btn-close-pdf-modal" aria-label="Cerrar">&times;</button>
+            <div class="modal-header pdf-modal-header">
+                <div class="pdf-modal-eyebrow">DOCUMENTO COMERCIAL · SOLO ADMINISTRADORES</div>
+                <h2 id="pdf-catalog-title">Descargar Catálogo en PDF</h2>
+                <p>Combiná los filtros que necesites para armar una hoja profesional con las propiedades disponibles.</p>
+            </div>
+
+            <div class="pdf-modal-body">
+                <div class="pdf-quick-presets">
+                    <button type="button" class="pdf-preset-btn" data-pdf-preset="all">Todo el catálogo</button>
+                    <button type="button" class="pdf-preset-btn" data-pdf-preset="venta">Todas en Venta</button>
+                    <button type="button" class="pdf-preset-btn" data-pdf-preset="alquiler">Todas en Alquiler</button>
+                    <button type="button" class="pdf-preset-btn pdf-preset-clear" data-pdf-preset="clear">Limpiar filtros</button>
+                </div>
+
+                <div class="pdf-filter-block">
+                    <div class="pdf-filter-label">Operación <small>(podés elegir una o ambas)</small></div>
+                    <div id="pdf-op-chips" class="pdf-chips-group">
+                        <button type="button" class="pdf-chip" data-pdf-op="venta">En Venta</button>
+                        <button type="button" class="pdf-chip" data-pdf-op="alquiler">En Alquiler</button>
+                    </div>
+                </div>
+
+                <div class="pdf-filter-block">
+                    <div class="pdf-filter-label">Categorías de propiedades <small>(acumulables; si no marcás ninguna, incluye todas)</small></div>
+                    <div id="pdf-type-chips" class="pdf-chips-group">
+                        <!-- Renderizado dinámicamente por pdf-catalog.js -->
+                    </div>
+                </div>
+
+                <div class="pdf-filter-grid">
+                    <div class="pdf-field">
+                        <label for="pdf-filter-currency">Moneda</label>
+                        <select id="pdf-filter-currency">
+                            <option value="todas">Todas (U$D y AR$)</option>
+                            <option value="USD">Solo Dólares (U$D)</option>
+                            <option value="ARS">Solo Pesos (AR$)</option>
+                        </select>
+                    </div>
+                    <div class="pdf-field">
+                        <label for="pdf-filter-sort">Orden del catálogo</label>
+                        <select id="pdf-filter-sort">
+                            <option value="type-op">Agrupado por operación y tipo</option>
+                            <option value="price-asc">Precio: menor a mayor</option>
+                            <option value="price-desc">Precio: mayor a menor</option>
+                            <option value="recent">Más recientes primero</option>
+                        </select>
+                    </div>
+                    <div class="pdf-field pdf-field-wide">
+                        <label for="pdf-filter-text">Zona, barrio o palabra clave (opcional)</label>
+                        <input type="text" id="pdf-filter-text" placeholder="Ej. Tres Cerritos, San Lorenzo, pileta...">
+                    </div>
+                </div>
+
+                <div class="pdf-options-row">
+                    <label class="pdf-check">
+                        <input type="checkbox" id="pdf-opt-photos" checked>
+                        <span>Incluir foto principal de cada propiedad</span>
+                    </label>
+                    <label class="pdf-check">
+                        <input type="checkbox" id="pdf-opt-links" checked>
+                        <span>Incluir enlace clickeable a la ficha online</span>
+                    </label>
+                </div>
+
+                <div class="pdf-preview-box">
+                    <div class="pdf-preview-head">
+                        <strong id="pdf-preview-count">0 propiedades disponibles seleccionadas</strong>
+                        <span id="pdf-preview-summary" class="pdf-preview-summary"></span>
+                    </div>
+                    <div id="pdf-preview-list" class="pdf-preview-list"></div>
+                </div>
+
+                <p id="pdf-export-status" class="pdf-export-status" hidden></p>
+            </div>
+
+            <div class="pdf-modal-footer">
+                <button type="button" class="btn btn-outline" id="btn-cancel-pdf-modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-generate-pdf-catalog">
+                    Descargar PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
     <footer id="contacto" class="footer">
         <div class="container">
             <img src="assets/images/logo-completo.png" alt="DAVALOS PROPIEDADES" class="logo-img logo-footer">
@@ -897,7 +994,9 @@
 
     <script src="assets/js/auth.js?v=17"></script>
     <script src="assets/js/loader.js?v=4"></script>
-    <script src="assets/js/script.js?v=45"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
+    <script src="assets/js/script.js?v=46"></script>
+    <script src="assets/js/pdf-catalog.js?v=1" defer></script>
     <script>
         const menuToggle = document.getElementById('mobile-menu-toggle');
         const navMain = document.querySelector('.nav-main');

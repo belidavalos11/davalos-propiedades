@@ -792,9 +792,13 @@ function updateAuthUI() {
 
     const btnTeam = document.getElementById("btn-team");
     const btnGestionCrm = document.getElementById("btn-gestion-crm");
+    const btnExportPdf = document.getElementById("btn-export-pdf-catalog");
+    const userRole = logged ? manager.getUserRole() : null;
     const isSuperAdmin = Boolean(logged && manager.hasPermission(manager.Permissions.MANAGE_USERS));
+    const isAdminOrSuper = Boolean(logged && (isSuperAdmin || userRole === "ADMIN" || userRole === "SUPER_ADMIN"));
     if (btnTeam) btnTeam.style.display = isSuperAdmin ? "inline-flex" : "none";
     if (btnGestionCrm) btnGestionCrm.style.display = isSuperAdmin ? "inline-flex" : "none";
+    if (btnExportPdf) btnExportPdf.style.display = isAdminOrSuper ? "inline-flex" : "none";
     if (isSuperAdmin) startTeamWatch(); else stopTeamWatch();
 
     const greeting = document.getElementById("user-greeting");
@@ -4285,6 +4289,11 @@ function initNavigation() {
 }
 
 init();
+
+// Exponer utilidades de catálogo para módulos complementarios (ej. exportador PDF)
+window.getCatalogProperties = () => properties;
+window.isPropertyAvailable = isPropertyAvailable;
+window.matchesSelectedPropertyType = matchesSelectedPropertyType;
 
 // Asegurar asociación de listeners al cargar DOM
 if (document.readyState === "loading") {
